@@ -3,7 +3,7 @@
 // fighter as you browse; buying something equips it.
 (function (KF) {
   const F = KF.Font, A = KF.Audio, E = KF.Economy, VW = KF.VIEW_W, VH = KF.VIEW_H;
-  const TABS = ['OUTFIT', 'HEAD', 'HAIR', 'COLOUR', 'FISTS', 'FACE', 'SKIN', 'UPGRADES', 'SPECIALS'];
+  const TABS = ['OUTFIT', 'HEAD', 'HAIR', 'COLOUR', 'FISTS', 'FACE', 'EXTRA', 'SKIN', 'UPGRADES', 'SPECIALS'];
 
   class ShopScene {
     constructor(engine, opts = {}) {
@@ -48,6 +48,7 @@
     previewLook() {
       const look = E.look(), it = this.entries()[this.sel];
       if (it && it.kind === 'item') Object.assign(look, E.item(it.id).look);
+      if (look.wraps === 'skin') look.wraps = look.skin;
       return look;
     }
     render(ctx) {
