@@ -23,6 +23,7 @@
       this.deaths = 0;
       this.time = 0;
       this.memory = { seen: {} };
+      this.graves = []; // where you died this visit, marked so you remember what got you
       this.fx = new KF.FX();
       this.mood = { cheer: 0 };
       this.debug = engine.debug;
@@ -81,6 +82,8 @@
             fx.spark(e.x, U.clamp(e.y, this.cam.y + 20, this.cam.y + VH - 20), 1.4);
             fx.flash = 1; fx.shake(7, 0.4);
             this.deaths++; this.deathPulse = 1; this.mood.cheer = 1.2;
+            this.graves.push({ x: e.x, y: U.clamp(e.y, 8, this.stage.world.pixelH - 8) });
+            if (this.graves.length > 40) this.graves.shift();
             break;
           case 'crumble': A.sfx('crumble'); fx.debris(e.x, e.y + 2, e.w, ['#d5bd9c', '#8e4436', '#5c2a2c', '#9c8468']); fx.shake(2, 0.2); break;
           case 'spikes': A.sfx('spikes'); break;
@@ -203,7 +206,7 @@
       const p = this.stage.player;
       p.state = 'victory'; p.stateT = 0; p.vx = 0;
       this.trail = [];
-      this.coins = this.training ? 0 : KF.Save.completeNode(this.door.id, KF.Path.nodeOfStage(this.stageIdx), { deaths: this.deaths });
+      this.coins = this.training ? 0 : KF.Save.completeNode(this.door.id, KF.Path.nodeOfStage(this.stageIdx), { deaths: this.deaths, time: this.time });
     }
 
     // After a stage: the realm's next street fighter, or its boss after stage 5.
@@ -223,7 +226,7 @@
       if (pick < 0) return;
       A.sfx('confirm');
       this.paused = false;
-      if (pick === 1) { this.deaths = 0; this.time = 0; this.memory = { seen: {} }; this.newAttempt(); this.setPhase('intro'); }
+      if (pick === 1) { this.deaths = 0; this.time = 0; this.memory = { seen: {} }; this.graves = []; this.newAttempt(); this.setPhase('intro'); }
       if (pick === 2) { const r = this.doorIdx; this.engine.go(() => (this.training ? new KF.MapScene(this.engine) : new KF.RealmScene(this.engine, r))); }
     }
 
@@ -253,6 +256,7 @@
       }
       KF.blit(w, this.layer, -cam.x, -cam.y);
       KF.Render.traps(w, st, this.theme, cam, t);
+      this.renderGraves(w, cam);
       if (sight) w.restore();
       const doorOpen = this.phase === 'win' ? Math.min(1, this.phaseT * 4) : 0;
       KF.Render.door(w, st, cam, t, doorOpen, this.theme);
@@ -314,6 +318,19 @@
       this.renderOverlay(ctx, t);
     }
 
+    // Earlier deaths this visit: a red X where each one happened. The newest pulses briefly.
+    renderGraves(w, cam) {
+      const n = this.graves.length;
+      if (!n || this.phase === 'crash') return;
+      this.graves.forEach((g, i) => {
+        const x = Math.round(g.x - cam.x), y = Math.round(g.y - cam.y);
+        if (x < -8 || x > VW + 8 || y < -8 || y > VH + 8) return;
+        w.globalAlpha = i === n - 1 && this.phase === 'ko' ? 1 : 0.55;
+        F.draw(w, 'X', x, y - 3, '#ff4a5a', 1, 'center', '#000');
+      });
+      w.globalAlpha = 1;
+    }
+
     // The world's K.O. card, start text and win text (js/present.js). They are drawn into the world
     // canvas before the style's pixel pass, so a black-and-white world gets black-and-white
     // lettering; styles that reshape the world canvas (mirror, AR) get them on top instead.
@@ -363,8 +380,9 @@
         const wt = pt - 0.45;
         if (wt > 0.3) {
           ctx.fillStyle = 'rgba(8,4,16,0.72)'; ctx.fillRect(0, 148, VW, 38);
-          const best = this.training ? null : KF.Save.door(this.door.id).best[this.stageIdx];
-          F.draw(ctx, `TIME ${this.time.toFixed(1)}S    DEATHS ${this.deaths}` + (best !== undefined && best !== null ? `    BEST ${best}` : '') + (this.deaths === 0 ? '    PERFECT!' : ''), VW / 2, 152, '#ffffff', 1, 'center', '#000');
+          const sv = this.training ? null : KF.Save.door(this.door.id), best = sv ? sv.best[this.stageIdx] : null;
+          const bt = sv && sv.time ? sv.time[this.stageIdx] : undefined, newBest = bt !== undefined && Math.abs(bt - this.time) < 1e-6;
+          F.draw(ctx, `TIME ${this.time.toFixed(1)}S` + (newBest ? ' NEW BEST!' : bt !== undefined ? ` (BEST ${bt.toFixed(1)})` : '') + `    DEATHS ${this.deaths}` + (best !== undefined && best !== null ? `    BEST ${best}` : '') + (this.deaths === 0 ? '    PERFECT!' : ''), VW / 2, 152, '#ffffff', 1, 'center', '#000');
           if (this.coins) { KF.HUD.coin(ctx, VW / 2 - 30, 162, t); F.draw(ctx, `+${this.coins} COINS`, VW / 2 - 18, 163, '#ffd040', 1, 'left', '#000'); }
         }
         if (pt > 1.2 && Math.floor(t * 3) % 2) {

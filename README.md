@@ -71,6 +71,12 @@ On the realm map, C opens the shop, F the Street Arena and T the training dojo.
 
 Fights are best of three rounds, 60 s each.
 
+On phones and tablets, on-screen buttons appear during levels (move and jump) and fights (block,
+punch, kick, special). Menus work by tapping. Add `?touch=1` to show the buttons on a desktop.
+
+Each red X in a level marks where you died earlier in that visit. The realm screen shows your best
+deaths and best time for each level.
+
 Landing hits fills your special meter. Specials (buy more in the shop): Spirit Wave
 (projectile), Tiger Rush (dashing elbow), Whirlwind Kick (multi-hit), Quake Stomp (ground wave).
 
@@ -78,7 +84,9 @@ Movement has 80 ms coyote time, 100 ms jump buffering and variable jump height (
 1 tile, a full hold 3.5 tiles, 0.56 s in the air). Clipping a ceiling edge slides you past it, and
 clipping a ledge's top corner while falling pops you up onto it.
 
-Tip: `index.html?stage=oldtv-3` jumps straight into a level. It takes
+Tip: `index.html?unlock=1` opens every realm and level for testing; without it, a realm opens when
+you beat the previous realm's boss, and its levels and fights open one after another.
+`index.html?stage=oldtv-3` jumps straight into a level. It takes
 each realm id (`arcade`, `oldtv`, `pocket`, `comic`, `argo`, `eightbit`, `woodblock`,
 `vhs`, `vapor`, `cyber`) with level 1-4, and `?fight=oldtv-1` into a realm's street fight (`-2` = the boss),
 `?scene=shop` into the shop, `?stage=training` into the dojo.

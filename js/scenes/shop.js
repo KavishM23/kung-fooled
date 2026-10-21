@@ -107,8 +107,12 @@
         F.draw(ctx, right, VW - 12, y + 3, col, 1, 'right');
       });
       const it = list[this.sel];
+      const price = it && (it.kind === 'upgrade' ? E.upgradeCost(it.id) : !E.owns(it.id) ? it.price : null);
+      const short = price != null && E.coins < price;
       if (this.msg) F.draw(ctx, this.msg.text, 252, 176, this.msg.good ? '#7cff6a' : '#ff6050', 1, 'center', '#000');
+      else if (short) F.draw(ctx, 'EARN: LEVEL 20  FIGHT 40+  BOSS 100+', 252, 176, '#ffd040', 1, 'center', '#000');
       else if (it && it.desc) F.draw(ctx, it.desc, 252, 176, '#b8b0c8', 1, 'center', '#000');
+      else if (it && it.kind === 'item') F.draw(ctx, 'LOOKS ONLY. STATS COME FROM UPGRADES', 252, 176, '#8a80a0', 1, 'center', '#000');
       else F.draw(ctx, 'CLICK AN ITEM TWICE TO BUY / EQUIP', 252, 176, '#6a6080', 1, 'center', '#000');
       KF.UI.buttonBar(ctx, this, [['buy', 'BUY / EQUIP  (ENTER)'], ['back', 'BACK  (ESC)']]);
     }

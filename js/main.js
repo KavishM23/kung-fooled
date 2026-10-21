@@ -8,6 +8,7 @@
   for (const id of ['comic', 'vhs', 'ukiyo']) delete KF.Styles.all[id].postOther;
   const engine = new KF.Engine(document.getElementById('game'));
   KF.engine = engine;
+  KF.Touch.attach(engine.input);
   // ?stage=harbour-2 jumps straight into a stage (handy while authoring levels); ?stage=training too.
   const m = /[?&]stage=([a-z]+)(?:-(\d))?/.exec(window.location.search);
   let m2;

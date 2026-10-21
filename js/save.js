@@ -5,6 +5,7 @@
   // v3: realms became styles (10 realms of 4 levels + 2 fights). Coins and items carry over from
   // v2; realm progress starts fresh, since the old realms no longer exist.
   const KEY = 'kung-fooled.save.v3', OLD_KEY = 'kung-fooled.save.v2';
+  KF.unlockAll = /[?&]unlock=1/.test(window.location.search);
   const fresh = () => ({
     coins: 0, owned: {}, upg: {}, muted: false,
     equip: { outfit: 'o_teal', head: 'h_orange', hair: 'r_spiky', colour: 'c_black', fists: 'w_cream', face: 'f_none', skin: 's_tan', special: 'wave' },
@@ -34,7 +35,8 @@
       return this.data.realms[id];
     },
     door(id) { return this.realm(id); },
-    unlocked() { return true; }, // every realm is open from the start
+    // A realm opens when the boss of the one before it is beaten. ?unlock=1 opens everything (testing).
+    unlocked(i) { return KF.unlockAll || i <= 0 || !!(this.data.realms[KF.Doors[i - 1].id] || {}).cleared; },
     // Finish a node (stage or fight). Returns the coins earned (first clears pay more).
     completeNode(realmId, node, extra = {}) {
       const r = this.realm(realmId), realmIdx = KF.Doors.findIndex((d) => d.id === realmId);
@@ -48,6 +50,7 @@
         if (extra.deaths === 0) coins += first ? 10 : 2;
         const s = KF.Path.stageOfNode(node);
         if (r.best[s] === undefined || extra.deaths < r.best[s]) r.best[s] = extra.deaths;
+        if (extra.time !== undefined) { r.time = r.time || {}; if (r.time[s] === undefined || extra.time < r.time[s]) r.time[s] = extra.time; }
       } else if (isBoss) {
         coins = first ? 100 + 20 * realmIdx : 20;
         r.cleared = true;

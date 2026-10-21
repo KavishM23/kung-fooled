@@ -31,8 +31,10 @@
       if (this.hiRes) { // smooth: as many real pixels as the screen has (capped)
         scale = Math.max(KF.RES, Math.min(KF.HI_MAX, Math.ceil(fit * (window.devicePixelRatio || 1)))); // whole, so pixel UI text stays crisp
         cssW = VW * fit; cssH = VH * fit;
-      } else { // pixel art: whole multiples of the real canvas size keep every pixel square
-        const s = fit / KF.RES, k = s >= 1 ? Math.floor(s) : s;
+      } else { // pixel art: whole multiples of the real canvas size keep every pixel square, but on
+        // most laptop screens that leaves a third of the window black. Use a whole multiple only
+        // when it fills at least 90% of the window; otherwise fill it with near-square pixels.
+        const s = fit / KF.RES, k = s >= 1 && Math.floor(s) / s >= 0.9 ? Math.floor(s) : s;
         cssW = VW * KF.RES * k; cssH = VH * KF.RES * k;
       }
       if (scale !== this.scale || this.canvas.width !== Math.round(VW * scale)) {
