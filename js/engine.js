@@ -31,9 +31,8 @@
       if (this.hiRes) { // smooth: as many real pixels as the screen has (capped)
         scale = Math.max(KF.RES, Math.min(KF.HI_MAX, Math.ceil(fit * (window.devicePixelRatio || 1)))); // whole, so pixel UI text stays crisp
         cssW = VW * fit; cssH = VH * fit;
-      } else { // pixel art: whole multiples of the real canvas size keep every pixel square
-        const s = fit / KF.RES, k = s >= 1 ? Math.floor(s) : s;
-        cssW = VW * KF.RES * k; cssH = VH * KF.RES * k;
+      } else { // CSS nearest-neighbour scaling keeps the pixel grid crisp at any window size.
+        cssW = VW * fit; cssH = VH * fit;
       }
       if (scale !== this.scale || this.canvas.width !== Math.round(VW * scale)) {
         this.scale = scale;

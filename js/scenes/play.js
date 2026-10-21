@@ -322,10 +322,13 @@
       if (this.debug) KF.Render.debug(ctx, this, cam);
 
       if (style.overlay) style.overlay(ctx, info);
-      if (this.phase !== 'crash') KF.HUD.draw(ctx, {
-        scene: this, worldName: this.worldName, remaining: st.remaining, time: this.time, deaths: this.deaths, deathPulse: this.deathPulse,
-        reversed: p.reversed !== !!st.rule.reverse && this.phase === 'play', flipped: p.gravDir < 0,
-      }, t);
+      if (this.phase !== 'crash') {
+        if (st.combat) KF.CombatRender.topHud(ctx, this, st);
+        else KF.HUD.draw(ctx, {
+          scene: this, worldName: this.worldName, remaining: st.remaining, time: this.time, deaths: this.deaths, deathPulse: this.deathPulse,
+          reversed: p.reversed !== !!st.rule.reverse && this.phase === 'play', flipped: p.gravDir < 0,
+        }, t);
+      }
       if (st.combat && this.phase === 'play') KF.CombatRender.hud(ctx, st);
       this.renderOverlay(ctx, t);
     }

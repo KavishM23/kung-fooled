@@ -2,32 +2,44 @@
 (function (KF) {
   const F = KF.Font;
   KF.CombatRender = {
+    topHud(ctx, scene, st) {
+      ctx.fillStyle = 'rgba(250,251,251,0.94)'; ctx.fillRect(0, 0, KF.VIEW_W, 14);
+      ctx.fillStyle = '#c3cccf'; ctx.fillRect(0, 14, KF.VIEW_W, 0.5);
+      ctx.font = 'bold 8px Arial, sans-serif'; ctx.textBaseline = 'top';
+      ctx.textAlign = 'left'; ctx.fillStyle = '#202428'; ctx.fillText('SUPERHOT', 7, 3);
+      ctx.textAlign = 'center'; ctx.fillStyle = '#657176';
+      ctx.fillText(`0:${String(Math.floor(scene.time) % 60).padStart(2, '0')}`, KF.VIEW_W / 2, 3);
+      ctx.textAlign = 'right'; ctx.fillStyle = '#ae1a23'; ctx.fillText(`DEATHS ${scene.deaths}`, KF.VIEW_W - 18, 3);
+      KF.UI.pauseButton(ctx, scene, KF.VIEW_W - 13, 1);
+      void st;
+    },
     world(ctx, stage, cam) {
       const c = stage.combat, p = stage.player;
       for (const e of c.enemies) {
         if (e.hp <= 0 || e.x < cam.x - 40 || e.x > cam.x + KF.VIEW_W + 40) continue;
         const x = e.x + e.w / 2 - cam.x, y = e.y + e.h - cam.y;
         if (e.warn > 0) {
-          ctx.strokeStyle = `rgba(255,30,20,${0.18 + e.warn * 0.6})`; ctx.lineWidth = 0.45;
+          ctx.strokeStyle = `rgba(25,28,31,${0.12 + e.warn * 0.35})`; ctx.lineWidth = 0.45;
           ctx.beginPath(); ctx.moveTo(x, y - 16); ctx.lineTo(p.centerX - cam.x, p.y + 9 - cam.y); ctx.stroke();
         }
-        ctx.save(); ctx.translate(x, y); ctx.scale(e.facing * (e.boss ? 1.32 : 0.82), e.boss ? 1.32 : 0.82);
-        KF.Vec.draw(ctx, KF.Sprites.pick('idle', e.t).pose,
-          { material: 'crystal', style: 'suit', hair: 'bald', build: e.boss ? 'heavy' : 'slim' },
-          { vlook: 'lowpoly', crystal: true, flash: e.hit > 0 ? 0.7 : 0 });
-        ctx.fillStyle = '#16161b'; ctx.fillRect(8, -21, 11, 3); ctx.fillRect(8, -18, 3, 5);
-        ctx.restore();
-        const barY = y - (e.boss ? 52 : 33), barW = e.boss ? 36 : 22;
+        KF.SuperhotFigure.draw(ctx, x, y, e.facing, e.t, true, e.boss, e.hit > 0);
+        ctx.save(); ctx.translate(x, y - (e.boss ? 23 : 16)); ctx.scale(e.facing, 1);
+        ctx.fillStyle = '#171b1e'; ctx.fillRect(4, -1, 11, 2.8); ctx.fillRect(6, 1, 2.8, 4);
+        ctx.fillStyle = '#626b70'; ctx.fillRect(5, -1, 8, 0.45); ctx.restore();
+        const barY = y - (e.boss ? 51 : 36), barW = e.boss ? 30 : 18;
         ctx.fillStyle = '#3a1214'; ctx.fillRect(x - barW / 2, barY, barW, 2);
         ctx.fillStyle = '#ff332b'; ctx.fillRect(x - barW / 2, barY, barW * e.hp / e.maxHp, 2);
-        if (e.boss) F.draw(ctx, e.name, x, y - 62, '#b50012', 1, 'center', '#ffffff');
+        if (e.boss) { ctx.fillStyle = '#a50010'; ctx.font = 'bold 7px Arial, sans-serif'; ctx.textAlign = 'center'; ctx.fillText(e.name, x, y - 53); }
       }
       for (const b of c.bullets) {
         const length = Math.hypot(b.vx, b.vy), x = b.x - cam.x, y = b.y - cam.y;
-        ctx.lineWidth = b.enemy ? 1.3 : 1;
-        ctx.strokeStyle = b.enemy ? '#ed2017' : '#24242b';
-        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - b.vx / length * 9, y - b.vy / length * 9); ctx.stroke();
-        ctx.fillStyle = b.enemy ? '#ff6b3f' : '#fff'; ctx.beginPath(); ctx.arc(x, y, 1.1, 0, Math.PI * 2); ctx.fill();
+        const dx = b.vx / length, dy = b.vy / length;
+        ctx.strokeStyle = 'rgba(25,30,34,0.22)'; ctx.lineWidth = 0.55;
+        ctx.beginPath(); ctx.moveTo(x - dx * 5, y - dy * 5); ctx.lineTo(x - dx * 16, y - dy * 16); ctx.stroke();
+        ctx.strokeStyle = '#1a1d20'; ctx.lineWidth = 1.8; ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(x - dx * 3, y - dy * 3); ctx.lineTo(x + dx * 3, y + dy * 3); ctx.stroke();
+        ctx.strokeStyle = '#aeb7ba'; ctx.lineWidth = 0.35;
+        ctx.beginPath(); ctx.moveTo(x - dx * 2, y - dy * 2 - 0.45); ctx.lineTo(x + dx * 2, y + dy * 2 - 0.45); ctx.stroke();
       }
       for (const s of c.shards) {
         ctx.save(); ctx.globalAlpha = Math.min(1, s.life * 2); ctx.translate(s.x - cam.x, s.y - cam.y); ctx.rotate(s.rot);
@@ -50,11 +62,14 @@
     },
     hud(ctx, st) {
       const c = st.combat;
-      ctx.fillStyle = 'rgba(250,250,250,0.9)'; ctx.fillRect(0, KF.VIEW_H - 25, KF.VIEW_W, 25);
-      F.draw(ctx, `VITALS ${'|'.repeat(Math.max(0, c.health))}   ${c.reload ? 'RELOADING' : 'AMMO ' + c.ammo + '/6'}`, 7, KF.VIEW_H - 21, '#24242b');
-      F.draw(ctx, c.cleared ? 'EXIT OPEN' : `HOSTILES ${c.remaining}`, KF.VIEW_W - 7, KF.VIEW_H - 21, '#c31820', 1, 'right');
-      F.draw(ctx, 'CLICK AIM/F FIRE  J/K MELEE  S BLOCK', 7, KF.VIEW_H - 10, '#55555c');
-      F.draw(ctx, st.timeK < 1 ? 'TIME SLOWED' : 'TIME FLOWS', KF.VIEW_W - 7, 19, '#c31820', 1, 'right', '#fff');
+      ctx.fillStyle = 'rgba(249,250,250,0.95)'; ctx.fillRect(0, KF.VIEW_H - 17, KF.VIEW_W, 17);
+      ctx.fillStyle = '#b7c1c4'; ctx.fillRect(0, KF.VIEW_H - 17, KF.VIEW_W, 0.6);
+      ctx.font = 'bold 8px Arial, sans-serif'; ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.fillStyle = '#25292c';
+      ctx.fillText(`HEALTH ${'|'.repeat(Math.max(0, c.health))}   ${c.reload ? 'RELOADING' : 'AMMO ' + c.ammo + '/6'}`, 7, KF.VIEW_H - 12);
+      ctx.textAlign = 'right'; ctx.fillStyle = '#b21420';
+      ctx.fillText(c.cleared ? 'EXIT OPEN' : `HOSTILES ${c.remaining}`, KF.VIEW_W - 7, KF.VIEW_H - 12);
+      ctx.font = 'bold 7px Arial, sans-serif';
+      ctx.fillText(st.timeK < 1 ? 'TIME MOVES WHEN YOU MOVE' : 'TIME MOVING', KF.VIEW_W - 7, 18);
     },
   };
 })(window.KF);

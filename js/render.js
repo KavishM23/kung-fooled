@@ -36,7 +36,7 @@
         const id = world.tiles[r * world.cols + col];
         if (id) drawTile(ctx, world, theme, col, r, id, col * T, r * T);
       }
-      KF.Render.detail(c, world);
+      if (theme.id !== 'superhot_atrium') KF.Render.detail(c, world);
       return c;
     },
 
