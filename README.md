@@ -62,28 +62,25 @@ beatable with its rule on.
 
 ## Controls
 
-| Key | Action |
-| --- | --- |
-| Arrow keys / A, D | Move |
-| Space / W / Up | Jump (hold for higher) |
-| R | Restart the stage |
-| Esc | Pause (resume / restart / quit) |
-| M | Mute |
-| F1 | Show hitboxes and movement debug info |
-| T (realm map) | Training dojo (the movement test stage) |
-| C (realm map) | Dojo shop: customise and upgrade |
-| F (realm map) | Street Arena: an endless ladder of fights for coins |
+There are two full control sets, and both work at the same time. Use whichever you like; the
+on-screen hints follow the one you last used.
 
-**Fights** (best of three rounds, 60 s each):
+| Action | Set 1: WASD | Set 2: Arrows | Mouse |
+| --- | --- | --- | --- |
+| Move / walk | A, D | Left, Right | |
+| Jump (hold for higher) | W / Space | Up / Space | |
+| Block (fights) | S | Down | |
+| Punch (3 quick presses: jab, cross, uppercut) | J | Z | Left click |
+| Kick | K | X | Right click |
+| Special (meter at least half full) | L | C | |
+| Shoot (SUPERHOT fight) | F | V | Aim + left click |
+| Restart the level | R | R | |
+| Pause | Esc / P | Esc / P | Pause button, top right |
 
-| Key | Action |
-| --- | --- |
-| A/D or arrows | Walk |
-| W / Up / Space | Jump (punch or kick in the air for a jump kick) |
-| S / Down | Block (takes a little chip damage) |
-| J (or Z) | Punch. Press 3 times quickly for jab, cross, uppercut |
-| K (or X) | Kick (slower, longer reach, more damage) |
-| L (or C) | Special move, when the meter is at least half full |
+Every menu, card and button can also be clicked. Other keys: M mutes, and F1 shows hitboxes.
+On the realm map, C opens the shop, F the Street Arena and T the training dojo.
+
+Fights are best of three rounds, 60 s each.
 
 Landing hits fills your special meter. Specials (buy more in the shop): Spirit Wave
 (projectile), Tiger Rush (dashing elbow), Whirlwind Kick (multi-hit), Quake Stomp (ground wave).
@@ -93,7 +90,7 @@ Movement has 80 ms coyote time, 100 ms jump buffering and variable jump height (
 clipping a ledge's top corner while falling pops you up onto it.
 
 Tip: `index.html?stage=harbour-3` jumps straight into a stage (`rooftop`, `harbour`, `neon`,
-`temple`, `train`, `sakura`, `viking`, 1-5), `?fight=viking-2` into a street fight (5 = the boss),
+`temple`, `train`, `sakura`, `viking`, `cyber`, 1-5), `?fight=viking-2` into a street fight (5 = the boss),
 `?scene=shop` into the shop, `?stage=training` into the dojo.
 
 ## Project layout

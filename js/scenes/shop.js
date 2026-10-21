@@ -29,11 +29,14 @@
       if (inp.wasPressed('ArrowRight', 'KeyD')) { this.tab = (this.tab + 1) % TABS.length; this.sel = 0; A.sfx('select'); }
       if (inp.wasPressed('ArrowUp', 'KeyW')) { this.sel = (this.sel + list.length - 1) % list.length; A.sfx('select'); }
       if (inp.wasPressed('ArrowDown', 'KeyS')) { this.sel = (this.sel + 1) % list.length; A.sfx('select'); }
-      if (inp.wasPressed('Escape')) {
+      const click = KF.UI.clicked(this);
+      if (click && click[0] === 't') { this.tab = +click.slice(1); this.sel = 0; A.sfx('select'); }
+      if (click && click[0] === 'i') { const i = +click.slice(1); if (i === this.sel) this.activate(list[i]); else { this.sel = i; A.sfx('select'); } }
+      if (inp.back || click === 'back') {
         const b = this.back;
         e.go(() => (b !== undefined ? new KF.RealmScene(e, b) : new KF.MapScene(e)));
       }
-      if (inp.wasPressed('Enter', 'Space')) this.activate(list[this.sel]);
+      if (inp.confirm || click === 'buy') this.activate(list[this.sel]);
     }
     activate(it) {
       if (it.kind === 'upgrade') {
@@ -69,20 +72,22 @@
       });
       void st;
       // Tabs.
-      let tx = 138, ty = 34;
+      let tx = 138, ty = 40;
       TABS.forEach((name, i) => {
         const w = F.measure(name) + 6, sel = i === this.tab;
         if (tx + w > VW - 6) { tx = 138; ty += 13; } // wrap to a second row
-        R(sel ? '#ffd040' : '#2a2240', tx, ty, w, 11);
+        R(sel ? '#ffd040' : KF.UI.hover(this, 't' + i) ? '#4a3a6a' : '#2a2240', tx, ty, w, 11);
+        KF.UI.region(this, 't' + i, tx, ty, w, 11);
         F.draw(ctx, name, tx + 3, ty + 2, sel ? '#1a1020' : '#c8c0d8');
         tx += w + 2;
       });
       // Item list.
       const list = this.entries();
-      this.scroll = Math.max(0, Math.min(this.sel - 2, list.length - 8));
-      list.slice(this.scroll, this.scroll + 8).forEach((it, k) => {
-        const i = k + this.scroll, y = 62 + k * 13, sel = i === this.sel;
-        R(sel ? '#3a2c5a' : '#161226', 138, y, VW - 146, 12);
+      this.scroll = Math.max(0, Math.min(this.sel - 2, list.length - 7));
+      list.slice(this.scroll, this.scroll + 7).forEach((it, k) => {
+        const i = k + this.scroll, y = 68 + k * 13, sel = i === this.sel;
+        R(sel ? '#3a2c5a' : KF.UI.hover(this, 'i' + i) ? '#221a38' : '#161226', 138, y, VW - 146, 12);
+        KF.UI.region(this, 'i' + i, 138, y, VW - 146, 12);
         if (sel) R('#ffd040', 138, y, 2, 12);
         F.draw(ctx, it.name, 144, y + 3, '#ffffff');
         let right, col = '#ffd040';
@@ -102,9 +107,10 @@
         F.draw(ctx, right, VW - 12, y + 3, col, 1, 'right');
       });
       const it = list[this.sel];
-      if (it && it.desc) F.draw(ctx, it.desc, 252, 178, '#b8b0c8', 1, 'center', '#000');
-      if (this.msg) F.draw(ctx, this.msg.text, 252, 168, this.msg.good ? '#7cff6a' : '#ff6050', 1, 'center', '#000');
-      KF.UI.footer(ctx, 'A/D: TAB    W/S: ITEM    ENTER: BUY / EQUIP    ESC: BACK', 'EARN COINS BY CLEARING LEVELS AND WINNING FIGHTS');
+      if (this.msg) F.draw(ctx, this.msg.text, 252, 176, this.msg.good ? '#7cff6a' : '#ff6050', 1, 'center', '#000');
+      else if (it && it.desc) F.draw(ctx, it.desc, 252, 176, '#b8b0c8', 1, 'center', '#000');
+      else F.draw(ctx, 'CLICK AN ITEM TWICE TO BUY / EQUIP', 252, 176, '#6a6080', 1, 'center', '#000');
+      KF.UI.buttonBar(ctx, this, [['buy', 'BUY / EQUIP  (ENTER)'], ['back', 'BACK  (ESC)']]);
     }
   }
   KF.ShopScene = ShopScene;

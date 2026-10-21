@@ -110,7 +110,9 @@
     update(dt) {
       const input = this.engine.input;
       this.debug = this.engine.debug;
-      if (input.wasPressed('Escape') && this.phase !== 'win') {
+      const click = KF.UI.clicked(this);
+      this.tap = input.clicked && !click; // a click on the world itself: "continue" in cards
+      if ((input.pause || click === 'pause') && this.phase !== 'win') {
         this.paused = !this.paused; this.pauseSel = 0; A.sfx('pause');
       }
       if (this.paused) return this.updatePause(input);
@@ -133,7 +135,7 @@
         case 'intro':
           p.stateT += dt;
           if (this.cue('round', 0.05)) { A.sfx('whoosh'); this.fx.shake(3, 0.2); }
-          if (this.phaseT > 0.5 && (input.jumpPressed || input.wasPressed('Enter'))) this.phaseT = Math.max(this.phaseT, 0.95);
+          if (this.phaseT > 0.5 && (input.jumpPressed || input.wasPressed('Enter') || this.tap)) this.phaseT = Math.max(this.phaseT, 0.95);
           if (this.cue('go', 0.95)) {
             KF.Present.sfx(this.style.id, 'go'); this.fx.shake(5, 0.25); this.goAt = this.engine.time;
           }
@@ -170,13 +172,13 @@
             const k = this.ko;
             k.vy += 1100 * (k.flip ? -1 : 1) * dt; k.x += k.vx * dt; k.y += k.vy * dt; k.rot += k.vrot * dt;
           }
-          if (this.phaseT > 0.85 || (this.phaseT > 0.3 && (input.jumpPressed || input.wasPressed('Enter')))) this.restart(false);
+          if (this.phaseT > 0.85 || (this.phaseT > 0.3 && (input.jumpPressed || input.wasPressed('Enter') || this.tap))) this.restart(false);
           break;
         case 'win':
           p.stateT += dt;
           this.stage.step(dt, { left: false, right: false, jumpHeld: false, jumpPressed: false });
           if (this.cue('banner', 0.45)) { if (!KF.Present.has(this.style.id, 'win')) A.sfx(this.deaths === 0 ? 'perfect' : 'confirm'); this.fx.shake(4, 0.2); }
-          if (this.phaseT > 1.2 && (input.jumpPressed || input.wasPressed('Enter', 'Space'))) this.next();
+          if (this.phaseT > 1.2 && (input.jumpPressed || input.wasPressed('Enter', 'Space') || this.tap)) this.next();
           else if (this.phaseT > 5) this.next();
           break;
       }
@@ -213,16 +215,12 @@
     }
 
     updatePause(input) {
-      const opts = ['RESUME', 'RESTART STAGE', 'QUIT TO REALM'];
-      if (input.wasPressed('ArrowUp', 'KeyW')) { this.pauseSel = (this.pauseSel + 2) % 3; A.sfx('select'); }
-      if (input.wasPressed('ArrowDown', 'KeyS')) { this.pauseSel = (this.pauseSel + 1) % 3; A.sfx('select'); }
-      if (input.wasPressed('Enter', 'Space')) {
-        A.sfx('confirm');
-        this.paused = false;
-        if (this.pauseSel === 1) { this.deaths = 0; this.time = 0; this.memory = { seen: {} }; this.newAttempt(); this.setPhase('intro'); }
-        if (this.pauseSel === 2) { const r = this.doorIdx; this.engine.go(() => (this.training ? new KF.MapScene(this.engine) : new KF.RealmScene(this.engine, r))); }
-      }
-      void opts;
+      const pick = KF.UI.menuInput(this, input, 3, 'pauseSel');
+      if (pick < 0) return;
+      A.sfx('confirm');
+      this.paused = false;
+      if (pick === 1) { this.deaths = 0; this.time = 0; this.memory = { seen: {} }; this.newAttempt(); this.setPhase('intro'); }
+      if (pick === 2) { const r = this.doorIdx; this.engine.go(() => (this.training ? new KF.MapScene(this.engine) : new KF.RealmScene(this.engine, r))); }
     }
 
     render(ctx, alpha) {
@@ -304,7 +302,7 @@
 
       if (style.overlay) style.overlay(ctx, info);
       if (this.phase !== 'crash') KF.HUD.draw(ctx, {
-        worldName: this.worldName, remaining: st.remaining, time: this.time, deaths: this.deaths, deathPulse: this.deathPulse,
+        scene: this, worldName: this.worldName, remaining: st.remaining, time: this.time, deaths: this.deaths, deathPulse: this.deathPulse,
         reversed: p.reversed !== !!st.rule.reverse && this.phase === 'play', flipped: p.gravDir < 0,
       }, t);
       this.renderOverlay(ctx, t);
@@ -371,11 +369,9 @@
       if (this.paused) {
         ctx.fillStyle = 'rgba(8,4,16,0.7)'; ctx.fillRect(0, 0, VW, VH);
         BT.draw(ctx, 'PAUSED', VW / 2, 70, 4, 'steel');
-        ['RESUME', 'RESTART STAGE', 'QUIT TO REALM'].forEach((o, i) => {
-          const sel = i === this.pauseSel;
-          F.draw(ctx, (sel ? '> ' : '  ') + o, VW / 2, 104 + i * 14, sel ? '#ffd040' : '#b8b0c8', 1, 'center', '#000');
-        });
-        F.draw(ctx, 'R RESTART   M SOUND   F1 HITBOXES', VW / 2, 170, '#7a7090', 1, 'center');
+        KF.UI.menu(ctx, this, ['RESUME', 'RESTART LEVEL', this.training ? 'QUIT TO MAP' : 'QUIT TO REALM'], this.pauseSel, 98);
+        F.draw(ctx, 'ESC / P: RESUME    R: RESTART    M: SOUND', VW / 2, 160, '#7a7090', 1, 'center');
+        KF.UI.pauseButton(ctx, this, VW - 13, 1);
       }
     }
   }

@@ -36,14 +36,17 @@
       if (inp.wasPressed('ArrowLeft', 'KeyA')) { this.sel = (this.sel + n - 1) % n; A.sfx('select'); }
       if (inp.wasPressed('ArrowRight', 'KeyD')) { this.sel = (this.sel + 1) % n; A.sfx('select'); }
       this.scroll += (this.sel - this.scroll) * Math.min(1, dt * 10);
-      if (inp.wasPressed('Enter', 'Space')) {
+      const click = KF.UI.clicked(this);
+      if (click && click[0] === 'r') { const i = +click.slice(1); if (i !== this.sel) { this.sel = i; A.sfx('select'); } else this.enter = true; }
+      if (inp.confirm || click === 'enter' || this.enter) {
+        this.enter = false;
         if (KF.Save.unlocked(this.sel)) { A.sfx('confirm'); e.lastRealm = this.sel; const r = this.sel; e.go(() => new KF.RealmScene(e, r)); }
         else { A.sfx('bonk'); this.denied = 0.6; }
       }
-      if (inp.wasPressed('KeyC')) { A.sfx('confirm'); e.go(() => new KF.ShopScene(e)); }
-      if (inp.wasPressed('KeyF')) { A.sfx('confirm'); e.go(() => new KF.FightScene(e, { mode: 'arena', realm: 0, streak: 0, def: KF.Roster.arenaDef(0) })); }
-      if (inp.wasPressed('KeyT')) e.go(() => new KF.PlayScene(e, { training: true }));
-      if (inp.wasPressed('Escape')) e.go(() => new KF.TitleScene(e));
+      if (inp.wasPressed('KeyC') || click === 'shop') { A.sfx('confirm'); e.go(() => new KF.ShopScene(e)); }
+      if (inp.wasPressed('KeyF') || click === 'arena') { A.sfx('confirm'); e.go(() => new KF.FightScene(e, { mode: 'arena', realm: 0, streak: 0, def: KF.Roster.arenaDef(0) })); }
+      if (inp.wasPressed('KeyT') || click === 'training') e.go(() => new KF.PlayScene(e, { training: true }));
+      if (inp.back || click === 'back') e.go(() => new KF.TitleScene(e));
       if (this.denied > 0) this.denied -= dt;
     }
     render(ctx) {
@@ -56,7 +59,8 @@
         if (cx < -70 || cx > VW + 70) return;
         const sel = i === this.sel, unlocked = KF.Save.unlocked(i), save = KF.Save.realm(d.id);
         const x = cx - 52, y = 44 + (sel ? -4 : 0);
-        R(sel ? '#ffd040' : '#0a0610', x - 2, y - 2, 108, 112);
+        R(sel ? '#ffd040' : KF.UI.hover(this, 'r' + i) ? '#6a5a8a' : '#0a0610', x - 2, y - 2, 108, 112);
+        KF.UI.region(this, 'r' + i, x - 2, y - 2, 108, 112);
         R('#1a1428', x, y, 104, 108);
         KF.blit(ctx, thumb(d), x + 4, y + 4);
         if (!unlocked) { ctx.fillStyle = 'rgba(8,4,16,0.75)'; ctx.fillRect(x + 4, y + 4, 96, 54); }
@@ -80,7 +84,7 @@
       F.draw(ctx, msg, VW / 2, 166, this.denied > 0 ? '#ff6050' : unlocked ? '#ffb0a0' : '#b0a8c0', 1, 'center', '#000');
       if (this.cleared !== undefined && t < 4) KF.BigText.draw(ctx, 'REALM CLEARED!', VW / 2, 110, 3, 'gold', t < 0.12 ? 3 - t * 16 : 1);
       F.draw(ctx, `ARENA BEST STREAK ${KF.Save.data.arena.best}`, VW / 2, 177, '#7a7094', 1, 'center', '#000');
-      KF.UI.footer(ctx, 'ENTER: REALM    C: SHOP    F: ARENA    T: TRAINING', 'ESC: TITLE    M: SOUND');
+      KF.UI.buttonBar(ctx, this, [['enter', 'ENTER REALM'], ['shop', 'SHOP (C)'], ['arena', 'ARENA (F)'], ['training', 'TRAINING (T)'], ['back', 'BACK']]);
     }
   }
   KF.MapScene = MapScene;

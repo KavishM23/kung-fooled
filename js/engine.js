@@ -8,7 +8,7 @@
       canvas.width = KF.VIEW_W * KF.RES; canvas.height = KF.VIEW_H * KF.RES;
       this.ctx = canvas.getContext('2d');
       this.ctx.imageSmoothingEnabled = false;
-      this.input = new KF.Input(window);
+      this.input = new KF.Input(window, canvas);
       this.scene = null;
       this.acc = 0; this.last = 0; this.fps = 60; this.time = 0;
       this.debug = false;
@@ -71,7 +71,11 @@
           this.ctx.setTransform(KF.RES, 0, 0, KF.RES, 0, 0);
           this.ctx.imageSmoothingEnabled = false;
           this.frame = (this.frame || 0) + 1;
-          if (this.scene) this.scene.render(this.ctx, this.acc / KF.STEP);
+          if (this.scene) {
+            this.scene.hits = []; // clickable regions, registered while drawing (see KF.UI)
+            this.scene.render(this.ctx, this.acc / KF.STEP);
+            this.canvas.style.cursor = KF.UI.under(this.scene) ? 'pointer' : this.scene.cursor || 'default';
+          }
           this.renderWipe(this.ctx);
           if (KF.Audio.muted) KF.Font.draw(this.ctx, 'MUTE', KF.VIEW_W - 4, KF.VIEW_H - 9, '#7a7094', 1, 'right');
         } catch (e) { console.error(e); }

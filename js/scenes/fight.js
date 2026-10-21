@@ -51,6 +51,8 @@
       // SUPERHOT: time moves only while you do (see js/rules.js).
       const rule = KF.Rules && KF.Rules.all[this.style.id];
       this.superhot = !!(rule && rule.superhot);
+      this.gun = { ammo: 6, cool: 0, reload: 0 }; this.oppGunT = 2.5; this.shotKick = 0;
+      if (this.superhot) this.cursor = 'crosshair';
       this.timeK = 1; this.shards = []; this.shattered = false;
       if (this.superhot && !(this.oppDef.look && this.oppDef.look.material === 'crystal')) this.opp.sprites = crystalize(this.opp.sprites);
       this.wins = [0, 0];
@@ -85,7 +87,10 @@
         left: i.isDown('ArrowLeft', 'KeyA'), right: i.isDown('ArrowRight', 'KeyD'),
         block: i.isDown('ArrowDown', 'KeyS'),
         jump: i.wasPressed('ArrowUp', 'KeyW', 'Space'),
-        punch: i.wasPressed('KeyJ', 'KeyZ'), kick: i.wasPressed('KeyK', 'KeyX'), special: i.wasPressed('KeyL', 'KeyC'),
+        // Mouse: left click punches, right click kicks (in a SUPERHOT fight left click shoots instead).
+        punch: i.wasPressed('KeyJ', 'KeyZ') || (i.clicked && !this.superhot && !this.clickUsed),
+        kick: i.wasPressed('KeyK', 'KeyX') || i.rclicked, special: i.wasPressed('KeyL', 'KeyC'),
+        shoot: this.superhot && ((i.clicked && !this.clickUsed) || i.wasPressed('KeyF', 'KeyV')),
       };
     }
 
@@ -160,19 +165,44 @@
     // How hard the player is acting right now (1 = moving/attacking, 0 = hands off).
     activity(inp) {
       const P = this.player;
-      return inp.left || inp.right || inp.block || inp.jump || inp.punch || inp.kick || inp.special || P.state === 'attack' || !P.grounded ? 1 : 0;
+      return inp.left || inp.right || inp.block || inp.jump || inp.punch || inp.kick || inp.special || this.shotKick > 0 || P.state === 'attack' || !P.grounded ? 1 : 0;
+    }
+
+    // SUPERHOT guns. You shoot at the mouse (or straight ahead with F / V); six rounds, then the
+    // gun reloads, but only while time moves. Firing nudges time forward, as in SUPERHOT.
+    // THE SYSTEM fires back now and then: slow bullets you can see coming, dodge or block.
+    updateGuns(dt, fdt, inp) {
+      const P = this.player, O = this.opp, g = this.gun;
+      this.shotKick = Math.max(0, this.shotKick - dt);
+      if (g.ammo <= 0 && (g.reload -= fdt) <= 0) { g.ammo = 6; A.sfx('select'); }
+      g.cool -= fdt;
+      if (inp.shoot && g.ammo > 0 && g.cool <= 0 && P.state !== 'hit' && P.state !== 'down') {
+        const hx = P.x + P.facing * 16, hy = P.y - 36, m = this.engine.input.mouse;
+        let ax = P.facing, ay = 0;
+        if (m.seen && this.engine.input.clicked) { const dx = m.x - hx, dy = m.y - hy, d = Math.hypot(dx, dy) || 1; ax = dx / d; ay = dy / d; }
+        if (Math.sign(ax) !== 0) P.facing = Math.sign(ax);
+        this.projectiles.push({ kind: 'bullet', owner: P, x: hx, y: hy, vx: ax * 420, vy: ay * 420, w: 5, h: 5, dmg: 9, life: 2, t: 0 });
+        g.ammo--; g.cool = 0.18; this.shotKick = 0.22;
+        if (g.ammo <= 0) g.reload = 1.2;
+        A.sfx('punch', { speed: 3 }); this.fx.shake(2, 0.08);
+      }
+      if ((this.oppGunT -= fdt) <= 0 && O.state !== 'hit' && O.state !== 'down' && Math.abs(O.x - P.x) > 50) {
+        const hx = O.x + O.facing * 16, hy = O.y - 36, dx = P.x - hx, dy = P.y - 30 - hy, d = Math.hypot(dx, dy) || 1;
+        this.projectiles.push({ kind: 'bullet', owner: O, x: hx, y: hy, vx: dx / d * 190, vy: dy / d * 190, w: 5, h: 5, dmg: 7, life: 3, t: 0 });
+        this.oppGunT = 1.8 + Math.random() * 1.6;
+      }
     }
 
     updateProjectiles(dt) {
       for (const p of this.projectiles) {
-        p.t += dt; p.x += p.vx * dt; p.life -= dt;
+        p.t += dt; p.x += p.vx * dt; p.y += (p.vy || 0) * dt; p.life -= dt;
         const target = p.owner === this.player ? this.opp : this.player;
         const box = { x: p.x - p.w / 2, y: p.y - p.h / 2, w: p.w, h: p.h };
         if (p.life > 0 && U.overlap(box, target.hurtbox())) {
           const res = target.receive({ dmg: p.dmg, push: 140, stun: 0.45, down: p.kind === 'quake' }, p.owner, this);
           if (res !== 'miss') { p.life = 0; this.impact(res, p.owner, target, p.x, p.y, true); }
         }
-        if (p.x < -20 || p.x > VW + 20) p.life = 0;
+        if (p.x < -20 || p.x > VW + 20 || p.y < -20 || p.y > FLOOR + 4) p.life = 0;
       }
       // Opposing waves cancel each other out.
       for (const p of this.projectiles) for (const q of this.projectiles) {
@@ -185,7 +215,9 @@
 
     update(dt) {
       const input = this.engine.input;
-      if (input.wasPressed('Escape') && ['fight', 'round'].includes(this.phase)) { this.paused = !this.paused; this.pauseSel = 0; A.sfx('pause'); }
+      const click = KF.UI.clicked(this);
+      this.clickUsed = !!click; // a click on a button is not also a punch / shot
+      if ((input.pause || click === 'pause') && ['fight', 'round'].includes(this.phase)) { this.paused = !this.paused; this.pauseSel = 0; A.sfx('pause'); }
       if (this.paused) return this.updatePause(input);
       this.fx.update(dt);
       this.mood.cheer = Math.max(0.15, this.mood.cheer - dt * 0.5);
@@ -194,7 +226,7 @@
 
       if (this.phase === 'intro') {
         if (this.cue('vs', 0.05)) A.sfx('round');
-        if (this.phaseT > 1.8 || (this.phaseT > 0.6 && (input.jumpPressed || input.wasPressed('Enter', 'KeyJ')))) this.startRound();
+        if (this.phaseT > 1.8 || (this.phaseT > 0.6 && (input.jumpPressed || input.wasPressed('Enter', 'KeyJ') || (input.clicked && !click)))) this.startRound();
         return;
       }
       if (this.phase === 'round') {
@@ -220,6 +252,7 @@
           fdt = sdt * this.timeK;
         }
         this.timer -= this.superhot ? dt * this.timeK : dt;
+        if (this.superhot) this.updateGuns(dt, fdt, inp);
         P.update(fdt, inp, O, this);
         O.update(fdt, this.ai.update(fdt, O, P, this), P, this);
         this.resolveHits(P, O); this.resolveHits(O, P);
@@ -279,12 +312,10 @@
 
     updateResult(input) {
       if (this.phaseT < 0.8) return;
-      const opts = this.options();
-      if (input.wasPressed('ArrowUp', 'KeyW')) { this.menuSel = (this.menuSel + opts.length - 1) % opts.length; A.sfx('select'); }
-      if (input.wasPressed('ArrowDown', 'KeyS')) { this.menuSel = (this.menuSel + 1) % opts.length; A.sfx('select'); }
-      if (!input.wasPressed('Enter', 'Space', 'KeyJ')) return;
+      const opts = this.options(), pick = KF.UI.menuInput(this, input, opts.length, 'menuSel');
+      if (pick < 0) return;
       A.sfx('confirm');
-      const choice = opts[this.menuSel], e = this.engine, r = this.realmIdx;
+      const choice = opts[pick], e = this.engine, r = this.realmIdx;
       if (choice === 'RETRY') e.go(() => new FightScene(e, this.opts));
       else if (choice === 'NEXT CHALLENGER') e.go(() => new FightScene(e, { mode: 'arena', realm: 0, streak: this.opts.streak + 1, def: KF.Roster.arenaDef(this.opts.streak + 1) }));
       else if (choice === 'LEAVE ARENA') e.go(() => new KF.MapScene(e));
@@ -294,16 +325,12 @@
     }
 
     updatePause(input) {
-      const opts = ['RESUME', 'RESTART FIGHT', 'QUIT'];
-      if (input.wasPressed('ArrowUp', 'KeyW')) { this.pauseSel = (this.pauseSel + 2) % 3; A.sfx('select'); }
-      if (input.wasPressed('ArrowDown', 'KeyS')) { this.pauseSel = (this.pauseSel + 1) % 3; A.sfx('select'); }
-      if (input.wasPressed('Enter', 'Space')) {
-        A.sfx('confirm'); this.paused = false;
-        const e = this.engine;
-        if (this.pauseSel === 1) e.go(() => new FightScene(e, this.opts));
-        if (this.pauseSel === 2) e.go(() => (this.mode === 'arena' ? new KF.MapScene(e) : new KF.RealmScene(e, this.realmIdx)));
-      }
-      void opts;
+      const pick = KF.UI.menuInput(this, input, 3, 'pauseSel');
+      if (pick < 0) return;
+      A.sfx('confirm'); this.paused = false;
+      const e = this.engine;
+      if (pick === 1) e.go(() => new FightScene(e, this.opts));
+      if (pick === 2) e.go(() => (this.mode === 'arena' ? new KF.MapScene(e) : new KF.RealmScene(e, this.realmIdx)));
     }
 
     // ---------- drawing ----------
@@ -332,6 +359,12 @@
         w.restore();
       }
       for (const p of this.projectiles) this.drawProjectile(w, p, scam, t);
+      if (this.superhot && this.phase !== 'intro') for (const f of [this.player, this.opp]) { // obsidian pistols
+        if (f === this.opp && this.shattered) continue;
+        const gx = Math.round(f.x + f.facing * 13 - scam.x), gy = Math.round(f.y - 40 - scam.y), d = f.facing;
+        w.fillStyle = '#121216'; w.fillRect(d > 0 ? gx : gx - 9, gy, 9, 3); w.fillRect(d > 0 ? gx : gx - 3, gy + 3, 3, 4);
+        w.fillStyle = '#4a4a58'; w.fillRect(d > 0 ? gx + 1 : gx - 8, gy, 6, 1);
+      }
       this.fx.render(w, scam);
       if (this.fx.flash > 0) { w.globalAlpha = this.fx.flash * 0.5; w.fillStyle = '#fff'; w.fillRect(0, 0, VW, VH); w.globalAlpha = 1; }
       const cardsOnTop = !!style.compose || KF.Present.onTop(style.id);
@@ -357,6 +390,13 @@
 
     drawProjectile(ctx, p, cam, t) {
       const x = Math.round(p.x - cam.x), y = Math.round(p.y - cam.y), dir = Math.sign(p.vx);
+      if (p.kind === 'bullet') { // SUPERHOT bullet: a black slug with a long trail behind it
+        const sp = Math.hypot(p.vx, p.vy) || 1, ux = p.vx / sp, uy = p.vy / sp, mine = p.owner === this.player;
+        ctx.strokeStyle = mine ? 'rgba(40,40,48,0.35)' : 'rgba(230,20,10,0.55)'; ctx.lineWidth = 1.5;
+        ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - ux * Math.min(60, p.t * sp), y - uy * Math.min(60, p.t * sp)); ctx.stroke();
+        ctx.fillStyle = '#121216'; ctx.beginPath(); ctx.arc(x, y, 2, 0, 7); ctx.fill();
+        return;
+      }
       if (p.kind === 'wave') {
         for (let i = 1; i <= 4; i++) { ctx.globalAlpha = 0.25 / i; ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(x - dir * i * 6, y, 8 - i, 0, 7); ctx.fill(); }
         ctx.globalAlpha = 1;
@@ -415,9 +455,15 @@
       bar(this.opp, VW - 160, true);
       R('#0a0610', VW / 2 - 15, 2, 30, 22); R('#2a1630', VW / 2 - 14, 3, 28, 20);
       BT.draw(ctx, String(Math.ceil(Math.max(0, this.timer ?? ROUND_TIME))).padStart(2, '0'), VW / 2, 12, 2, 'steel');
+      if (!this.paused) KF.UI.pauseButton(ctx, this, VW / 2 + 19, 4);
+      if (this.superhot) { // rounds left, under your special meter
+        const g = this.gun;
+        for (let i = 0; i < 6; i++) R(i < g.ammo ? '#1a1a1e' : 'rgba(26,26,30,0.25)', 10 + i * 6, VH - 34, 4, 7);
+        if (g.ammo <= 0) F.draw(ctx, 'RELOADING... MOVE!', 48, VH - 34, '#d01008', 1, 'left');
+      }
       const label = this.mode === 'boss' ? 'BOSS' : this.mode === 'arena' ? `ARENA WIN ${this.opts.streak}` : 'STREET FIGHT';
       F.draw(ctx, label, VW / 2, 27, this.mode === 'boss' ? '#ff6050' : '#ff9ad0', 1, 'center', '#000');
-      if (this.round === 1 && this.phase !== 'result' && (this.timer ?? ROUND_TIME) > ROUND_TIME - 10) F.draw(ctx, 'J PUNCH (X3 COMBO)  K KICK  L SPECIAL  S BLOCK', VW / 2, 40, '#c8c0d8', 1, 'center', '#000');
+      if (this.round === 1 && this.phase !== 'result' && (this.timer ?? ROUND_TIME) > ROUND_TIME - 10) { const k = this.engine.input.keys(); F.draw(ctx, this.superhot ? 'CLICK TO SHOOT   TIME MOVES WHEN YOU MOVE' : `${k.punch} PUNCH (X3)  ${k.kick} KICK  ${k.special} SPECIAL  ${k.block} BLOCK`, VW / 2, 40, '#c8c0d8', 1, 'center', '#000'); }
     }
 
     // The world's own FIGHT!, K.O. and result cards (js/present.js).
@@ -474,20 +520,16 @@
           F.draw(ctx, `+${this.coins} COINS`, VW / 2 - 18, 145, '#ffd040', 1, 'left', '#000');
         } else if (!this.won && this.mode !== 'arena') F.draw(ctx, 'TIP: UPGRADE IN THE DOJO SHOP, OR BLOCK MORE (S)', VW / 2, 145, '#b8b0c8', 1, 'center', '#000');
         if (this.mode === 'arena') F.draw(ctx, `BEST STREAK ${KF.Save.data.arena.best}`, VW / 2, 145, '#9ad8ff', 1, 'center', '#000');
-        if (pt > 0.8) this.options().forEach((o, i) => {
-          const sel = i === this.menuSel;
-          F.draw(ctx, (sel ? '> ' : '  ') + o, VW / 2, 157 + i * 10, sel ? '#ffd040' : '#b8b0c8', 1, 'center', '#000');
-        });
+        if (pt > 0.8) KF.UI.menu(ctx, this, this.options(), this.menuSel, 155, 120);
       }
       if (this.paused) {
         ctx.fillStyle = 'rgba(8,4,16,0.7)'; ctx.fillRect(0, 0, VW, VH);
         BT.draw(ctx, 'PAUSED', VW / 2, 70, 4, 'steel');
-        ['RESUME', 'RESTART FIGHT', 'QUIT'].forEach((o, i) => {
-          const sel = i === this.pauseSel;
-          F.draw(ctx, (sel ? '> ' : '  ') + o, VW / 2, 104 + i * 14, sel ? '#ffd040' : '#b8b0c8', 1, 'center', '#000');
-        });
-        F.draw(ctx, 'MOVE A/D  JUMP W  BLOCK S  PUNCH J  KICK K  SPECIAL L', VW / 2, 170, '#9a90b0', 1, 'center');
-        F.draw(ctx, 'PUNCH 3X FAST FOR A COMBO. HITS FILL YOUR SPECIAL METER.', VW / 2, 182, '#7a7094', 1, 'center');
+        KF.UI.menu(ctx, this, ['RESUME', 'RESTART FIGHT', 'QUIT'], this.pauseSel, 98);
+        const k = this.engine.input.keys();
+        F.draw(ctx, `MOVE ${k.move}  JUMP ${k.jump}  BLOCK ${k.block}  PUNCH ${k.punch}  KICK ${k.kick}  SPECIAL ${k.special}`, VW / 2, 160, '#9a90b0', 1, 'center');
+        F.draw(ctx, this.superhot ? 'MOUSE: AIM + CLICK TO SHOOT (OR F / V)' : 'MOUSE: LEFT CLICK PUNCH, RIGHT CLICK KICK', VW / 2, 172, '#7a7094', 1, 'center');
+        KF.UI.pauseButton(ctx, this, VW / 2 + 19, 4);
       }
     }
   }

@@ -16,6 +16,57 @@
       if (sub) F.draw(ctx, sub, VW / 2, 29, '#9ad8ff', 1, 'center', '#000');
       KF.HUD.coins(ctx, VW - 8, 6, t);
     },
+    // ---- mouse ----
+    // Scenes register clickable rectangles while they draw; update() asks what was clicked.
+    region(scene, id, x, y, w, h) { (scene.hits || (scene.hits = [])).push({ id, x, y, w, h }); },
+    under(scene) {
+      const m = KF.engine.input.mouse;
+      if (!m.seen || !scene.hits) return null;
+      for (let i = scene.hits.length - 1; i >= 0; i--) { const r = scene.hits[i]; if (m.x >= r.x && m.x < r.x + r.w && m.y >= r.y && m.y < r.y + r.h) return r.id; }
+      return null;
+    },
+    hover(scene, id) { return this.under(scene) === id; },
+    clicked(scene) { return KF.engine.input.clicked ? this.under(scene) : null; },
+    // A small plate button. Highlighted when hovered or `on`.
+    button(ctx, scene, id, x, y, w, h, label, on = false) {
+      const hot = on || this.hover(scene, id);
+      R(ctx, hot ? '#ffd040' : '#0a0610', x - 1, y - 1, w + 2, h + 2);
+      R(ctx, hot ? '#3a2c5a' : '#1c1630', x, y, w, h);
+      F.draw(ctx, label, x + w / 2, y + Math.round((h - 7) / 2), hot ? '#ffffff' : '#c8c0d8', 1, 'center');
+      this.region(scene, id, x, y, w, h);
+    },
+    // A row of buttons spread across the footer: items = [[id, label], ...].
+    buttonBar(ctx, scene, items, y = 197) {
+      const VH = KF.VIEW_H;
+      R(ctx, 'rgba(8,4,16,0.82)', 0, 192, VW, VH - 192);
+      R(ctx, 'rgba(255,255,255,0.10)', 0, 192, VW, 1);
+      const gap = 6, widths = items.map(([, l]) => F.measure(l, 1) + 12), total = widths.reduce((a, b) => a + b, 0) + gap * (items.length - 1);
+      let x = Math.round(VW / 2 - total / 2);
+      items.forEach(([id, label], i) => { this.button(ctx, scene, id, x, y, widths[i], 13, label); x += widths[i] + gap; });
+    },
+    // A vertical menu of buttons (ids m0, m1, ...). menuInput() handles keys, hover and clicks:
+    // it returns the chosen index once (Enter/Space or a click), and keeps scene[selKey] in sync.
+    menu(ctx, scene, opts, sel, y, w = 132) {
+      opts.forEach((o, i) => this.button(ctx, scene, 'm' + i, VW / 2 - w / 2, y + i * 16, w, 13, o, i === sel));
+    },
+    menuInput(scene, input, n, selKey) {
+      const A = KF.Audio, h = this.under(scene);
+      if (input.wasPressed('ArrowUp', 'KeyW')) { scene[selKey] = (scene[selKey] + n - 1) % n; A.sfx('select'); }
+      if (input.wasPressed('ArrowDown', 'KeyS')) { scene[selKey] = (scene[selKey] + 1) % n; A.sfx('select'); }
+      if (h && h[0] === 'm' && input.mouse.moved) { const i = +h.slice(1); if (i !== scene[selKey] && i < n) scene[selKey] = i; }
+      if (input.clicked && h && h[0] === 'm') return +h.slice(1);
+      if (input.wasPressed('Enter', 'Space')) return scene[selKey];
+      return -1;
+    },
+    // The pause button: two bars in a small square.
+    pauseButton(ctx, scene, x, y) {
+      const hot = this.hover(scene, 'pause');
+      R(ctx, hot ? '#ffd040' : 'rgba(255,255,255,0.25)', x, y, 11, 11);
+      R(ctx, hot ? '#3a2c5a' : 'rgba(8,4,16,0.85)', x + 1, y + 1, 9, 9);
+      R(ctx, '#ffffff', x + 3, y + 3, 2, 5); R(ctx, '#ffffff', x + 6, y + 3, 2, 5);
+      this.region(scene, 'pause', x - 2, y - 2, 15, 15);
+    },
+
     footer(ctx, keys, hint) {
       const VH = KF.VIEW_H;
       R(ctx, 'rgba(8,4,16,0.82)', 0, 192, VW, VH - 192);
@@ -54,8 +105,9 @@
       F.draw(ctx, `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`, VW / 2, 3, '#c8c0d8', 1, 'center', '#000');
       const pulse = s.deathPulse > 0 && Math.floor(t * 20) % 2;
       const dt = `${s.deaths}`, dw = F.measure(dt, 1);
-      F.draw(ctx, dt, VW - 6, 3, pulse ? '#ffffff' : '#ff7a5a', 1, 'right', '#000');
-      this.skull(ctx, VW - 6 - dw - 9, 3, pulse ? '#ffffff' : '#ff7a5a');
+      F.draw(ctx, dt, VW - 20, 3, pulse ? '#ffffff' : '#ff7a5a', 1, 'right', '#000');
+      this.skull(ctx, VW - 20 - dw - 9, 3, pulse ? '#ffffff' : '#ff7a5a');
+      if (s.scene) KF.UI.pauseButton(ctx, s.scene, VW - 13, 1);
       // Status warnings live at the bottom, away from ceiling-walking action.
       if (s.reversed) F.draw(ctx, Math.floor(t * 6) % 2 ? 'CONTROLS REVERSED!' : '!DESREVER SLORTNOC', VW / 2, VH - 11, '#ff70d8', 1, 'center', '#000');
       if (s.flipped) F.draw(ctx, 'GRAVITY FLIPPED', VW / 2, s.reversed ? VH - 20 : VH - 11, '#a89aff', 1, 'center', '#000');

@@ -32,9 +32,12 @@
       if (inp.wasPressed('ArrowLeft', 'KeyA')) { this.sel = Math.max(0, this.sel - 1); A.sfx('select'); }
       if (inp.wasPressed('ArrowRight', 'KeyD')) { if (this.sel < max) { this.sel++; A.sfx('select'); } else A.sfx('bonk'); }
       this.scroll += (this.sel - this.scroll) * Math.min(1, dt * 10);
-      if (inp.wasPressed('Escape')) e.go(() => new KF.MapScene(e));
-      if (inp.wasPressed('KeyC')) e.go(() => new KF.ShopScene(e, { back: this.r }));
-      if (inp.wasPressed('Enter', 'Space')) {
+      const click = KF.UI.clicked(this);
+      let go = inp.confirm || click === 'go';
+      if (click && click[0] === 'c') { const i = +click.slice(1); if (i === this.sel) go = true; else if (i <= max) { this.sel = i; A.sfx('select'); } else A.sfx('bonk'); }
+      if (inp.back || click === 'back') e.go(() => new KF.MapScene(e));
+      if (inp.wasPressed('KeyC') || click === 'shop') e.go(() => new KF.ShopScene(e, { back: this.r }));
+      if (go) {
         A.sfx('confirm');
         const i = this.sel, r = this.r;
         const prev = Math.floor((i - 1) / 2), style = i % 2 ? KF.Styles.forStage(this.door.id, prev, this.door.stages[prev]).id : null;
@@ -47,7 +50,8 @@
       const n = this.node(i), sel = i === this.sel, open = i <= this.save.node, done = this.save.won[i];
       const x = Math.round(cx - CW / 2), y = 44 + (sel ? -3 : 0);
       const edge = sel ? '#ffd040' : n.kind === 'boss' ? '#a02030' : '#0a0610';
-      R(ctx, edge, x - 2, y - 2, CW + 4, CH + 4);
+      R(ctx, sel ? edge : KF.UI.hover(this, 'c' + i) ? '#6a5a8a' : edge, x - 2, y - 2, CW + 4, CH + 4);
+      KF.UI.region(this, 'c' + i, x - 2, y - 2, CW + 4, CH + 4);
       R(ctx, '#161226', x, y, CW, CH);
       const tw = CW - 8, th = 63;
       if (n.kind === 'level') KF.blit(ctx, KF.Render.thumb(n.style.theme || n.def.theme, tw, th, n.style.id), x + 4, y + 4);
@@ -94,7 +98,7 @@
       else { a = `${n.name} RULES THIS REALM`; b = `REWARD ${first ? 80 + 20 * this.r : 20}   ` + (this.r === KF.Doors.length - 1 ? 'THE FINAL BOSS' : 'WIN TO UNLOCK THE NEXT REALM'); }
       F.draw(ctx, a, VW / 2, 166, n.kind === 'level' ? '#ffd040' : '#ffb0a0', 1, 'center', '#000');
       F.draw(ctx, b, VW / 2, 177, '#c8c0d8', 1, 'center', '#000');
-      KF.UI.footer(ctx, 'ENTER: GO    A/D: CHOOSE    C: SHOP    ESC: MAP');
+      KF.UI.buttonBar(ctx, this, [['go', 'GO (ENTER)'], ['shop', 'SHOP (C)'], ['back', 'MAP (ESC)']]);
     }
   }
   KF.RealmScene = RealmScene;
