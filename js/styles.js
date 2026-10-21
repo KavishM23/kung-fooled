@@ -8,7 +8,7 @@
 //   res                   1 = render the world chunky (retro palettes), 2 = full detail
 //   extrude               draw solid tiles as 3D blocks
 //   light                 darkness with a light radius around the player { r, color, min }
-//   ko / koCard           what a death says;  audio: { lowpass }  muffles the sound
+//   audio: { lowpass }    muffles the sound. (K.O. cards, start/win text and sounds: js/present.js)
 // info: { t, frame, res, player: {x, y} (logical screen px), rnd() (per-frame random), fight (true in fights: keep clear of the meters) }
 (function (KF) {
   const VW = KF.VIEW_W, VH = KF.VIEW_H, U = KF.util;
@@ -123,7 +123,7 @@
   S.hd = { name: 'HIGH DEFINITION' };
 
   S.oldtv = {
-    name: 'OLD TV', ko: 'CUT!', audio: { lowpass: 2600 },
+    name: 'OLD TV', audio: { lowpass: 2600 },
     post(d, W, H, i) { mapLum(d, W * H, LUT.gray, 1.25, 38, i.frame, W); },
     overlay(ctx, i) {
       scanlines(ctx, 0.25);
@@ -136,7 +136,7 @@
   };
 
   S.silent = {
-    name: 'SILENT FILM', koCard: ['ALAS!', 'OUR HERO HAS PERISHED.'], audio: { lowpass: 1700 },
+    name: 'SILENT FILM', audio: { lowpass: 1700 },
     post(d, W, H, i) { mapLum(d, W * H, LUT.sepia, 1.2 + (i.rnd() - 0.5) * 0.08, 34, i.frame, W); },
     overlay(ctx, i) {
       for (let k = 0; k < 2; k++) if (i.rnd() < 0.7) R(ctx, i.rnd() < 0.5 ? 'rgba(30,20,10,0.45)' : 'rgba(255,245,220,0.35)', i.rnd() * VW, 0, 0.5, VH);
@@ -146,7 +146,7 @@
   };
 
   S.comic = {
-    name: 'COMIC', ko: 'POW!',
+    name: 'COMIC',
     post(d, W, H, i) {
       const n = W * H, L = lumArray(d, n), E = sobel(L, W, H);
       for (let k = 0; k < n; k++) {
@@ -167,7 +167,7 @@
   };
 
   S.vhs = {
-    name: 'VHS', ko: 'STOP', audio: { lowpass: 5200 },
+    name: 'VHS', audio: { lowpass: 5200 },
     post(d, W, H, i) {
       const src = d.slice(), seed = Math.floor(i.t * 6);
       const band = ((i.t * 50) % (H + 60)) - 30;
@@ -214,7 +214,7 @@
   // Phone-camera AR parody: the stage is a tilted plane over a "camera feed", with a phone UI.
   let feed = null;
   S.pocket = {
-    name: 'AR MODE', ko: 'IT FLED!',
+    name: 'AR MODE',
     compose(ctx, wc, i) {
       if (!feed) {
         feed = KF.makeHi(VW, VH); const x = feed.getContext('2d');
@@ -246,7 +246,7 @@
   };
 
   S.noir = {
-    name: 'NOIR', ko: 'THE END',
+    name: 'NOIR',
     post(d, W, H, i) {
       mapLum(d, W * H, LUT.gray, 1.6, 20, i.frame, W);
       if (!(i.t % 6 < 0.12)) lightRadius(d, W, H, i, 46, 70, 0.1, [1, 1, 1]); // lightning lights it all briefly
@@ -262,7 +262,7 @@
   S.cga = { name: 'CGA', res: 1, post(d, W, H) { paletteDither(d, W, H, ['#000000', '#00aaaa', '#aa00aa', '#55ffff', '#ff55ff', '#ffffff'], 0.16); } };
 
   S.glitch = {
-    name: 'GLITCH', ko: 'ERR 0xDEAD',
+    name: 'GLITCH',
     post(d, W, H, i) {
       const src = d.slice(), seed = Math.floor(i.t * 9);
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
@@ -295,7 +295,7 @@
   };
 
   S.thermal = {
-    name: 'THERMAL', playerGlow: 0.75, ko: 'COLD',
+    name: 'THERMAL', playerGlow: 0.75,
     post(d, W, H) { mapLum(d, W * H, LUT.thermal, 1.15); },
     overlay(ctx, i) {
       ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 0.5;
@@ -324,7 +324,7 @@
   };
 
   S.ink = {
-    name: 'INK WASH', ko: 'FALLEN',
+    name: 'INK WASH',
     post(d, W, H, i) {
       const n = W * H, L = lumArray(d, n), E = sobel(L, W, H), tones = [[26, 24, 26], [80, 78, 80], [158, 152, 140]];
       for (let k = 0; k < n; k++) {
@@ -367,10 +367,10 @@
     },
   };
 
-  S.negative = { name: 'NEGATIVE', ko: 'O.K.', post(d, W, H) { for (let k = 0; k < W * H; k++) { const o = k * 4; d[o] = 255 - d[o]; d[o + 1] = 255 - d[o + 1]; d[o + 2] = Math.min(255, 275 - d[o + 2]); } } };
+  S.negative = { name: 'NEGATIVE', post(d, W, H) { for (let k = 0; k < W * H; k++) { const o = k * 4; d[o] = 255 - d[o]; d[o + 1] = 255 - d[o + 1]; d[o + 2] = Math.min(255, 275 - d[o + 2]); } } };
 
   S.cinema = {
-    name: 'CINEMASCOPE', ko: 'FIN',
+    name: 'CINEMASCOPE',
     post(d, W, H, i) {
       for (let k = 0; k < W * H; k++) {
         const o = k * 4, l = lum(d, o) / 255;
@@ -383,7 +383,7 @@
   };
 
   S.popart = {
-    name: 'POP ART', ko: 'WHAAM',
+    name: 'POP ART',
     post(d, W, H) {
       const n = W * H, L = lumArray(d, n), E = sobel(L, W, H), pal = [[26, 26, 106], [255, 42, 138], [255, 208, 42], [248, 248, 240]];
       for (let k = 0; k < n; k++) {
@@ -444,7 +444,7 @@
   };
 
   S.dream = {
-    name: 'DREAM', ko: 'WAKE UP',
+    name: 'DREAM',
     post(d, W, H) {
       const bw = Math.ceil(W / 8), bh = Math.ceil(H / 8), B = new Float32Array(bw * bh * 3);
       for (let y = 0; y < H; y += 2) for (let x = 0; x < W; x += 2) { // bright-pass, box-downsampled
@@ -478,7 +478,7 @@
   };
 
   S.emboss = {
-    name: 'RUNESTONE', ko: 'CARVED',
+    name: 'RUNESTONE',
     post(d, W, H, i) {
       const n = W * H, L = lumArray(d, n), r = i.res;
       for (let k = 0; k < n; k++) {
@@ -509,13 +509,13 @@
   };
 
   S.candle = {
-    name: 'CANDLELIGHT', ko: 'SNUFFED',
+    name: 'CANDLELIGHT',
     post(d, W, H, i) { mapLum(d, W * H, LUT.candle, 1.2); lightRadius(d, W, H, i, 40 + Math.sin(i.t * 13) * 2 + Math.sin(i.t * 7) * 2, 80, 0.13, [1, 0.95, 0.85]); },
   };
 
   let frostCanvas = null;
   S.frost = {
-    name: 'FROSTBITE', ko: 'FROZEN',
+    name: 'FROSTBITE',
     post(d, W, H) { for (let k = 0; k < W * H; k++) { const o = k * 4, l = lum(d, o); d[o] = d[o] * 0.45 + l * 0.4 + 10; d[o + 1] = d[o + 1] * 0.45 + l * 0.45 + 26; d[o + 2] = d[o + 2] * 0.45 + l * 0.45 + 60; } },
     overlay(ctx) {
       if (!frostCanvas) {
@@ -538,7 +538,7 @@
   };
 
   S.golden = {
-    name: 'GILDED', ko: 'GLORY',
+    name: 'GILDED',
     post(d, W, H, i) {
       mapLum(d, W * H, LUT.gold, 1.1);
       for (let k = 0; k < W * H; k += 7) { const o = k * 4; if (d[o] > 248 && hashNoise(k, i.frame >> 3, 2) < 0.08) { d[o] = d[o + 1] = d[o + 2] = 255; } }
@@ -548,11 +548,11 @@
   };
 
   // Text-mode stage: everything is a character. You are the @.
-  S.ascii = { name: 'TEXT MODE', theme: 'ascii', ko: 'YOU DIED', post: null };
+  S.ascii = { name: 'TEXT MODE', theme: 'ascii', post: null };
   // Fake crash: the stage is drawn on an error screen, platforms are error text.
-  S.bsod = { name: 'FATAL ERROR', theme: 'bsod', ko: 'FATAL', crashIntro: true };
+  S.bsod = { name: 'FATAL ERROR', theme: 'bsod', crashIntro: true };
   // 3D: solid tiles are extruded into blocks toward a vanishing point.
-  S.cube3d = { name: '3D', extrude: true, ko: '3D K.O.' };
+  S.cube3d = { name: '3D', extrude: true };
 
   // ---------- themes used by styles ----------
   const glyph = (ctx, ch, x, y, color, s = 2) => F().draw(ctx, ch, x, y, color, s, 'center');

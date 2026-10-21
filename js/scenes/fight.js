@@ -9,6 +9,28 @@
   const VW = KF.VIEW_W, VH = KF.VIEW_H, FLOOR = KF.Fight.FLOOR;
   const ROUND_TIME = 60;
 
+  // SUPERHOT look for an opponent whose sprite isn't already crystal: every pixel becomes red
+  // glass, shaded in triangular facets so it reads as a cut gem rather than a red silhouette.
+  function crystalize(set) {
+    const frames = {};
+    for (const name in set.frames) frames[name] = set.frames[name].map((fr) => {
+      const src = fr.img, c = KF.makeCanvas(src.width, src.height), x = c.getContext('2d');
+      x.drawImage(src, 0, 0);
+      const img = x.getImageData(0, 0, c.width, c.height), d = img.data, W = c.width, cell = Math.max(4, Math.round(W / 14));
+      for (let y = 0, o = 0; y < c.height; y++) for (let xx = 0; xx < W; xx++, o += 4) {
+        if (!d[o + 3]) continue;
+        const l = (d[o] * 77 + d[o + 1] * 150 + d[o + 2] * 29) >> 8;
+        const cx = Math.floor(xx / cell), cy = Math.floor(y / cell), upper = (xx % cell) + (y % cell) < cell ? 0 : 1;
+        const facet = U.hash2(cx * 2 + upper, cy) * 0.55 - 0.2, v = U.clamp(l / 255 * 0.7 + facet, 0, 1);
+        if (l < 40) { d[o] = 90; d[o + 1] = 6; d[o + 2] = 8; continue; } // outline stays dark red
+        d[o] = 170 + v * 85; d[o + 1] = 14 + v * v * 120; d[o + 2] = 10 + v * v * 90;
+      }
+      x.putImageData(img, 0, 0);
+      return Object.assign({}, fr, { img: c });
+    });
+    return Object.assign({}, set, { frames });
+  }
+
   class FightScene {
     constructor(engine, opts) {
       this.engine = engine;
@@ -26,6 +48,11 @@
       this.player = new KF.Fight.Fighter({ name: 'BAO', look: KF.Economy.look(), stats: ps, color: '#7cf0ff' }, 110, 1);
       this.opp = new KF.Fight.Fighter(this.oppDef, VW - 110, -1);
       this.ai = new KF.Fight.AI(this.oppDef.d);
+      // SUPERHOT: time moves only while you do (see js/rules.js).
+      const rule = KF.Rules && KF.Rules.all[this.style.id];
+      this.superhot = !!(rule && rule.superhot);
+      this.timeK = 1; this.shards = []; this.shattered = false;
+      if (this.superhot && !(this.oppDef.look && this.oppDef.look.material === 'crystal')) this.opp.sprites = crystalize(this.opp.sprites);
       this.wins = [0, 0];
       this.round = 1;
       this.fx = new KF.FX();
@@ -46,6 +73,7 @@
       this.player.reset(110, 1); this.opp.reset(VW - 110, -1);
       this.player.meter = pm; this.opp.meter = om;
       this.projectiles = [];
+      this.shards = []; this.shattered = false; this.timeK = 1;
       this.timer = ROUND_TIME;
       this.ai = new KF.Fight.AI(this.oppDef.d);
       this.setPhase('round');
@@ -103,10 +131,36 @@
       this.hitstop = 0.25;
       this.slow = 0.3;
       this.fx.flash = 1; this.fx.shake(8, 0.5);
-      A.sfx('hit'); A.sfx('ko');
+      A.sfx('hit'); KF.Present.sfx(this.style.id, 'death'); // the world's own K.O. stinger
+      if (this.superhot && loser === this.opp) this.shatter(loser);
       this.koWinner = winner;
       this.setPhase('ko');
       this.mood.cheer = 1.5;
+    }
+
+    // The crystal opponent breaks into red triangles that drift in slow motion.
+    shatter(f) {
+      this.shattered = true;
+      const rnd = U.rng(Math.floor(this.engine.time * 1000) + 7);
+      for (let i = 0; i < 46; i++) {
+        const x = f.x + (rnd() - 0.5) * 26, y = f.y - 6 - rnd() * 60;
+        const ang = Math.atan2(y - (f.y - 34), x - f.x) + (rnd() - 0.5) * 0.8, sp = 60 + rnd() * 200;
+        const sz = 2 + rnd() * 6, pts = [0, 1, 2].map((k) => { const a = rnd() * 6.28; return [Math.cos(a) * sz, Math.sin(a) * sz]; });
+        this.shards.push({ x, y, vx: Math.cos(ang) * sp + f.facing * -40, vy: Math.sin(ang) * sp - 120, rot: rnd() * 6, vr: (rnd() - 0.5) * 10, pts,
+          col: ['#ff2a1a', '#d01008', '#ff6a50', '#a00806', '#ffb0a0'][Math.floor(rnd() * 5)] });
+      }
+      this.fx.shake(10, 0.6);
+    }
+    updateShards(dt) {
+      for (const p of this.shards) {
+        p.vy += 520 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt;
+        if (p.y > FLOOR) { p.y = FLOOR; p.vy *= -0.3; p.vx *= 0.6; p.vr *= 0.5; }
+      }
+    }
+    // How hard the player is acting right now (1 = moving/attacking, 0 = hands off).
+    activity(inp) {
+      const P = this.player;
+      return inp.left || inp.right || inp.block || inp.jump || inp.punch || inp.kick || inp.special || P.state === 'attack' || !P.grounded ? 1 : 0;
     }
 
     updateProjectiles(dt) {
@@ -145,7 +199,7 @@
       }
       if (this.phase === 'round') {
         if (this.cue('r', 0.02)) { A.sfx('round'); this.fx.shake(3, 0.2); }
-        if (this.cue('go', 0.9)) { A.sfx('go'); this.fx.shake(5, 0.25); }
+        if (this.cue('go', 0.9)) { KF.Present.sfx(this.style.id, 'go'); this.fx.shake(5, 0.25); }
         P.update(dt, {}, O, this); O.update(dt, {}, P, this);
         if (this.phaseT > 1.2) this.setPhase('fight');
         return;
@@ -158,11 +212,18 @@
       if (this.slow < 1) this.slow = Math.min(1, this.slow + dt * 0.8);
 
       if (this.phase === 'fight') {
-        this.timer -= dt;
-        P.update(sdt, this.playerInput(), O, this);
-        O.update(sdt, this.ai.update(sdt, O, P, this), P, this);
+        const inp = this.playerInput();
+        let fdt = sdt;
+        if (this.superhot) { // time crawls when you're still; eases up fast, settles slower
+          const target = this.activity(inp) ? 1 : 0.05;
+          this.timeK += (target - this.timeK) * Math.min(1, dt * (target > this.timeK ? 16 : 6));
+          fdt = sdt * this.timeK;
+        }
+        this.timer -= this.superhot ? dt * this.timeK : dt;
+        P.update(fdt, inp, O, this);
+        O.update(fdt, this.ai.update(fdt, O, P, this), P, this);
         this.resolveHits(P, O); this.resolveHits(O, P);
-        this.updateProjectiles(sdt);
+        this.updateProjectiles(fdt);
         if (P.state !== 'hit' && P.state !== 'down') O.combo = 0;
         if (O.state !== 'hit' && O.state !== 'down') P.combo = 0;
         // Bodies don't overlap.
@@ -176,9 +237,11 @@
           this.timer = 0;
           const w = P.hp / P.maxHp >= O.hp / O.maxHp ? P : O;
           (w === P ? O : P).setState('ko');
-          this.koWinner = w; this.timeUp = true; this.setPhase('ko'); A.sfx('ko');
+          this.koWinner = w; this.timeUp = true; this.setPhase('ko'); KF.Present.sfx(this.style.id, 'death');
         }
       } else if (this.phase === 'ko') {
+        if (this.superhot) this.timeK = Math.min(1, this.timeK + dt * 2);
+        this.updateShards(dt * 0.35);
         P.update(sdt, {}, O, this); O.update(sdt, {}, P, this);
         this.updateProjectiles(sdt);
         if (this.phaseT > 1.1 && this.koWinner.grounded && this.koWinner.state !== 'win') {
@@ -200,10 +263,10 @@
           this.coins = KF.Economy.earn(10 + 3 * this.opts.streak);
           const a = KF.Save.data.arena; a.best = Math.max(a.best, this.opts.streak + 1); KF.Save.write();
         } else this.coins = KF.Save.completeNode(this.realm.id, this.opts.node);
-        A.sfx('win');
+        if (KF.Present.has(this.style.id, 'win')) KF.Present.sfx(this.style.id, 'win'); else A.sfx('win');
         this.fx.confetti(this.player.x, this.player.y - 40);
       } else {
-        A.sfx('lose');
+        KF.Present.sfx(this.style.id, 'lose');
         if (this.mode === 'arena') this.coins = KF.Economy.earn(2 + this.opts.streak);
       }
       this.setPhase('result');
@@ -262,16 +325,32 @@
       const scam = { x: -sh.x, y: -sh.y };
       // Draw the one being hit behind the attacker.
       const order = this.opp.state === 'attack' ? [this.player, this.opp] : [this.opp, this.player];
-      if (this.phase !== 'intro') for (const f of order) f.draw(w, scam);
+      if (this.phase !== 'intro') for (const f of order) if (!(f === this.opp && this.shattered)) f.draw(w, scam);
+      for (const p of this.shards) {
+        w.save(); w.translate(Math.round(p.x - scam.x), Math.round(p.y - scam.y)); w.rotate(p.rot);
+        w.fillStyle = p.col; w.beginPath(); w.moveTo(p.pts[0][0], p.pts[0][1]); w.lineTo(p.pts[1][0], p.pts[1][1]); w.lineTo(p.pts[2][0], p.pts[2][1]); w.closePath(); w.fill();
+        w.restore();
+      }
       for (const p of this.projectiles) this.drawProjectile(w, p, scam, t);
       this.fx.render(w, scam);
       if (this.fx.flash > 0) { w.globalAlpha = this.fx.flash * 0.5; w.fillStyle = '#fff'; w.fillRect(0, 0, VW, VH); w.globalAlpha = 1; }
+      const cardsOnTop = !!style.compose || KF.Present.onTop(style.id);
+      if (!cardsOnTop) this.drawCards(w, t); // into the world, so the style's palette applies
       const info = KF.Styles.info(t, this.engine.frame || 0, res, this.player.x, this.player.y - 30, this.player.x, true);
       KF.Styles.post(style, this.wc, info);
-      if (style.compose) style.compose(ctx, this.wc, info); else KF.blit(ctx, this.wc, 0, 0);
+      const glitch = this.superhot && ((this.phase === 'round' && this.phaseT < 0.35) || (this.phase === 'intro' && this.phaseT > 1.5));
+      if (style.compose) style.compose(ctx, this.wc, info);
+      else if (glitch) { // SUPERHOT-style glitch cut: the picture tears into shifted slices
+        const res2 = this.wc.width / VW, seed = Math.floor(this.engine.time * 30);
+        for (let y = 0; y < VH; y += 12) {
+          const off = (U.hash2(seed, y) - 0.5) * 40, h = Math.min(12, VH - y);
+          ctx.drawImage(this.wc, 0, y * res2, this.wc.width, h * res2, off, y, VW, h);
+        }
+      } else KF.blit(ctx, this.wc, 0, 0);
       if (style.under) style.under(ctx, info);
       if (this.engine.debug) this.drawDebug(ctx, scam);
       this.drawHUD(ctx, t);
+      if (cardsOnTop) this.drawCards(ctx, t);
       this.drawOverlay(ctx, t);
       if (style.overlay) style.overlay(ctx, info);
     }
@@ -341,50 +420,63 @@
       if (this.round === 1 && this.phase !== 'result' && (this.timer ?? ROUND_TIME) > ROUND_TIME - 10) F.draw(ctx, 'J PUNCH (X3 COMBO)  K KICK  L SPECIAL  S BLOCK', VW / 2, 40, '#c8c0d8', 1, 'center', '#000');
     }
 
+    // The world's own FIGHT!, K.O. and result cards (js/present.js).
+    drawCards(ctx, t) {
+      const id = this.style.id, pt = this.phaseT;
+      if (this.phase === 'round' && pt >= 0.9) KF.Present.intro(ctx, id, pt - 0.9, { fight: true });
+      if (this.phase === 'ko' && !this.shattered) KF.Present.ko(ctx, id, pt, { fight: true, text: this.timeUp ? 'TIME' : null, deaths: this.round - 1 });
+      if (this.phase === 'result') KF.Present.win(ctx, id, pt, { fight: true, lose: !this.won, perfect: this.won && this.player.hp >= this.player.maxHp - 0.01 });
+    }
+
     drawOverlay(ctx, t) {
       const pt = this.phaseT;
       const slam = (x, from = 3.5, dur = 0.12) => (x < dur ? from - (from - 1) * (x / dur) : 1);
       if (this.phase === 'intro') { // VS card
-        ctx.fillStyle = 'rgba(8,4,16,0.75)'; ctx.fillRect(0, 50, VW, 110);
+        ctx.fillStyle = 'rgba(8,4,16,0.75)'; ctx.fillRect(0, 50, VW, 118);
         const k = Math.min(1, pt * 3);
         const drawBig = (f, x, flip) => {
-          const set = f.sprites, fr = set.frames.idle[Math.floor(pt * 4) % 4];
-          ctx.save(); ctx.translate(x, 150); ctx.scale(flip ? -1.4 : 1.4, 1.4); KF.Sprites.blit(ctx, fr, set); ctx.restore();
+          // Built at 2.5 rather than scaling the 1.8 fight set, so every pixel stays the same size.
+          const set = f.vsSet || (f.vsSet = f.sprites.look && !this.superhot ? KF.Sprites.buildSet(f.sprites.look, 2.5, ['idle']) : f.sprites);
+          const fr = set.frames.idle[Math.floor(pt * 4) % 4], k2 = set === f.sprites ? 1.4 : 1;
+          ctx.save(); ctx.translate(x, 150); ctx.scale(flip ? -k2 : k2, k2); KF.Sprites.blit(ctx, fr, set); ctx.restore();
         };
         drawBig(this.player, 30 + 60 * k, false);
         drawBig(this.opp, VW - 30 - 60 * k, true);
         BT.draw(ctx, 'VS', VW / 2, 92, 5, 'fire', slam(pt, 3, 0.15));
-        F.draw(ctx, 'BAO', 90, 140, '#7cf0ff', 1, 'center', '#000');
-        F.draw(ctx, this.opp.name, VW - 90, 140, this.opp.color, 1, 'center', '#000');
+        F.draw(ctx, 'BAO', 90, 156, '#7cf0ff', 1, 'center', '#000');
+        F.draw(ctx, this.opp.name, VW - 90, 156, this.opp.color, 1, 'center', '#000');
         const sub = this.mode === 'boss' ? `${this.realm.name} BOSS` : this.mode === 'arena' ? 'STREET ARENA' : 'A CHALLENGER APPEARS!';
         if (pt > 0.3) F.draw(ctx, sub, VW / 2, 124, this.mode === 'boss' ? '#ff6050' : '#ffd040', 1, 'center', '#000');
       }
       if (this.phase === 'round') {
         if (pt < 0.9) BT.draw(ctx, this.wins[0] === 1 && this.wins[1] === 1 ? 'FINAL ROUND' : `ROUND ${this.round}`, VW / 2, 92, 4, 'steel', slam(pt));
-        else BT.draw(ctx, 'FIGHT!', VW / 2, 96, 6, 'fire', slam(pt - 0.9, 3, 0.08));
       }
       if (this.phase === 'ko') {
         const P = this.player, O = this.opp;
         const perfect = this.koWinner.hp >= this.koWinner.maxHp - 0.01;
-        BT.draw(ctx, this.timeUp ? 'TIME' : 'K.O.', VW / 2, 92, 7, 'blood', slam(pt, 4, 0.1));
-        if (pt > 1.2) {
+        if (this.shattered) { // SUPER. HOT. SUPER. HOT.
+          if (pt > 0.45) {
+            const k = Math.floor((pt - 0.45) / 0.42);
+            if (k < 5) BT.draw(ctx, k % 2 ? 'HOT' : 'SUPER', VW / 2, 92, BT.fit ? BT.fit('SUPER', VW - 30, 8) : 7, 'superhot', slam((pt - 0.45) % 0.42, 1.6, 0.06));
+          }
+        }
+        if (pt > 1.2 && !(this.shattered && pt < 2.55)) {
           const w = this.koWinner === P ? 'BAO WINS' : `${O.name} WINS`;
           F.draw(ctx, w, VW / 2, 124, '#ffffff', 2, 'center', '#000');
           if (perfect) BT.draw(ctx, 'PERFECT', VW / 2, 150, 3, 'gold');
         }
       }
       if (this.phase === 'result') {
-        ctx.fillStyle = 'rgba(8,4,16,0.72)'; ctx.fillRect(0, 54, VW, 108);
-        BT.draw(ctx, this.won ? 'YOU WIN' : 'YOU LOSE', VW / 2, 80, 5, this.won ? 'gold' : 'blood', slam(pt, 3, 0.12));
+        // The world's own win / lose card sits above (drawCards); the details go in a band below it.
+        ctx.fillStyle = 'rgba(8,4,16,0.78)'; ctx.fillRect(0, 140, VW, 48);
         if (this.coins) {
-          KF.HUD.coin(ctx, VW / 2 - 30, 104, t);
-          F.draw(ctx, `+${this.coins} COINS`, VW / 2 - 18, 105, '#ffd040', 1, 'left', '#000');
-        }
-        if (!this.won && this.mode !== 'arena') F.draw(ctx, 'TIP: UPGRADE IN THE DOJO SHOP, OR BLOCK MORE (S)', VW / 2, 117, '#b8b0c8', 1, 'center', '#000');
-        if (this.mode === 'arena') F.draw(ctx, `BEST STREAK ${KF.Save.data.arena.best}`, VW / 2, 117, '#9ad8ff', 1, 'center', '#000');
+          KF.HUD.coin(ctx, VW / 2 - 30, 144, t);
+          F.draw(ctx, `+${this.coins} COINS`, VW / 2 - 18, 145, '#ffd040', 1, 'left', '#000');
+        } else if (!this.won && this.mode !== 'arena') F.draw(ctx, 'TIP: UPGRADE IN THE DOJO SHOP, OR BLOCK MORE (S)', VW / 2, 145, '#b8b0c8', 1, 'center', '#000');
+        if (this.mode === 'arena') F.draw(ctx, `BEST STREAK ${KF.Save.data.arena.best}`, VW / 2, 145, '#9ad8ff', 1, 'center', '#000');
         if (pt > 0.8) this.options().forEach((o, i) => {
           const sel = i === this.menuSel;
-          F.draw(ctx, (sel ? '> ' : '  ') + o, VW / 2, 130 + i * 11, sel ? '#ffd040' : '#b8b0c8', 1, 'center', '#000');
+          F.draw(ctx, (sel ? '> ' : '  ') + o, VW / 2, 157 + i * 10, sel ? '#ffd040' : '#b8b0c8', 1, 'center', '#000');
         });
       }
       if (this.paused) {

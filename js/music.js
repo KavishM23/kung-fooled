@@ -101,5 +101,15 @@
         { drum: true, seq: 'k . . . s . k . k . . . s . s s' },
       ],
     },
+    // Realm 8: Neo-Tokyo 2099, a driving synth line in A minor with gated arps.
+    cyber: {
+      bpm: 128,
+      parts: [
+        { wave: 'sawtooth', vol: 0.1, seq: 'A1 A1 A2 A1 A1 A2 A1 A2 F1 F1 F2 F1 F1 F2 F1 F2 C2 C2 C3 C2 C2 C3 C2 C3 G1 G1 G2 G1 G1 G2 E2 G2' },
+        { wave: 'square', vol: 0.06, seq: 'E5 - - - C5 - A4 - B4 - C5 - D5 - - - C5 - - - A4 - F4 - E4 - - - . . . . G4 - C5 - E5 - G5 - F5 - E5 - D5 - - - B4 - G4 - A4 - B4 - C5 - D5 - E5 - - - . . . .' },
+        { wave: 'square', vol: 0.03, seq: 'A4 C5 E5 A5 E5 C5 A4 C5 F4 A4 C5 F5 C5 A4 F4 A4 C5 E5 G5 C6 G5 E5 C5 E5 G4 B4 D5 G5 D5 B4 G4 B4' },
+        { drum: true, seq: 'k . h . s . h k k . h . s . h o' },
+      ],
+    },
   };
 })(window.KF);

@@ -9,6 +9,7 @@
     { id: 'train', name: 'TRAIN', sub: 'SKY EXPRESS', theme: 'train', music: 'train', stages: [] },
     { id: 'sakura', name: 'SAKURA', sub: 'SPRING VALLEY', theme: 'sakura', music: 'sakura', stages: [] },
     { id: 'viking', name: 'VIKING', sub: 'FROZEN FJORD', theme: 'viking', music: 'viking', stages: [] },
+    { id: 'cyber', name: 'CYBER', sub: 'NEO-TOKYO 2099', theme: 'env_cyberpunk', music: 'cyber', stages: [] },
   ];
   KF.Levels = KF.Levels || {};
 

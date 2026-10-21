@@ -68,6 +68,11 @@
     step(dt, input) {
       const p = this.player, w = this.world;
       dt *= this.rule.timeScale || 1;
+      // SUPERHOT: with no input the whole world (you included) crawls; any input runs it at speed.
+      if (this.rule.superhot) {
+        this.timeK = input.left || input.right || input.jumpHeld || input.jumpPressed ? 1 : 0.06;
+        dt *= this.timeK;
+      }
       if (this.state !== 'play') { p.prevX = p.x; p.prevY = p.y; return; }
       this.t += dt;
 

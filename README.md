@@ -8,7 +8,24 @@ fight after each of the first four and a boss at the end. Beat the boss to unloc
 coins, which buy outfits, headgear, hair, fist wraps, stat upgrades and special moves in the Dojo.
 
 **Realms:** Rooftop at Dusk, Harbour, Neon Night Market, Temple Courtyard, Sky Express, Sakura
-Spring, Viking Fjord. Each has its own arena art, music, traps and fighters.
+Spring, Viking Fjord, and Cyber (Neo-Tokyo 2099). Each has its own music, traps and fighters,
+and every street fighter is themed to the world they guard: a 1950s TV host after the studio,
+a bowler-hatted scrapper after the silent film, a carnival strongman after the hall of mirrors.
+
+**Cyber and SUPERHOT.** The eighth realm's worlds are a neon megacity, a hologram district,
+1997-style low-poly VR, chrome Y2K and a SUPERHOT tribute. In that last world, time moves
+only when you move. Its boss, THE SYSTEM, is a red crystal man fought the same way, and he
+shatters into shards when you win.
+
+**Every world has its own K.O., start and win cards and sounds.** Some examples:
+- The 1950s studio shows an art-deco APPLAUSE sign over a scream, a laugh track and applause.
+- The silent film shows an intertitle over projector rattle and a piano sting.
+- The Game Boy world shows GAME OVER with a pulse-wave jingle.
+- The comic world shows a POW! burst with a slide whistle.
+- The woodblock print shows a red seal with a shamisen.
+- The tapestry shows HIC CADIT with lute plucks.
+
+All of it is drawn and synthesised in code (`js/present.js`, `js/audio.js`).
 
 **Every stage is a different world.** Inspired by how *There Is No Game* changes genre and
 medium every chapter, each of the 35 stages is its own place, not a recolour. Examples:
@@ -94,6 +111,7 @@ js/scenes/       title, map, realm path,   tools/solve.js level checker (Node)
                  shop, fight, play          tools/fightsim.js fight balance (Node)
 js/fight/        fighter, AI, roster        js/economy.js  shop items, upgrades, coins
 js/styles.js     per-stage visual styles   js/envs/       per-stage environments
+js/rules.js      world names + rules       js/present.js  per-world cards and sounds
 ```
 
 Each level pairs a *style* (the medium) with an *environment* (the place) and a *rule*

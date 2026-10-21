@@ -91,7 +91,7 @@
         a = n.rule || 'THE ORIGINAL. NO TWISTS, JUST TRAPS.';
         b = `"${n.title}"   REWARD ${first ? '20 (+10 PERFECT)' : '5'}` + (best !== undefined ? `   BEST ${best} DEATHS` : '');
       } else if (n.kind === 'street') { a = `${n.name} WANTS A FIGHT`; b = `BEST OF 3   REWARD ${first ? 25 + 10 * this.r : 8}`; }
-      else { a = `${n.name} RULES THIS REALM`; b = `REWARD ${first ? 80 + 20 * this.r : 20}   WIN TO UNLOCK THE NEXT REALM`; }
+      else { a = `${n.name} RULES THIS REALM`; b = `REWARD ${first ? 80 + 20 * this.r : 20}   ` + (this.r === KF.Doors.length - 1 ? 'THE FINAL BOSS' : 'WIN TO UNLOCK THE NEXT REALM'); }
       F.draw(ctx, a, VW / 2, 166, n.kind === 'level' ? '#ffd040' : '#ffb0a0', 1, 'center', '#000');
       F.draw(ctx, b, VW / 2, 177, '#c8c0d8', 1, 'center', '#000');
       KF.UI.footer(ctx, 'ENTER: GO    A/D: CHOOSE    C: SHOP    ESC: MAP');

@@ -14,6 +14,7 @@
 //   sight     tiles further than this many px from the player are not drawn
 //   blackout  the lights cut out for `blackout.off` s every `blackout.every` s, with a warning flicker
 //   rewind    dying plays the last moments backwards before the respawn
+//   superhot  time moves only while you give an input: hands off, the world crawls at 6%
 (function (KF) {
   KF.StylePlan = {
     rooftop: ['hd', 'oldtv', 'comic', 'gameboy', 'vhs'],
@@ -23,6 +24,7 @@
     train: ['nes8bit', 'negative', 'cinema', 'popart', 'vector'],
     sakura: ['storybook', 'ukiyo', 'dream', 'duotone', 'polaroid'],
     viking: ['emboss', 'stitch', 'candle', 'frost', 'golden'],
+    cyber: ['cyberpunk', 'hologram', 'ps1', 'chrome', 'superhot'],
   };
 
   const R = {
@@ -67,6 +69,12 @@
     candle: { name: 'THE MEAD HALL', rule: 'ONLY THE FIRE LIGHTS THE WAY.' },
     frost: { name: 'GLACIER CAVE', rule: 'EVERYTHING IS ICE.', ice: true },
     golden: { name: 'VALHALLA', rule: 'BLESSED BY THE GODS: YOU JUMP HIGHER.', tuning: { jumpVel: 1.08 } },
+
+    cyberpunk: { name: 'NEON MEGACITY', rule: 'CYBER-LEGS: YOU JUMP HIGHER AND FALL HARDER.', tuning: { jumpVel: 1.1, gravity: 1.15 } },
+    hologram: { name: 'HOLO DISTRICT', rule: 'SOME FLOORS ARE ONLY PROJECTIONS. WATCH THEM FLICKER.' },
+    ps1: { name: 'VR 1997', rule: 'LOW-POLY FOG: THE DRAW DISTANCE IS TERRIBLE.', sight: 172 },
+    chrome: { name: 'CHROME Y2K', rule: 'MAGNET BOOTS: NO SLIDING, INSTANT STOPS.', tuning: { groundDecel: 3, groundAccel: 1.8, turnAccel: 1.6, airDecel: 2 } },
+    superhot: { name: 'SUPERHOT', rule: 'TIME MOVES ONLY WHEN YOU MOVE.', superhot: true },
   };
 
   KF.Rules = {

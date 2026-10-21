@@ -68,19 +68,18 @@
       const fx = this.fx, th = this.theme;
       for (const e of this.stage.events) {
         switch (e.type) {
-          case 'jump': A.sfx('jump'); fx.dust(e.x, e.y, 4, 0, e.g); break;
+          case 'jump': KF.Present.sfx(this.style.id, 'jump'); fx.dust(e.x, e.y, 4, 0, e.g); break;
           case 'land':
-            A.sfx('land', { speed: e.speed });
+            KF.Present.sfx(this.style.id, 'land', { speed: e.speed });
             fx.dust(e.x - 4, e.y, 3, -1, e.g); fx.dust(e.x + 4, e.y, 3, 1, e.g);
             if (e.speed > 340) fx.shake(2, 0.12);
             break;
           case 'skid': A.sfx('skid'); fx.dust(e.x, e.y, 3, -this.stage.player.facing, e.g); break;
           case 'death':
-            A.sfx('hit');
+            KF.Present.sfx(this.style.id, 'death'); // the world's own death stinger
             fx.spark(e.x, U.clamp(e.y, this.cam.y + 20, this.cam.y + VH - 20), 1.4);
             fx.flash = 1; fx.shake(7, 0.4);
             this.deaths++; this.deathPulse = 1; this.mood.cheer = 1.2;
-            if (this.rule.rewind) A.sfx('whoosh');
             break;
           case 'crumble': A.sfx('crumble'); fx.debris(e.x, e.y + 2, e.w, ['#d5bd9c', '#8e4436', '#5c2a2c', '#9c8468']); fx.shake(2, 0.2); break;
           case 'spikes': A.sfx('spikes'); break;
@@ -94,7 +93,7 @@
           case 'bonk': A.sfx('bonk'); fx.tick(e.x, e.y + 8); break;
           case 'poof': A.sfx('whoosh'); fx.dust(e.x, e.y, 8); break;
           case 'say': A.sfx('say'); fx.say(e.text, e.x, e.y); break;
-          case 'win': A.sfx('win'); fx.confetti(e.x, e.y); this.mood.cheer = 1.6; break;
+          case 'win': if (KF.Present.has(this.style.id, 'win')) KF.Present.sfx(this.style.id, 'win', { perfect: this.deaths === 0 }); else A.sfx('win'); fx.confetti(e.x, e.y); this.mood.cheer = 1.6; break;
         }
       }
       this.stage.events.length = 0;
@@ -133,12 +132,12 @@
           break;
         case 'intro':
           p.stateT += dt;
-          if (this.cue('round', 0.05)) { A.sfx('round'); this.fx.shake(3, 0.2); }
+          if (this.cue('round', 0.05)) { A.sfx('whoosh'); this.fx.shake(3, 0.2); }
           if (this.phaseT > 0.5 && (input.jumpPressed || input.wasPressed('Enter'))) this.phaseT = Math.max(this.phaseT, 0.95);
           if (this.cue('go', 0.95)) {
-            A.sfx('go'); this.fx.shake(5, 0.25);
+            KF.Present.sfx(this.style.id, 'go'); this.fx.shake(5, 0.25); this.goAt = this.engine.time;
           }
-          if (this.phaseT >= 1.05) { this.phase = 'play'; this.goT = 0; }
+          if (this.phaseT >= 1.05) this.phase = 'play';
           break;
         case 'play':
           this.time += dt;
@@ -163,7 +162,7 @@
               x: p.centerX, y: p.y + p.h / 2, vx: -p.facing * 80, vy: -300 * p.gravDir, rot: 0,
               vrot: -p.facing * 13, flip: p.gravDir < 0, facing: p.facing,
             } : null;
-            A.sfx('ko'); this.fx.shake(6, 0.3);
+            this.fx.shake(6, 0.3);
           }
           break;
         case 'ko':
@@ -176,7 +175,7 @@
         case 'win':
           p.stateT += dt;
           this.stage.step(dt, { left: false, right: false, jumpHeld: false, jumpPressed: false });
-          if (this.cue('banner', 0.45)) { A.sfx(this.deaths === 0 ? 'perfect' : 'confirm'); this.fx.shake(4, 0.2); }
+          if (this.cue('banner', 0.45)) { if (!KF.Present.has(this.style.id, 'win')) A.sfx(this.deaths === 0 ? 'perfect' : 'confirm'); this.fx.shake(4, 0.2); }
           if (this.phaseT > 1.2 && (input.jumpPressed || input.wasPressed('Enter', 'Space'))) this.next();
           else if (this.phaseT > 5) this.next();
           break;
@@ -278,10 +277,11 @@
       this.fx.render(w, cam);
       if (this.fx.flash > 0) { w.globalAlpha = this.fx.flash * 0.5; w.fillStyle = '#ffffff'; w.fillRect(0, 0, VW, VH); w.globalAlpha = 1; }
 
-      if (!style.compose) this.renderKO(w, this.phaseT);
+      const cardsOnTop = !!style.compose || KF.Present.onTop(style.id);
+      if (!cardsOnTop) this.renderCards(w, t);
       const info = KF.Styles.info(t, this.engine.frame || 0, res, pos.x + p.w / 2 - cam.x, pos.y + p.h / 2 - cam.y, p.x);
       KF.Styles.post(style, this.wc, info);
-      const roll = this.rule.roll, rollT = roll ? this.time % roll.every : 1e9;
+      const roll = this.rule.roll, rollT = roll && this.time > roll.dur ? this.time % roll.every : 1e9; // never on the opening frames
       if (style.compose) style.compose(ctx, this.wc, info);
       else if (roll && rollT < roll.dur && this.phase === 'play') { // the picture rolls, like a TV losing vertical hold
         const off = Math.round((rollT / roll.dur) * VH);
@@ -310,23 +310,19 @@
       this.renderOverlay(ctx, t);
     }
 
-    // K.O. lettering (or a silent-film card). It is drawn into the world canvas before the style's
-    // pass, so a black-and-white world gets black-and-white lettering; styles that reshape the
-    // world canvas (mirror, AR) get it on top instead, so it stays readable.
-    renderKO(ctx, kt) {
-      if (this.phase !== 'ko') return;
-      const slam = (x, from, dur) => (x < dur ? from - (from - 1) * (x / dur) : 1);
-      if (this.style.koCard) { // silent-film intertitle instead of K.O.
-        ctx.fillStyle = '#0a0806'; ctx.fillRect(60, 60, VW - 120, 70);
-        ctx.strokeStyle = '#e8dcc0'; ctx.lineWidth = 1; ctx.strokeRect(65.5, 65.5, VW - 131, 59); ctx.strokeRect(68.5, 68.5, VW - 137, 53);
-        F.draw(ctx, this.style.koCard[0], VW / 2, 78, '#f4ead4', 3, 'center');
-        F.draw(ctx, this.style.koCard[1], VW / 2, 108, '#f4ead4', 1, 'center');
-      } else if (this.rule.rewind) {
-        KF.BigText.draw(ctx, '<< REW', VW / 2, 92, 4, 'steel', 1);
-      } else {
-        const ko = this.style.ko || 'K.O.';
-        KF.BigText.draw(ctx, ko, VW / 2, 92, ko.length > 6 ? 4 : 7, 'blood', slam(kt, 4, 0.1));
+    // The world's K.O. card, start text and win text (js/present.js). They are drawn into the world
+    // canvas before the style's pixel pass, so a black-and-white world gets black-and-white
+    // lettering; styles that reshape the world canvas (mirror, AR) get them on top instead.
+    renderCards(ctx, t) {
+      const id = this.style.id, P = KF.Present;
+      if (this.phase === 'ko') P.ko(ctx, id, this.phaseT, { deaths: this.deaths - 1, rewind: !!this.rule.rewind });
+      if (this.goAt !== undefined && t - this.goAt < 0.9 && (this.phase === 'play' || this.phase === 'intro')) {
+        const gt = t - this.goAt;
+        ctx.save(); ctx.globalAlpha = Math.min(1, (0.9 - gt) / 0.25);
+        P.intro(ctx, id, gt, { deaths: this.deaths });
+        ctx.restore();
       }
+      if (this.phase === 'win' && this.phaseT > 0.45) P.win(ctx, id, this.phaseT - 0.45, { perfect: this.deaths === 0, deaths: this.deaths });
     }
 
     renderOverlay(ctx, t) {
@@ -339,14 +335,9 @@
           BT.draw(ctx, this.worldName, VW / 2, 92, BT.fit ? BT.fit(this.worldName, VW - 40, 4) : 3, 'steel', slam(pt));
           if (pt > 0.15 && this.rule.rule) F.draw(ctx, this.rule.rule, VW / 2, 114, '#ffd040', 1, 'center', '#000');
           if (pt > 0.25) F.draw(ctx, `"${this.def.name}"`, VW / 2, 128, '#b8b0c8', 1, 'center', '#000');
-        } else {
-          BT.draw(ctx, 'GO!', VW / 2, 96, 7, 'fire', slam(pt - 0.95, 3, 0.08), Math.min(1, (1.35 - pt) * 6 + 0.4));
         }
       }
-      if (this.phase === 'play' && this.goT !== undefined && this.goT < 0.35) {
-        this.goT += 1 / 60;
-        BT.draw(ctx, 'GO!', VW / 2, 96, 7, 'fire', 1 + this.goT * 1.2, Math.max(0, 1 - this.goT * 3));
-      }
+      if (this.style.compose || KF.Present.onTop(this.style.id)) this.renderCards(ctx, t);
       if (this.banner && this.phase === 'play') {
         const bt = this.banner.t;
         BT.draw(ctx, this.banner.text, VW / 2, 70, 3, 'steel', slam(bt, 2.5, 0.08), bt > 0.6 ? (0.9 - bt) / 0.3 : 1);
@@ -362,24 +353,19 @@
       }
       if (this.phase === 'ko' || this.phase === 'hitstop') {
         const kt = this.phase === 'ko' ? pt : 0;
-        if (this.style.compose) this.renderKO(ctx, kt);
-        if (kt > 0.35) F.draw(ctx, Math.floor(t * 3) % 2 ? 'JUMP: AGAIN' : '', VW / 2, 130, '#ffffff', 1, 'center', '#000');
+        if (kt > 0.35 && Math.floor(t * 3) % 2) F.draw(ctx, 'JUMP: AGAIN', VW / 2, 162, '#ffffff', 1, 'center', '#000');
       }
-      if (this.phase === 'win' && pt > 0.45) {
+      if (this.phase === 'win' && pt > 0.45) { // the world's win card is drawn by renderCards; stats under it
         const wt = pt - 0.45;
-        const perfect = this.deaths === 0;
-        const band = Math.min(1, wt * 8);
-        ctx.fillStyle = 'rgba(8,4,16,0.72)'; ctx.fillRect(0, 84 - 34 * band, VW, 68 * band);
-        ctx.fillStyle = perfect ? '#ffd040' : '#ff7030'; ctx.fillRect(0, 84 - 34 * band, VW, 1); ctx.fillRect(0, 84 + 34 * band - 1, VW, 1);
-        BT.draw(ctx, perfect ? 'PERFECT' : 'YOU WIN', VW / 2, 76, 5, perfect ? 'gold' : 'fire', slam(wt, 3, 0.1));
         if (wt > 0.3) {
+          ctx.fillStyle = 'rgba(8,4,16,0.72)'; ctx.fillRect(0, 148, VW, 38);
           const best = this.training ? null : KF.Save.door(this.door.id).best[this.stageIdx];
-          F.draw(ctx, `TIME ${this.time.toFixed(1)}S    DEATHS ${this.deaths}` + (best !== undefined && best !== null ? `    BEST ${best}` : ''), VW / 2, 100, '#ffffff', 1, 'center', '#000');
-          if (this.coins) { KF.HUD.coin(ctx, VW / 2 - 30, 88 + 32, t); F.draw(ctx, `+${this.coins} COINS`, VW / 2 - 18, 121, '#ffd040', 1, 'left', '#000'); }
+          F.draw(ctx, `TIME ${this.time.toFixed(1)}S    DEATHS ${this.deaths}` + (best !== undefined && best !== null ? `    BEST ${best}` : '') + (this.deaths === 0 ? '    PERFECT!' : ''), VW / 2, 152, '#ffffff', 1, 'center', '#000');
+          if (this.coins) { KF.HUD.coin(ctx, VW / 2 - 30, 162, t); F.draw(ctx, `+${this.coins} COINS`, VW / 2 - 18, 163, '#ffd040', 1, 'left', '#000'); }
         }
         if (pt > 1.2 && Math.floor(t * 3) % 2) {
           const last = !this.training && this.stageIdx === this.door.stages.length - 1;
-          F.draw(ctx, this.training ? 'JUMP: BACK TO MAP' : last ? 'JUMP: FACE THE BOSS!' : 'JUMP: A CHALLENGER APPROACHES', VW / 2, 108, '#ffd040', 1, 'center', '#000');
+          F.draw(ctx, this.training ? 'JUMP: BACK TO MAP' : last ? 'JUMP: FACE THE BOSS!' : 'JUMP: A CHALLENGER APPROACHES', VW / 2, 175, '#ffd040', 1, 'center', '#000');
         }
       }
       if (this.paused) {
