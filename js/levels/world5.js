@@ -27,6 +27,9 @@
     traps: [
       // Gusts blow you backwards (watch the streaks). Jump the gaps between gusts.
       { type: 'wind', zone: [0, 0, 34, 14], force: -60, gust: [1.0, 1.2], say: 'WHOOSH' },
+      // Harder: once you know the wind, the far lip of the first gap gives way and the prop block bites.
+      { type: 'fakeFloor', at: [12, 9, 1, 5], say: 'POOF', deaths: ['1+'] },
+      { type: 'spikes', at: [17, 8, 2], when: { x: 15 }, say: 'OUCH', deaths: ['2+'] },
     ],
   });
 
@@ -111,6 +114,8 @@
       // The spring clears the gap with room to spare... and then some. Steer back.
       { type: 'spring', at: [15, 8], power: 560, vx: 520 },
       { type: 'wind', zone: [18, 0, 14, 9], force: -70, gust: [1.0, 1.0], deaths: ['1+'] },
+      // Harder: the landing car isn't safe to stop on either.
+      { type: 'spikes', at: [33, 8, 2], when: { x: 30 }, say: 'MIND THE STEP', deaths: ['2+'] },
     ],
   });
 

@@ -1,6 +1,7 @@
 'use strict';
 // Realm map: pick a realm (each unlocks when the previous realm's boss is beaten), or visit the
-// Dojo shop, the Street Arena, or the training dojo.
+// Dojo shop, the Street Arena, or MODES (Endless Dojo, Daily Troll, Versus, editor, trophies).
+// T jumps straight into the Endless Dojo.
 (function (KF) {
   const F = KF.Font, A = KF.Audio, VW = KF.VIEW_W, VH = KF.VIEW_H;
   class MapScene {
@@ -30,7 +31,8 @@
       }
       if (inp.wasPressed('KeyC') || click === 'shop') { A.sfx('confirm'); e.go(() => new KF.ShopScene(e)); }
       if (inp.wasPressed('KeyF') || click === 'arena') { A.sfx('confirm'); e.go(() => new KF.FightScene(e, { mode: 'arena', realm: 0, streak: 0, def: KF.Roster.arenaDef(0) })); }
-      if (inp.wasPressed('KeyT') || click === 'training') e.go(() => new KF.PlayScene(e, { training: true }));
+      if (inp.wasPressed('KeyT')) e.go(() => KF.Modes.startEndless(e)); // training is now the Endless Dojo
+      if (inp.wasPressed('KeyQ') || click === 'modes') { A.sfx('confirm'); e.go(() => new KF.ModesScene(e)); }
       if (inp.back || click === 'back') e.go(() => new KF.TitleScene(e));
       if (this.denied > 0) this.denied -= dt;
     }
@@ -69,7 +71,7 @@
       F.draw(ctx, msg, VW / 2, 166, this.denied > 0 ? '#ff6050' : unlocked ? '#ffb0a0' : '#b0a8c0', 1, 'center', '#000');
       if (this.cleared !== undefined && t < 4) KF.BigText.draw(ctx, 'REALM CLEARED!', VW / 2, 110, 3, 'gold', t < 0.12 ? 3 - t * 16 : 1);
       F.draw(ctx, `ARENA BEST STREAK ${KF.Save.data.arena.best}`, VW / 2, 177, '#7a7094', 1, 'center', '#000');
-      KF.UI.buttonBar(ctx, this, [['enter', 'ENTER REALM'], ['shop', 'SHOP (C)'], ['arena', 'ARENA (F)'], ['training', 'TRAINING (T)'], ['back', 'BACK']]);
+      KF.UI.buttonBar(ctx, this, [['enter', 'ENTER REALM'], ['shop', 'SHOP (C)'], ['arena', 'ARENA (F)'], ['modes', 'MODES (Q)'], ['back', 'BACK']]);
     }
   }
   KF.MapScene = MapScene;

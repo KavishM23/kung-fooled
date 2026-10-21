@@ -42,6 +42,7 @@
       if (click && click[0] === 'c') { const i = +click.slice(1); if (i === this.sel) go = true; else if (i <= max) { this.sel = i; A.sfx('select'); } else A.sfx('bonk'); }
       if (inp.back || click === 'back') e.go(() => new KF.MapScene(e));
       if (inp.wasPressed('KeyC') || click === 'shop') e.go(() => new KF.ShopScene(e, { back: this.r }));
+      if (inp.wasPressed('KeyR') || click === 'run') { A.sfx('confirm'); const r = this.r; e.go(() => KF.Modes.startRun(e, r)); return; }
       if (go) {
         A.sfx('confirm');
         const i = this.sel, r = this.r, kind = KF.Path.kinds[i];
@@ -102,7 +103,9 @@
       else { a = `${n.name} RULES THIS REALM`; b = `REWARD ${first ? 100 + 20 * this.r : 20}   ` + (this.r === KF.Doors.length - 1 ? 'THE FINAL BOSS' : 'WIN TO UNLOCK THE NEXT REALM'); }
       F.draw(ctx, a, VW / 2, 166, n.kind === 'level' ? '#ffd040' : '#ffb0a0', 1, 'center', '#000');
       F.draw(ctx, b, VW / 2, 177, '#c8c0d8', 1, 'center', '#000');
-      KF.UI.buttonBar(ctx, this, [['go', 'GO (ENTER)'], ['shop', 'SHOP (C)'], ['back', 'MAP (ESC)']]);
+      const run = (KF.Save.data.runs || {})[this.door.id];
+      if (run || this.save.deathless) F.draw(ctx, (run ? `BEST SPEEDRUN ${KF.fmtTime(run.t)}` : '') + (this.save.deathless ? '   DEATHLESS' : ''), VW / 2, 186, '#9ad8ff', 1, 'center', '#000');
+      KF.UI.buttonBar(ctx, this, [['go', 'GO (ENTER)'], ['run', 'SPEEDRUN (R)'], ['shop', 'SHOP (C)'], ['back', 'MAP (ESC)']]);
     }
   }
   KF.RealmScene = RealmScene;

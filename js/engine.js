@@ -97,6 +97,7 @@
             this.canvas.style.cursor = KF.UI.under(this.scene) ? 'pointer' : this.scene.cursor || 'default';
           }
           this.renderWipe(this.ctx);
+          if (KF.Ach) KF.Ach.renderToasts(this.ctx, Math.min(dt, 0.05)); // trophies earned, over any screen
           if (KF.Audio.muted) KF.Font.draw(this.ctx, 'MUTE', KF.VIEW_W - 4, KF.VIEW_H - 9, '#7a7094', 1, 'right');
         } catch (e) { console.error(e); }
         requestAnimationFrame(frame);

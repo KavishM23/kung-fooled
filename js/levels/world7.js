@@ -27,6 +27,9 @@
     traps: [
       // Ice: you slide. Brake early or jump before the edge.
       { type: 'spikes', at: [26, 10, 1], when: { x: 24.2 }, deaths: ['1+'] },
+      // Harder: an axe swings over the slide, so you have to pick your moment to let go.
+      { type: 'axe', at: [15, 4], len: 5.4, amp: 0.9, speed: 2.2, offset: 0 },
+      { type: 'collapse', at: [23, 11, 2, 3], say: 'CRACK', deaths: ['2+'] },
     ],
   });
 
@@ -81,6 +84,9 @@
       { type: 'shy', at: [10, 10, 2], path: [[2, 0]], near: 2.2 },
       // The oar-spring hurls you over the fjord. Ease off or you overshoot onto the spikes.
       { type: 'spring', at: [20, 10], power: 560, vx: 260 },
+      // Harder: the far shore swings an axe, then grows teeth.
+      { type: 'axe', at: [34, 4], len: 5.4, amp: 0.9, speed: 2.4, offset: 0.8, deaths: ['1+'] },
+      { type: 'spikes', at: [32, 10, 1], when: { x: 30 }, say: 'NOPE', deaths: ['2+'] },
     ],
   });
 

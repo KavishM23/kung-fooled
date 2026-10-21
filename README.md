@@ -49,6 +49,32 @@ beatable with its rule on.
 
 **Play:** open `index.html` in a browser. No build step, no server, no dependencies.
 
+## Modes
+
+Press Q on the realm map (or click MODES) for everything beyond the realms.
+
+- **Endless Dojo** (also T on the map): an endless speedrun of generated rooms against a clock.
+  You start with 45 seconds and each room you clear adds time. Rooms get longer and meaner as you
+  go. Every room is built from hand-made chunks (`js/levels/chunks.js`) that the level checker has
+  proved beatable, so a room can be cruel but never impossible.
+- **Daily Troll:** one longer generated stage per day, the same for everyone. Press C on the win
+  screen to copy your result (deaths and time) to share.
+- **Versus:** two players on one keyboard. Player 1 uses WASD + J/K/L, player 2 uses the arrows +
+  Z/X/C. Everyone gets the same stats, so it's down to skill.
+- **Level editor:** paint tiles and drop traps with the mouse, TEST to play it, CHECK to run the
+  level checker in your browser (a level that passes is stamped PROVEN BEATABLE), and SHARE to get
+  a code. Anyone can paste the code into PLAY A LEVEL CODE. Editing a level drops its stamp.
+- **Speedrun:** press R on a realm screen to run the whole realm (4 levels, street fight and boss)
+  on one clock. The result screen shows splits against your best run, and a run with no deaths
+  earns the realm's DEATHLESS badge.
+- **Trophies:** 18 achievements, each paying coins. They pop up as you earn them.
+
+Other things that happen along the way:
+- When you clear a level after dying, press V to watch every attempt at once.
+- Your best run on each level is saved and races you as a ghost the next time.
+- The first time a trap gets you, a card names it.
+- Bosses change at half health: faster, harder hitting, and with a full special meter.
+
 ## Controls
 
 There are two full control sets, and both work at the same time. Use whichever you like; the
@@ -67,7 +93,8 @@ on-screen hints follow the one you last used.
 | Pause | Esc / P | Esc / P | Pause button, top right |
 
 Every menu, card and button can also be clicked. Other keys: M mutes, and F1 shows hitboxes.
-On the realm map, C opens the shop, F the Street Arena and T the training dojo.
+On the realm map, C opens the shop, F the Street Arena, T the Endless Dojo and Q the other modes.
+On a realm screen, R starts a speedrun of that realm.
 
 Fights are best of three rounds, 60 s each.
 
@@ -107,6 +134,10 @@ js/scenes/       title, map, realm path,   tools/solve.js level checker (Node)
 js/fight/        fighter, AI, roster        js/economy.js  shop items, upgrades, coins
 js/styles.js     per-stage visual styles   js/envs/       per-stage environments
 js/rules.js      world names + rules       js/present.js  per-world cards and sounds
+js/modes.js      endless + daily stages    js/levels/chunks.js  stage pieces for them
+js/solver.js     level checker (browser)   js/levelcode.js  editor share codes
+js/ghosts.js     best-run ghosts, replays  js/achievements.js  trophies + trap cards
+js/scenes/modes.js  modes menu, versus, speedrun results   js/scenes/editor.js  level editor
 ```
 
 Each level pairs a *style* (the medium) with an *environment* (the place) and a *rule*
@@ -211,3 +242,14 @@ the "no trap kills you with zero counterplay on the next attempt" rule made test
 `MARGIN=1` makes it stricter: inputs may only change every 100 ms and the jump is 5% weaker. A
 stage that still passes has slack in every gap and timing window, so it isn't pixel-perfect. Every
 shipped stage passes both checks.
+
+The chunks that build Endless Dojo rooms and Daily Trolls have their own checker:
+
+```
+node tools/chunks.js                # every chunk on its own, every attempt variant
+MARGIN=1 node tools/chunks.js       # the same at human precision
+MIX=40 node tools/chunks.js nonechunk     # 40 random rooms, made the way the game makes them
+DAILY=5 FROM=0 node tools/chunks.js nonechunk   # the Daily Trolls for days 1 to 5
+```
+
+The editor's CHECK button runs the same search in the browser (`js/solver.js`), a slice per frame.

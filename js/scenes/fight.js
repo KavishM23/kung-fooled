@@ -45,9 +45,12 @@
       this.theme = KF.Themes.get(opts.env || this.style.theme || (this.mode === 'arena' ? 'neon' : this.realm.theme)); // the place you just played
       KF.Audio.setLowpass(this.style.audio && this.style.audio.lowpass);
       this.oppDef = opts.def;
+      this.versus = this.mode === 'versus'; // two players on one keyboard (js/scenes/modes.js)
+      this.run = opts.run || null;            // a realm speedrun in progress
       const ps = KF.Economy.playerStats();
-      this.player = new KF.Fight.Fighter({ name: 'BAO', look: KF.Economy.look(), stats: ps, color: '#7cf0ff' }, 110, 1);
+      this.player = new KF.Fight.Fighter(this.versus ? opts.p1 : { name: 'BAO', look: KF.Economy.look(), stats: ps, color: '#7cf0ff' }, 110, 1);
       this.opp = new KF.Fight.Fighter(this.oppDef, VW - 110, -1);
+      this.oppBase = Object.assign({}, this.opp.stats); // bosses get angrier at half health (phase 2)
       this.ai = new KF.Fight.AI(this.oppDef.d);
       // SUPERHOT: time moves only while you do (see js/rules.js).
       const rule = KF.Rules && KF.Rules.all[this.style.id];
@@ -79,11 +82,16 @@
       this.shards = []; this.shattered = false; this.timeK = 1;
       this.timer = ROUND_TIME;
       this.ai = new KF.Fight.AI(this.oppDef.d);
+      this.opp.stats = Object.assign({}, this.oppBase); this.phase2 = false; this.phase2T = 0;
       this.setPhase('round');
     }
 
     playerInput() {
       const i = this.engine.input;
+      if (this.versus) return { // player 1 keeps WASD + J K L (and the mouse)
+        left: i.isDown('KeyA'), right: i.isDown('KeyD'), block: i.isDown('KeyS'), jump: i.wasPressed('KeyW', 'Space'),
+        punch: i.wasPressed('KeyJ') || (i.clicked && !this.clickUsed), kick: i.wasPressed('KeyK') || i.rclicked, special: i.wasPressed('KeyL'),
+      };
       return {
         left: i.isDown('ArrowLeft', 'KeyA'), right: i.isDown('ArrowRight', 'KeyD'),
         block: i.isDown('ArrowDown', 'KeyS'),
@@ -93,6 +101,27 @@
         kick: i.wasPressed('KeyK', 'KeyX') || i.rclicked, special: i.wasPressed('KeyL', 'KeyC'),
         shoot: this.superhot && ((i.clicked && !this.clickUsed) || i.wasPressed('KeyF', 'KeyV')),
       };
+    }
+
+    // Player 2 in versus: the arrow keys with Z X C.
+    player2Input() {
+      const i = this.engine.input;
+      return {
+        left: i.isDown('ArrowLeft'), right: i.isDown('ArrowRight'), block: i.isDown('ArrowDown'), jump: i.wasPressed('ArrowUp'),
+        punch: i.wasPressed('KeyZ'), kick: i.wasPressed('KeyX'), special: i.wasPressed('KeyC'),
+      };
+    }
+
+    // A boss at half health in a round gets serious: faster, harder, a full special meter.
+    checkPhase2() {
+      const O = this.opp;
+      if (this.mode !== 'boss' || this.phase2 || O.hp > O.maxHp * 0.5 || O.hp <= 0) return;
+      this.phase2 = true; this.phase2T = 0;
+      O.stats.speed = this.oppBase.speed * 1.18; O.stats.power = this.oppBase.power * 1.2;
+      O.meter = 100;
+      this.ai = new KF.Fight.AI(Math.min(1, this.oppDef.d + 0.22));
+      this.hitstop = 0.45; this.fx.flash = 1; this.fx.shake(8, 0.5);
+      A.sfx('rumble');
     }
 
     spawnProjectile(owner, kind) {
@@ -220,6 +249,8 @@
       this.clickUsed = !!click; // a click on a button is not also a punch / shot
       if ((input.pause || click === 'pause') && ['fight', 'round'].includes(this.phase)) { this.paused = !this.paused; this.pauseSel = 0; A.sfx('pause'); }
       if (this.paused) return this.updatePause(input);
+      if (this.run && this.phase !== 'result') this.run.t += dt;
+      if (this.phase2) this.phase2T += dt;
       this.fx.update(dt);
       this.mood.cheer = Math.max(0.15, this.mood.cheer - dt * 0.5);
       this.phaseT += dt;
@@ -255,8 +286,9 @@
         this.timer -= this.superhot ? dt * this.timeK : dt;
         if (this.superhot) this.updateGuns(dt, fdt, inp);
         P.update(fdt, inp, O, this);
-        O.update(fdt, this.ai.update(fdt, O, P, this), P, this);
+        O.update(fdt, this.versus ? this.player2Input() : this.ai.update(fdt, O, P, this), P, this);
         this.resolveHits(P, O); this.resolveHits(O, P);
+        this.checkPhase2();
         this.updateProjectiles(fdt);
         if (P.state !== 'hit' && P.state !== 'down') O.combo = 0;
         if (O.state !== 'hit' && O.state !== 'down') P.combo = 0;
@@ -292,6 +324,10 @@
     finish(won) {
       this.won = won;
       this.coins = 0;
+      if (this.versus) { KF.Ach.event('versus'); A.sfx('win'); this.fx.confetti((won ? this.player : this.opp).x, 100); this.setPhase('result'); return; }
+      if (won && this.run) this.run.splits.push({ node: this.opts.node, t: this.run.t });
+      if (won && this.mode === 'boss') KF.Ach.event('bossWin', { roundsLost: this.wins[1], realm: this.realmIdx });
+      if (won && this.mode === 'arena') KF.Ach.event('arena', { streak: this.opts.streak + 1 });
       if (won) {
         if (this.mode === 'arena') {
           this.coins = KF.Economy.earn(10 + 3 * this.opts.streak);
@@ -307,6 +343,8 @@
     }
 
     options() {
+      if (this.versus) return ['REMATCH', 'NEW FIGHTERS', 'LEAVE'];
+      if (this.run && !this.won) return ['RETRY', 'QUIT RUN'];
       if (this.won) return this.mode === 'arena' ? ['NEXT CHALLENGER', 'LEAVE ARENA'] : ['CONTINUE'];
       return this.mode === 'arena' ? ['LEAVE ARENA'] : ['RETRY', 'BACK TO REALM'];
     }
@@ -318,11 +356,16 @@
       A.sfx('confirm');
       const choice = opts[pick], e = this.engine, r = this.realmIdx;
       if (choice === 'RETRY') e.go(() => new FightScene(e, this.opts));
+      else if (choice === 'REMATCH') e.go(() => new FightScene(e, this.opts));
+      else if (choice === 'NEW FIGHTERS') e.go(() => new KF.VersusSelectScene(e));
+      else if (choice === 'LEAVE') e.go(() => new KF.ModesScene(e));
+      else if (choice === 'QUIT RUN') e.go(() => new KF.RealmScene(e, r));
+      else if (this.run && this.mode === 'boss') { const run = this.run; e.go(() => new KF.RunResultScene(e, run)); }
       else if (choice === 'NEXT CHALLENGER') e.go(() => new FightScene(e, { mode: 'arena', realm: 0, streak: this.opts.streak + 1, def: KF.Roster.arenaDef(this.opts.streak + 1) }));
       else if (choice === 'LEAVE ARENA') e.go(() => new KF.MapScene(e));
       else if (choice === 'BACK TO REALM') e.go(() => new KF.RealmScene(e, r));
       else if (this.mode === 'boss') e.go(() => new KF.MapScene(e, { cleared: r }));
-      else e.go(() => new KF.PlayScene(e, { door: r, stage: KF.Path.stageOfNode(this.opts.node + 1) }));
+      else e.go(() => new KF.PlayScene(e, { door: r, stage: KF.Path.stageOfNode(this.opts.node + 1), run: this.run }));
     }
 
     updatePause(input) {
@@ -331,7 +374,7 @@
       A.sfx('confirm'); this.paused = false;
       const e = this.engine;
       if (pick === 1) e.go(() => new FightScene(e, this.opts));
-      if (pick === 2) e.go(() => (this.mode === 'arena' ? new KF.MapScene(e) : new KF.RealmScene(e, this.realmIdx)));
+      if (pick === 2) e.go(() => (this.versus ? new KF.ModesScene(e) : this.mode === 'arena' ? new KF.MapScene(e) : new KF.RealmScene(e, this.realmIdx)));
     }
 
     // ---------- drawing ----------
@@ -352,6 +395,11 @@
         this.theme.tile(w, wx, FLOOR + 16 + sh.y, 'solid', { d: 1 }, U.hash2(Math.floor((x + cam.x) / 16), 2));
       }
       const scam = { x: -sh.x, y: -sh.y };
+      if (this.phase2 && !this.shattered) { // phase 2: a pulsing red aura under the boss
+        const O = this.opp, r = 26 + Math.sin(t * 12) * 3;
+        w.globalAlpha = 0.35 + 0.15 * Math.sin(t * 12); w.fillStyle = '#ff2a1a';
+        w.beginPath(); w.ellipse(O.x - scam.x, FLOOR - 2 - scam.y, r, 6, 0, 0, Math.PI * 2); w.fill(); w.globalAlpha = 1;
+      }
       // Draw the one being hit behind the attacker.
       const order = this.opp.state === 'attack' ? [this.player, this.opp] : [this.opp, this.player];
       if (this.phase !== 'intro') for (const f of order) if (!(f === this.opp && this.shattered)) f.draw(w, scam);
@@ -464,7 +512,7 @@
         for (let i = 0; i < 6; i++) R(i < g.ammo ? '#1a1a1e' : 'rgba(26,26,30,0.25)', 10 + i * 6, VH - 34, 4, 7);
         if (g.ammo <= 0) F.draw(ctx, 'RELOADING... MOVE!', 48, VH - 34, '#d01008', 1, 'left');
       }
-      const label = this.mode === 'boss' ? 'BOSS' : this.mode === 'arena' ? `ARENA WIN ${this.opts.streak}` : 'STREET FIGHT';
+      const label = this.versus ? 'VERSUS' : this.run ? `RUN ${KF.fmtTime(this.run.t)}` : this.mode === 'boss' ? (this.phase2 ? 'BOSS  PHASE 2' : 'BOSS') : this.mode === 'arena' ? `ARENA WIN ${this.opts.streak}` : 'STREET FIGHT';
       F.draw(ctx, label, VW / 2, 27, this.mode === 'boss' ? '#ff6050' : '#ff9ad0', 1, 'center', '#000');
       if (this.round === 1 && this.phase !== 'result' && (this.timer ?? ROUND_TIME) > ROUND_TIME - 10) { const k = this.engine.input.keys(); F.draw(ctx, this.superhot ? 'CLICK TO SHOOT   TIME MOVES WHEN YOU MOVE' : `${k.punch} PUNCH (X3)  ${k.kick} KICK  ${k.special} SPECIAL  ${k.block} BLOCK`, VW / 2, 40, '#c8c0d8', 1, 'center', '#000'); }
     }
@@ -499,9 +547,9 @@
         drawBig(this.player, 30 + 60 * k, false);
         drawBig(this.opp, VW - 30 - 60 * k, true);
         BT.draw(ctx, 'VS', VW / 2, 92, 5, 'fire', slam(pt, 3, 0.15));
-        F.draw(ctx, 'BAO', 90, 156, '#7cf0ff', 1, 'center', '#000');
+        F.draw(ctx, this.player.name, 90, 156, this.player.color, 1, 'center', '#000');
         F.draw(ctx, this.opp.name, VW - 90, 156, this.opp.color, 1, 'center', '#000');
-        const sub = this.mode === 'boss' ? `${this.realm.name} BOSS` : this.mode === 'arena' ? 'STREET ARENA' : 'A CHALLENGER APPEARS!';
+        const sub = this.versus ? 'PLAYER 1 VS PLAYER 2' : this.mode === 'boss' ? `${this.realm.name} BOSS` : this.mode === 'arena' ? 'STREET ARENA' : 'A CHALLENGER APPEARS!';
         if (pt > 0.3) F.draw(ctx, sub, VW / 2, 124, this.mode === 'boss' ? '#ff6050' : '#ffd040', 1, 'center', '#000');
       }
       if (this.phase === 'round') {
@@ -517,18 +565,23 @@
           }
         }
         if (pt > 1.2 && !(this.shattered && pt < 2.55)) {
-          const w = this.koWinner === P ? 'BAO WINS' : `${O.name} WINS`;
+          const w = `${this.koWinner === P ? P.name : O.name} WINS`;
           F.draw(ctx, w, VW / 2, 124, '#ffffff', 2, 'center', '#000');
           if (perfect) BT.draw(ctx, 'PERFECT', VW / 2, 150, 3, 'gold');
         }
       }
+      if (this.phase2 && this.phase2T < 1.6 && this.phase === 'fight') {
+        BT.draw(ctx, 'PHASE 2', VW / 2, 70, 4, 'fire', slam(this.phase2T, 3, 0.12));
+        F.draw(ctx, `${this.opp.name} GETS SERIOUS`, VW / 2, 96, '#ff6050', 1, 'center', '#000');
+      }
       if (this.phase === 'result') {
         // The world's own win / lose card sits above (drawCards); the details go in a band below it.
         ctx.fillStyle = 'rgba(8,4,16,0.78)'; ctx.fillRect(0, 140, VW, 48);
+        if (this.versus) F.draw(ctx, `${this.won ? 'PLAYER 1' : 'PLAYER 2'} WINS  ${this.wins[0]} - ${this.wins[1]}`, VW / 2, 145, this.won ? '#7cf0ff' : '#ff9ad0', 1, 'center', '#000');
         if (this.coins) {
           KF.HUD.coin(ctx, VW / 2 - 30, 144, t);
           F.draw(ctx, `+${this.coins} COINS`, VW / 2 - 18, 145, '#ffd040', 1, 'left', '#000');
-        } else if (!this.won && this.mode !== 'arena') F.draw(ctx, 'TIP: UPGRADE IN THE DOJO SHOP, OR BLOCK MORE (S)', VW / 2, 145, '#b8b0c8', 1, 'center', '#000');
+        } else if (!this.won && this.mode !== 'arena' && !this.versus) F.draw(ctx, 'TIP: UPGRADE IN THE DOJO SHOP, OR BLOCK MORE (S)', VW / 2, 145, '#b8b0c8', 1, 'center', '#000');
         if (this.mode === 'arena') F.draw(ctx, `BEST STREAK ${KF.Save.data.arena.best}`, VW / 2, 145, '#9ad8ff', 1, 'center', '#000');
         if (pt > 0.8) KF.UI.menu(ctx, this, this.options(), this.menuSel, 155, 120);
       }

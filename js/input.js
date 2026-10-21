@@ -11,7 +11,7 @@
 (function (KF) {
   const GAME_KEYS = new Set([
     'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'KeyA', 'KeyD', 'KeyW', 'KeyS',
-    'KeyR', 'KeyM', 'KeyT', 'KeyJ', 'KeyK', 'KeyL', 'KeyZ', 'KeyX', 'KeyC', 'KeyF', 'KeyV', 'KeyP', 'Escape', 'Enter', 'F1',
+    'KeyR', 'KeyM', 'KeyT', 'KeyJ', 'KeyK', 'KeyL', 'KeyZ', 'KeyX', 'KeyC', 'KeyF', 'KeyV', 'KeyP', 'KeyQ', 'KeyE', 'Escape', 'Enter', 'F1',
   ]);
   const ARROW_SET = new Set(['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'KeyZ', 'KeyX', 'KeyC']);
   const WASD_SET = new Set(['KeyA', 'KeyD', 'KeyW', 'KeyS', 'KeyJ', 'KeyK', 'KeyL']);
@@ -23,7 +23,10 @@
       this.scheme = 'wasd';
       this.mouse = { x: -99, y: -99, down: false, right: false, seen: false };
       this.clicked = false; this.rclicked = false;
+      // Typing in a text box (the level-code dialog) is not game input.
+      const typing = (e) => e.target && /^(TEXTAREA|INPUT)$/.test(e.target.tagName);
       target.addEventListener('keydown', (e) => {
+        if (typing(e)) return;
         if (GAME_KEYS.has(e.code)) e.preventDefault();
         if (!e.repeat && !this.down.has(e.code)) this.pressed.add(e.code);
         this.down.add(e.code);
@@ -31,6 +34,7 @@
         if (ARROW_SET.has(e.code)) this.scheme = 'arrows'; else if (WASD_SET.has(e.code)) this.scheme = 'wasd';
       });
       target.addEventListener('keyup', (e) => {
+        if (typing(e)) return;
         if (GAME_KEYS.has(e.code)) e.preventDefault();
         this.down.delete(e.code);
       });
