@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KUNG FOOLED</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #07060b; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; background: #000; }
+</style>
+</head>
+<body>
+<canvas id="game" width="384" height="216"></canvas>
+<!-- Plain scripts (not ES modules) so the game runs straight from file://. Order matters. -->
+<!-- engine core -->
+<script src="js/core.js"></script>
+<script src="js/font.js"></script>
+<script src="js/input.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/world.js"></script>
+<!-- gameplay -->
+<script src="js/player.js"></script>
+<script src="js/traps.js"></script>
+<script src="js/stage.js"></script>
+<!-- levels -->
+<script src="js/levels/doors.js"></script>
+<script src="js/levels/world1.js"></script>
+<script src="js/levels/world2.js"></script>
+<script src="js/levels/world3.js"></script>
+<script src="js/levels/world4.js"></script>
+<script src="js/levels/world5.js"></script>
+<script src="js/levels/test.js"></script>
+<!-- rendering -->
+<script src="js/sprites.js"></script>
+<script src="js/themes.js"></script>
+<script src="js/bigtext.js"></script>
+<script src="js/fx.js"></script>
+<script src="js/render.js"></script>
+<script src="js/hud.js"></script>
+<!-- audio + save -->
+<script src="js/audio.js"></script>
+<script src="js/music.js"></script>
+<script src="js/save.js"></script>
+<!-- scenes -->
+<script src="js/scenes/title.js"></script>
+<script src="js/scenes/select.js"></script>
+<script src="js/scenes/play.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
