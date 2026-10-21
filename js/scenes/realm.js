@@ -31,7 +31,7 @@
     fightOpts(i) { const def = this.door.stages[KF.Path.stageOfNode(i - 1)]; return { style: def.style, env: def.env }; }
     update(dt) {
       this.t += dt;
-      const inp = this.engine.input, e = this.engine, max = Math.min(KF.Path.count - 1, this.save.node);
+      const inp = this.engine.input, e = this.engine, max = KF.Path.count - 1; // every node is open
       if (inp.wasPressed('ArrowLeft', 'KeyA')) { this.sel = Math.max(0, this.sel - 1); A.sfx('select'); }
       if (inp.wasPressed('ArrowRight', 'KeyD')) { if (this.sel < max) { this.sel++; A.sfx('select'); } else A.sfx('bonk'); }
       this.scroll += (this.sel - this.scroll) * Math.min(1, dt * 10);
@@ -49,7 +49,7 @@
       }
     }
     card(ctx, i, cx, t) {
-      const n = this.node(i), sel = i === this.sel, open = i <= this.save.node, done = this.save.won[i];
+      const n = this.node(i), sel = i === this.sel, open = true, done = this.save.won[i];
       const x = Math.round(cx - CW / 2), y = 44 + (sel ? -3 : 0);
       const edge = sel ? '#ffd040' : n.kind === 'boss' ? '#a02030' : '#0a0610';
       R(ctx, sel ? edge : KF.UI.hover(this, 'c' + i) ? '#6a5a8a' : edge, x - 2, y - 2, CW + 4, CH + 4);

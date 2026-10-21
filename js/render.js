@@ -29,8 +29,9 @@
     drawTile,
 
     // Static tiles baked into one canvas per attempt (trap-owned tiles are drawn live instead).
-    bakeStage(world, theme) {
-      const c = KF.makeHi(world.pixelW, world.pixelH), ctx = c.getContext('2d');
+    bakeStage(world, theme, res = KF.RES) {
+      const c = KF.makeHi(world.pixelW, world.pixelH, res), ctx = c.getContext('2d');
+      if (res > KF.RES) ctx.imageSmoothingEnabled = true;
       for (let r = 0; r < world.rows; r++) for (let col = 0; col < world.cols; col++) {
         const id = world.tiles[r * world.cols + col];
         if (id) drawTile(ctx, world, theme, col, r, id, col * T, r * T);

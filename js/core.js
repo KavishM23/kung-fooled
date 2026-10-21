@@ -43,6 +43,7 @@ window.KF = window.KF || {};
   // The screen is drawn in logical 384x216 coordinates, but the real canvas has RES times as
   // many pixels, so sprites and scenery can carry finer pixel detail than the gameplay grid.
   KF.RES = 2;
+  KF.HI_MAX = 3; // most real pixels per logical pixel for smooth (non-pixel-art) realms
 
   KF.makeCanvas = (w, h) => {
     const c = document.createElement('canvas');

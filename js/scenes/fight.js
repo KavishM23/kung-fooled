@@ -41,6 +41,7 @@
       // Fights keep the look of the stage before them; the arena picks a random look each bout.
       const ids = Object.keys(KF.Styles.all).filter((k) => !['pocket', 'bsod', 'ascii'].includes(k));
       this.style = KF.Styles.get(opts.style || (this.mode === 'arena' ? ids[Math.floor(Math.random() * ids.length)] : 'hd'));
+      this.hiRes = !!this.style.smooth; engine.fit(this);
       this.theme = KF.Themes.get(opts.env || this.style.theme || (this.mode === 'arena' ? 'neon' : this.realm.theme)); // the place you just played
       KF.Audio.setLowpass(this.style.audio && this.style.audio.lowpass);
       this.oppDef = opts.def;
@@ -338,10 +339,10 @@
       const t = this.engine.time, sh = this.fx.offset(), style = this.style;
       const mid = (this.player.x + this.opp.x) / 2;
       const cam = { x: (mid - VW / 2) * 0.4 + 200 + sh.x, y: sh.y };
-      const res = style.res || KF.RES;
+      const res = style.smooth ? this.engine.scale : style.res || KF.RES;
       if (!this.wc || this.wc.res !== res) this.wc = KF.makeHi(VW, VH, res, !!style.post);
       const w = this.wc.getContext('2d');
-      w.setTransform(res, 0, 0, res, 0, 0); w.imageSmoothingEnabled = false;
+      w.setTransform(res, 0, 0, res, 0, 0); w.imageSmoothingEnabled = !!style.smooth;
       if (style.clearBg) w.clearRect(0, 0, VW, VH); // AR: the camera feed shows through
       else { w.fillStyle = this.theme.bg; w.fillRect(0, 0, VW, VH); }
       if (!style.clearBg || this.theme.id === 'env_' + style.id) this.theme.background(w, { x: cam.x, y: 0 }, t, this.mood);

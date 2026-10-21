@@ -635,7 +635,10 @@
     // style's general pass (see KF.Env.add).
     post(style, canvas, info) {
       const own = !info.themeId || info.themeId === 'env_' + style.id || !('postOther' in style);
-      const fn = own ? style.post : style.postOther;
+      let fn = own ? style.post : style.postOther;
+      // Per-pixel passes are for pixel-art resolution; smooth styles at screen resolution use
+      // GPU-side effects (under / overlay / compose) unless they ask for a hiResPost.
+      if (canvas.res > KF.RES) fn = style.hiResPost || null;
       if (!fn && !style.light) return;
       const x = canvas.getContext('2d'), img = x.getImageData(0, 0, canvas.width, canvas.height);
       if (fn) fn.call(style, img.data, canvas.width, canvas.height, info);

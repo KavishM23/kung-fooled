@@ -15,6 +15,7 @@
       this.door = this.training ? { id: 'training', name: 'DOJO', music: 'temple', stages: [KF.Levels.test] } : KF.Doors[this.doorIdx];
       this.def = this.training ? KF.Levels.test : this.door.stages[this.stageIdx];
       this.style = this.training ? KF.Styles.get('hd') : KF.Styles.forStage(this.door.id, this.stageIdx, this.def);
+      this.hiRes = !!this.style.smooth; engine.fit(this); // smooth styles draw at the screen's resolution
       this.theme = KF.Themes.get(this.def.env || this.style.theme || this.def.theme);
       this.rule = this.training ? { name: 'TRAINING DOJO', rule: null } : KF.Rules.get(this.def);
       this.worldName = this.training ? 'TRAINING DOJO' : KF.placeName(this.def.env);
@@ -39,7 +40,7 @@
 
     newAttempt() {
       this.stage = new KF.Stage(this.def, this.deaths, this.memory);
-      this.layer = KF.Render.bakeStage(this.stage.world, this.theme);
+      this.layer = KF.Render.bakeStage(this.stage.world, this.theme, this.style.smooth ? this.engine.scale : KF.RES);
       this.trail = []; this.trailT = 0;
       this.hist = [];
       this.ko = null;
@@ -235,10 +236,10 @@
       const t = this.engine.time;
 
       // The world is drawn into its own canvas so the stage's style can rework it.
-      const res = style.res || KF.RES;
+      const res = style.smooth ? this.engine.scale : style.res || KF.RES;
       if (!this.wc || this.wc.res !== res) this.wc = KF.makeHi(VW, VH, res, !!style.post);
       const w = this.wc.getContext('2d');
-      w.setTransform(res, 0, 0, res, 0, 0); w.imageSmoothingEnabled = false;
+      w.setTransform(res, 0, 0, res, 0, 0); w.imageSmoothingEnabled = !!style.smooth;
       if (style.clearBg) w.clearRect(0, 0, VW, VH); // AR: the camera feed shows through
       else { w.fillStyle = this.theme.bg; w.fillRect(0, 0, VW, VH); }
       if (!style.clearBg || this.theme.id === 'env_' + style.id) this.theme.background(w, cam, t, this.mood);

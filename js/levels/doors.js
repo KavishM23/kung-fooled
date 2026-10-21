@@ -8,16 +8,16 @@
 (function (KF) {
   const REALMS = [
     { id: 'arcade', name: 'ARCADE', sub: 'FULL COLOUR', style: 'hd', theme: 'rooftop', music: 'rooftop', envs: ['rooftop', 'harbour', 'temple', 'sakura'] },
-    { id: 'oldtv', name: 'OLD TV', sub: 'BLACK AND WHITE', style: 'oldtv', theme: 'env_oldtv', music: 'rooftop', envs: ['env_oldtv', 'rooftop', 'train', 'harbour'] },
+    // Smooth realms (not pixel art) draw their own versions of each place: <realm>_<place>.
+    { id: 'oldtv', name: 'OLD TV', sub: 'BLACK AND WHITE', style: 'oldtv', theme: 'oldtv_studio', music: 'rooftop', envs: ['oldtv_studio', 'oldtv_rooftop', 'oldtv_train', 'oldtv_harbour'] },
     { id: 'pocket', name: 'POCKET', sub: 'FOUR GREENS', style: 'gameboy', theme: 'env_gameboy', music: 'shrine', envs: ['env_gameboy', 'temple', 'sakura', 'viking'] },
-    { id: 'comic', name: 'COMIC', sub: 'POW! BAM!', style: 'comic', theme: 'env_comic', music: 'neon', envs: ['env_comic', 'neon', 'train', 'rooftop'] },
-    { id: 'argo', name: 'AR GO', sub: 'ON YOUR PHONE', style: 'pocket', theme: 'env_pocket', music: 'sakura', envs: ['env_pocket', 'sakura', 'harbour', 'temple'] },
+    { id: 'comic', name: 'COMIC', sub: 'POW! BAM!', style: 'comic', theme: 'comic_city', music: 'neon', envs: ['comic_city', 'comic_neon', 'comic_train', 'comic_rooftop'] },
+    { id: 'argo', name: 'AR GO', sub: 'ON YOUR PHONE', style: 'pocket', theme: 'argo_promenade', music: 'sakura', envs: ['argo_promenade', 'argo_sakura', 'argo_harbour', 'argo_temple'] },
     { id: 'eightbit', name: '8-BIT', sub: 'CARTRIDGE ERA', style: 'nes8bit', theme: 'env_nes8bit', music: 'train', envs: ['env_nes8bit', 'viking', 'neon', 'harbour'] },
-    { id: 'woodblock', name: 'WOODBLOCK', sub: 'OLD EDO PRINTS', style: 'ukiyo', theme: 'env_ukiyo', music: 'sakura', envs: ['env_ukiyo', 'env_ink', 'sakura', 'viking'] },
-    { id: 'vhs', name: 'VHS', sub: 'HOME VIDEO 1996', style: 'vhs', theme: 'env_vhs', music: 'rooftop', envs: ['env_vhs', 'rooftop', 'neon', 'train'] },
-    { id: 'vapor', name: 'VAPORWAVE', sub: 'SLOWED + REVERB', style: 'vaporwave', theme: 'env_vaporwave', music: 'neon', envs: ['env_vaporwave', 'neon', 'harbour', 'train'] },
-    // The finale breaks its own style: the last level and the boss are SUPERHOT.
-    { id: 'cyber', name: 'CYBER', sub: 'NEO-TOKYO 2099', style: 'cyberpunk', theme: 'env_cyberpunk', music: 'cyber', envs: ['env_cyberpunk', 'env_hologram', 'env_chrome', 'env_superhot'], styles: [null, null, null, 'superhot'] },
+    { id: 'woodblock', name: 'WOODBLOCK', sub: 'OLD EDO PRINTS', style: 'ukiyo', theme: 'woodblock_wave', music: 'sakura', envs: ['woodblock_wave', 'woodblock_mountains', 'woodblock_sakura', 'woodblock_fjord'] },
+    { id: 'vhs', name: 'VHS', sub: 'HOME VIDEO 1996', style: 'vhs', theme: 'vhs_backyard', music: 'rooftop', envs: ['vhs_backyard', 'vhs_rooftop', 'vhs_mall', 'vhs_train'] },
+    { id: 'vapor', name: 'VAPORWAVE', sub: 'SLOWED + REVERB', style: 'vaporwave', theme: 'vapor_plaza', music: 'neon', envs: ['vapor_plaza', 'vapor_neon', 'vapor_harbour', 'vapor_train'] },
+    { id: 'cyber', name: 'CYBER', sub: 'NEO-TOKYO 2099', style: 'cyberpunk', theme: 'cyber_megacity', music: 'cyber', envs: ['cyber_megacity', 'cyber_hologram', 'cyber_chrome', 'cyber_datacore'] },
   ];
   const BUCKETS = ['rooftop', 'harbour', 'neon', 'temple', 'train', 'sakura', 'viking', 'cyber'];
   const pool = {};
@@ -26,7 +26,9 @@
   // Names for places shown in any style; a style's own world (env_*) uses that world's name.
   const PLACES = { rooftop: 'ROOFTOPS', harbour: 'THE DOCKS', neon: 'NIGHT MARKET', temple: 'TEMPLE COURTYARD', train: 'SKY EXPRESS', sakura: 'SAKURA VALLEY', viking: 'THE FJORD' };
   const PLACE_MUSIC = { rooftop: 'rooftop', harbour: 'harbour', neon: 'neon', temple: 'shrine', train: 'train', sakura: 'sakura', viking: 'viking' };
-  KF.placeName = (env) => PLACES[env] || ((KF.Rules && KF.Rules.all[String(env).replace('env_', '')]) || {}).name || String(env).toUpperCase();
+  // A theme may carry its own `title` (the smooth realms' places do).
+  KF.placeName = (env) => PLACES[env] || (KF.Themes && KF.Themes.has(env) && KF.Themes.get(env).title) ||
+    ((KF.Rules && KF.Rules.all[String(env).replace('env_', '')]) || {}).name || String(env).replace(/^[a-z]+_/, '').toUpperCase();
 
   // The six nodes of a realm's path.
   KF.Path = {

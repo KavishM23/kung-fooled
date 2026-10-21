@@ -34,7 +34,7 @@
       return this.data.realms[id];
     },
     door(id) { return this.realm(id); },
-    unlocked(index) { return index === 0 || this.realm(KF.Doors[index - 1].id).cleared; },
+    unlocked() { return true; }, // every realm is open from the start
     // Finish a node (stage or fight). Returns the coins earned (first clears pay more).
     completeNode(realmId, node, extra = {}) {
       const r = this.realm(realmId), realmIdx = KF.Doors.findIndex((d) => d.id === realmId);
