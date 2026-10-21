@@ -9,7 +9,7 @@
 //   extrude               draw solid tiles as 3D blocks
 //   light                 darkness with a light radius around the player { r, color, min }
 //   ko / koCard           what a death says;  audio: { lowpass }  muffles the sound
-// info: { t, frame, res, player: {x, y} (logical screen px), rnd() (per-frame random) }
+// info: { t, frame, res, player: {x, y} (logical screen px), rnd() (per-frame random), fight (true in fights: keep clear of the meters) }
 (function (KF) {
   const VW = KF.VIEW_W, VH = KF.VIEW_H, U = KF.util;
   const F = () => KF.Font;
@@ -300,7 +300,7 @@
     overlay(ctx, i) {
       ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 0.5;
       ctx.beginPath(); ctx.moveTo(VW / 2 - 10, VH / 2); ctx.lineTo(VW / 2 + 10, VH / 2); ctx.moveTo(VW / 2, VH / 2 - 10); ctx.lineTo(VW / 2, VH / 2 + 10); ctx.stroke();
-      F().draw(ctx, `${(36.6 + Math.sin(i.t * 3) * 0.4).toFixed(1)}C`, VW - 14, VH - 22, '#ffffff', 1, 'right', '#000');
+      F().draw(ctx, `${(36.6 + Math.sin(i.t * 3) * 0.4).toFixed(1)}C`, VW - 14, i.fight ? VH - 40 : VH - 22, '#ffffff', 1, 'right', '#000');
     },
   };
 
@@ -644,9 +644,9 @@
       if (style.post) style.post(img.data, canvas.width, canvas.height, info);
       x.putImageData(img, 0, 0);
     },
-    info(t, frame, res, px, py, worldX) {
+    info(t, frame, res, px, py, worldX, fight = false) {
       const rnd = U.rng((frame * 2654435761) >>> 0);
-      return { t, frame, res, player: { x: px, y: py, worldX }, rnd };
+      return { t, frame, res, player: { x: px, y: py, worldX }, rnd, fight };
     },
   };
 })(window.KF);

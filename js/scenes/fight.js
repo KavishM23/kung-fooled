@@ -266,7 +266,7 @@
       for (const p of this.projectiles) this.drawProjectile(w, p, scam, t);
       this.fx.render(w, scam);
       if (this.fx.flash > 0) { w.globalAlpha = this.fx.flash * 0.5; w.fillStyle = '#fff'; w.fillRect(0, 0, VW, VH); w.globalAlpha = 1; }
-      const info = KF.Styles.info(t, this.engine.frame || 0, res, this.player.x, this.player.y - 30, this.player.x);
+      const info = KF.Styles.info(t, this.engine.frame || 0, res, this.player.x, this.player.y - 30, this.player.x, true);
       KF.Styles.post(style, this.wc, info);
       if (style.compose) style.compose(ctx, this.wc, info); else KF.blit(ctx, this.wc, 0, 0);
       if (style.under) style.under(ctx, info);
