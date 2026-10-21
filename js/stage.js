@@ -13,7 +13,9 @@
       this.events = [];
       this.world = new KF.World(def);
       const sp = this.world.spawn;
-      this.player = new KF.Player(sp.x, sp.y);
+      this.rule = KF.Rules ? KF.Rules.get(def) : {};
+      this.player = new KF.Player(sp.x, sp.y, KF.Rules ? KF.Rules.tuning(this.rule) : KF.PlayerTuning);
+      this.player.iceAll = !!this.rule.ice;
       this.t = 0;
       this.state = 'play'; // play | dead | won
       this.cause = null;
@@ -65,6 +67,7 @@
 
     step(dt, input) {
       const p = this.player, w = this.world;
+      dt *= this.rule.timeScale || 1;
       if (this.state !== 'play') { p.prevX = p.x; p.prevY = p.y; return; }
       this.t += dt;
 
@@ -83,8 +86,8 @@
         else if (s.dy > 0) p.y = s.y + s.h; else p.y = s.y - p.h;
       }
 
-      p.reversed = this.traps.some((tr) => tr.reverses && tr.reverses(p));
-      p.windX = 0;
+      p.reversed = this.traps.some((tr) => tr.reverses && tr.reverses(p)) !== !!this.rule.reverse;
+      p.windX = this.rule.wind || 0;
       for (const tr of this.traps) if (tr.push) p.windX += tr.push(p);
       for (const tr of this.traps) tr.prePlayer(p);
       p.update(dt, input, w);

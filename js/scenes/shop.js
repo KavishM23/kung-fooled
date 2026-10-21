@@ -54,18 +54,17 @@
       const t = this.t, R = (c, x, y, w, h) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); };
       this.theme.background(ctx, { x: 80, y: 0 }, this.engine.time, { cheer: 0.1 });
       ctx.fillStyle = 'rgba(10,6,20,0.62)'; ctx.fillRect(0, 0, VW, VH);
-      KF.BigText.draw(ctx, 'DOJO SHOP', VW / 2, 16, 2, 'gold');
-      KF.HUD.coins(ctx, VW - 8, 6, t);
+      KF.UI.header(ctx, 'DOJO SHOP', null, t, 'gold');
       // Preview pedestal.
-      R('#0a0610', 8, 34, 122, 150); R('#1c1630', 9, 35, 120, 148);
-      const set = KF.Sprites.buildSet(this.previewLook(), 1.8, ['idle', 'jab', 'kick', 'victory']);
+      R('#0a0610', 8, 40, 122, 146); R('#1c1630', 9, 41, 120, 144);
+      const set = KF.Sprites.buildSet(this.previewLook(), 2.25, ['idle', 'jab', 'kick', 'victory']);
       const cycle = Math.floor(t / 1.2) % 4, fr = cycle === 1 ? set.frames.jab[0] : cycle === 2 ? set.frames.kick[0] : cycle === 3 ? set.frames.victory[2] : set.frames.idle[Math.floor(t * 4) % 4];
-      ctx.save(); ctx.translate(66, 140); ctx.scale(1.3, 1.3); KF.Sprites.blit(ctx, fr, set); ctx.restore();
+      ctx.save(); ctx.translate(66, 140); KF.Sprites.blit(ctx, fr, set); ctx.restore();
       R('#2a2240', 20, 140, 98, 4);
       const st = E.playerStats();
       [['POWER', 'power'], ['GUARD', 'guard'], ['HEALTH', 'health'], ['SPEED', 'speed']].forEach(([n, k], i) => {
-        F.draw(ctx, n, 14, 150 + i * 8, '#a098b0');
-        for (let l = 0; l < 5; l++) R(l < E.level(k) ? '#ffd040' : '#3a3050', 64 + l * 9, 151 + i * 8, 7, 5);
+        F.draw(ctx, n, 14, 147 + i * 9, '#a098b0');
+        for (let l = 0; l < 5; l++) R(l < E.level(k) ? '#ffd040' : '#3a3050', 64 + l * 9, 148 + i * 9, 7, 5);
       });
       void st;
       // Tabs.
@@ -104,9 +103,7 @@
       const it = list[this.sel];
       if (it && it.desc) F.draw(ctx, it.desc, 252, 178, '#b8b0c8', 1, 'center', '#000');
       if (this.msg) F.draw(ctx, this.msg.text, 252, 168, this.msg.good ? '#7cff6a' : '#ff6050', 1, 'center', '#000');
-      R('rgba(8,4,16,0.8)', 0, 192, VW, 24);
-      F.draw(ctx, 'LEFT/RIGHT: TAB   UP/DOWN: ITEM   ENTER: BUY / EQUIP   ESC: BACK', VW / 2, 196, '#ffffff', 1, 'center', '#000');
-      F.draw(ctx, 'EARN COINS BY CLEARING STAGES AND WINNING FIGHTS', VW / 2, 206, '#8a80a0', 1, 'center', '#000');
+      KF.UI.footer(ctx, 'A/D: TAB    W/S: ITEM    ENTER: BUY / EQUIP    ESC: BACK', 'EARN COINS BY CLEARING LEVELS AND WINNING FIGHTS');
     }
   }
   KF.ShopScene = ShopScene;

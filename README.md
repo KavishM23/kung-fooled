@@ -3,8 +3,8 @@
 A troll platformer dressed as a late-90s arcade fighter. Run from the left of each stage to the
 exit door. The stage will betray you. Learn each trap by dying to it; respawn is instant.
 
-Between stages you fight. Each realm is five platform stages, a street fight after each of the
-first four, and a boss at the end. Beat the boss to unlock the next realm. Fights and stages pay
+Between levels you fight. Each realm is five levels, each one a different world, with a street
+fight after each of the first four and a boss at the end. Beat the boss to unlock the next realm. Fights and stages pay
 coins, which buy outfits, headgear, hair, fist wraps, stat upgrades and special moves in the Dojo.
 
 **Realms:** Rooftop at Dusk, Harbour, Neon Night Market, Temple Courtyard, Sky Express, Sakura
@@ -27,6 +27,19 @@ medium every chapter, each of the 35 stages is its own place, not a recolour. Ex
 - a runestone carving, the Bayeux tapestry, a mead hall by candlelight, a glacier cave and Valhalla
 
 The art is drawn at twice the logical resolution, with shaded pixel-art fighters.
+
+**Each world bends one rule**, shown on the level's title card. Some examples:
+- The silent film runs undercranked, so everything is 15% faster.
+- Vaporwave is "slowed + reverb", so everything runs at 80%.
+- The NES world gives full-height jumps only.
+- The glacier is ice everywhere, and the dream has low gravity.
+- The Great Wave blows a headwind.
+- Noir's lights cut out, and the old TV's picture rolls.
+- The comic and pop-art worlds move one panel at a time, and the notebook's pencil only draws what's near you.
+- The blueprint marks every trap, and the VHS tape rewinds your deaths.
+
+The rules live in `js/rules.js`, and the level checker applies them, so every level is proved
+beatable with its rule on.
 
 **Play:** open `index.html` in a browser. No build step, no server, no dependencies.
 
@@ -83,7 +96,8 @@ js/fight/        fighter, AI, roster        js/economy.js  shop items, upgrades,
 js/styles.js     per-stage visual styles   js/envs/       per-stage environments
 ```
 
-Each stage pairs a *style* (the medium) with an *environment* (the place). The environment is
+Each level pairs a *style* (the medium) with an *environment* (the place) and a *rule*
+(`js/rules.js`: the world's name, its one-line twist, and any physics changes). The environment is
 a full theme with its own scenery, tiles and props, registered with
 `KF.Env.add(styleId, theme, extra)` in `js/envs/<realm>.js`. Styles are post-process passes over the rendered world, plus optional hooks: `under`/`overlay`
 drawing, `compose` (for example the AR phone frame), a theme override (ASCII, BSOD), `res`

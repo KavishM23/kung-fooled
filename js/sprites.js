@@ -15,7 +15,14 @@
     const c = [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.max(0, Math.min(255, Math.round(v * f))));
     return '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('');
   }
-  const ramp = (a, b, c) => [rgba(a), rgba(b), rgba(c), rgba(shade(a, 0.62))]; // shadow, base, highlight, core shadow
+  // shadow, base, highlight, core shadow. Highlights on already-light materials are pulled back
+  // toward the base so cream wraps and white gis don't sparkle with near-white pixels.
+  const lum = (hex) => { const n = parseInt(hex.slice(1), 16); return (0.3 * (n >> 16) + 0.59 * ((n >> 8) & 255) + 0.11 * (n & 255)) / 255; };
+  const mix = (a, b, t) => {
+    const p = parseInt(a.slice(1), 16), q = parseInt(b.slice(1), 16);
+    return '#' + [16, 8, 0].map((k) => Math.round(((p >> k) & 255) * (1 - t) + ((q >> k) & 255) * t).toString(16).padStart(2, '0')).join('');
+  };
+  const ramp = (a, b, c) => [rgba(a), rgba(b), rgba(lum(c) > 0.8 ? mix(b, c, 0.55) : c), rgba(shade(a, 0.62))];
   const darkRamp = (r, f = 0.75) => r.map((h) => shade(h, f));
 
   // ---- palettes (hex ramps: shadow, base, highlight) ----
@@ -49,17 +56,22 @@
   };
 
   // ---- rasteriser ----
+  const SUB = [[0.25, 0.25], [0.75, 0.25], [0.25, 0.75], [0.75, 0.75]];
   function makeMask(W, H, S) {
     const m = new Uint8Array(W * H);
     const M = {
       get(x, y) { return x >= 0 && y >= 0 && x < W && y < H ? m[y * W + x] : 0; },
       set(x, y) { if (x >= 0 && y >= 0 && x < W && y < H) m[y * W + x] = 1; },
       // All shape coords are design units; S converts to pixels.
+      // Shapes are sampled 4 times per pixel and a pixel is filled when at least half its samples
+      // are inside, so edges follow the true shape instead of growing single-pixel bumps.
       disc(cx, cy, r) {
         cx *= S; cy *= S; r *= S;
+        const r2 = r * r;
         for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
-          const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
-          if (dx * dx + dy * dy <= r * r) M.set(x, y);
+          let n = 0;
+          for (const [sx, sy] of SUB) { const dx = x + sx - cx, dy = y + sy - cy; if (dx * dx + dy * dy <= r2) n++; }
+          if (n >= 2) M.set(x, y);
         }
         return M;
       },
@@ -73,13 +85,17 @@
         let x0 = W, x1 = 0, y0 = H, y1 = 0;
         for (const q of p) { x0 = Math.min(x0, q.x); x1 = Math.max(x1, q.x); y0 = Math.min(y0, q.y); y1 = Math.max(y1, q.y); }
         for (let y = Math.floor(y0); y <= Math.ceil(y1); y++) for (let x = Math.floor(x0); x <= Math.ceil(x1); x++) {
-          const px = x + 0.5, py = y + 0.5;
-          let inside = false;
-          for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
-            const a = p[i], b = p[j];
-            if ((a.y > py) !== (b.y > py) && px < ((b.x - a.x) * (py - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+          let n = 0;
+          for (const [sx, sy] of SUB) {
+            const px = x + sx, py = y + sy;
+            let inside = false;
+            for (let i = 0, j = p.length - 1; i < p.length; j = i++) {
+              const a = p[i], b = p[j];
+              if ((a.y > py) !== (b.y > py) && px < ((b.x - a.x) * (py - a.y)) / (b.y - a.y) + a.x) inside = !inside;
+            }
+            if (inside) n++;
           }
-          if (inside) M.set(x, y);
+          if (n >= 2) M.set(x, y);
         }
         return M;
       },
@@ -88,8 +104,8 @@
   }
 
   // Paint a mask with light from the top-left: a highlight band along top/left edges, a shadow
-  // band along bottom/right edges, a darker core shadow right at the edge, and a checker dither
-  // where shadow meets base. Band widths grow with the sprite's pixel scale, so big fight sprites
+  // band along bottom/right edges and a darker core shadow right at the edge, in clean bands (no
+  // dither, which reads as noise at this size). Band widths grow with the sprite's pixel scale, so big fight sprites
   // get real shading instead of a one-pixel rim. `sep` outlines the part against painted parts.
   function paint(buf, W, H, mask, rp, sep = false, S = 1) {
     const hiW = Math.max(1, Math.round(S * 0.45)), shW = Math.max(1, Math.round(S * 0.75));
@@ -102,7 +118,7 @@
       for (let i = 1; i <= hiW && !lit; i++) if (out(x, y - i) || out(x - i, y)) lit = true;
       if (!lit) {
         if (out(x + 1, y + 1) || out(x, y + 1) || out(x + 1, y)) dark = 2;
-        else for (let i = 2; i <= shW + 1 && !dark; i++) if (out(x + i, y + i) || out(x, y + i) || out(x + i, y)) dark = i <= shW ? 1 : ((x + y) & 1 ? 1 : 0);
+        else for (let i = 2; i <= shW && !dark; i++) if (out(x + i, y + i) || out(x, y + i) || out(x + i, y)) dark = 1;
       }
       if (lit) c = rp[2]; else if (dark === 2 && S >= 2) c = deep; else if (dark) c = rp[0];
       if (sep) {
@@ -120,13 +136,24 @@
     const src = buf.slice();
     const tintOf = (c) => {
       const r = c & 255, g = (c >> 8) & 255, b = (c >> 16) & 255;
-      const k = 0.28, base = [0x1b, 0x10, 0x22];
+      const k = 0.2, base = [0x1b, 0x10, 0x22];
       return ((255 << 24) | (Math.round(base[2] * 0.6 + b * k) << 16) | (Math.round(base[1] * 0.6 + g * k) << 8) | Math.round(base[0] * 0.6 + r * k)) >>> 0;
     };
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       if (src[y * W + x]) continue;
       const n = (x > 0 && src[y * W + x - 1]) || (x < W - 1 && src[y * W + x + 1]) || (y > 0 && src[(y - 1) * W + x]) || (y < H - 1 && src[(y + 1) * W + x]);
       if (n) buf[y * W + x] = colored && n !== OUT ? tintOf(n) : OUT;
+    }
+  }
+  // Pixel-art cleanup: a lone pixel whose four neighbours all share one other colour is a stray
+  // left by overlapping parts, so it takes that colour. Outline and eye pixels are left alone.
+  function cleanup(buf, W, H) {
+    const src = buf.slice();
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+      const k = y * W + x, c = src[k];
+      if (!c || c === OUT) continue;
+      const a = src[k - 1], b = src[k + 1], u = src[k - W], d = src[k + W];
+      if (a && a === b && a === u && a === d && a !== c && a !== OUT) buf[k] = a;
     }
   }
   function ik(a, b, l1, l2, pref) {
@@ -208,22 +235,25 @@
       put(hm, mat.hair);
     }
 
-    const limb = (l, root, r0, r1, rpUpper, rpLower) => {
+    // `tuck` stops the lower segment short of the end so a shoe or fist fully covers it.
+    const limb = (l, root, r0, r1, rpUpper, rpLower, tuck = 0) => {
       const a = mask().line(root, l.joint, r0, r1); put(a, rpUpper);
-      const b = mask().line(l.joint, l.end, r1, r1 * 0.9); put(b, rpLower || rpUpper);
+      const dx = l.end.x - l.joint.x, dy = l.end.y - l.joint.y, d = Math.hypot(dx, dy) || 1;
+      const end = P(l.end.x - dx / d * tuck, l.end.y - dy / d * tuck);
+      const b = mask().line(l.joint, end, r1, r1 * 0.85); put(b, rpLower || rpUpper);
     };
     const fist = (l, rp, sep) => {
       const dx = l.end.x - l.joint.x, dy = l.end.y - l.joint.y, d = Math.hypot(dx, dy) || 1;
       put(mask().line(P(l.end.x - dx / d * 1.6, l.end.y - dy / d * 1.6), l.end, 1.35).disc(l.end.x + dx / d * 0.6, l.end.y + dy / d * 0.6, 1.9), rp, sep);
     };
-    const shoe = (l, rp) => put(mask().line(P(l.end.x - 0.5, l.end.y - 0.6), P(l.end.x + 2.2, l.end.y - 0.4), 1.15), rp);
+    const shoe = (l, rp) => put(mask().line(P(l.end.x - 0.6, l.end.y - 0.9), P(l.end.x + 2.2, l.end.y - 0.6), 1.3), rp);
 
     // Back arm, back leg.
     limb(armB, shB, 1.35, 1.25, sleeves ? mat.topB : mat.skinB, L.style === 'armor' ? mat.topB : mat.skinB); fist(armB, mat.wrapsB);
-    limb(legB, hipB, 2.0 * wide, 1.6 * wide, mat.pantsB); shoe(legB, mat.shoe);
+    limb(legB, hipB, 2.0 * wide, 1.6 * wide, mat.pantsB, null, 1.2); shoe(legB, mat.shoe);
     // Pelvis + front leg.
     put(mask().disc(hip.x, hip.y, 2.7 * wide), mat.pants);
-    limb(legF, hipF, 2.15 * wide, 1.7 * wide, mat.pants); shoe(legF, mat.shoe);
+    limb(legF, hipF, 2.15 * wide, 1.7 * wide, mat.pants, null, 1.2); shoe(legF, mat.shoe);
     // Torso.
     put(mask().line(P(hip.x - Math.sin(lean), hip.y - 1), neck, 3.3, 3.7).disc(shF.x, shF.y - 0.4, 2.1).disc(shB.x, shB.y - 0.3, 2.0), mat.top);
     if (L.style === 'vest' || L.style === 'fur') {
@@ -299,6 +329,7 @@
     fist(armF, mat.wraps, true);
 
     outline(buf, W, H, S >= 2);
+    cleanup(buf, W, H);
     return { buf, W, H };
   }
 

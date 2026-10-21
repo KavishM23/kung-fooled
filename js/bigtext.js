@@ -66,6 +66,8 @@
   KF.BigText = {
     STYLES,
     render,
+    // Largest scale (up to `max`) at which `text` fits in `maxW` px.
+    fit(text, maxW, max = 4) { let s = max; while (s > 1 && render(text, s, 'steel').width > maxW) s--; return s; },
     // Draw centred at (cx, cy). zoom stretches it (for slam-in), alpha fades.
     draw(ctx, text, cx, cy, scale, style, zoom = 1, alpha = 1) {
       const img = render(text, scale, style);

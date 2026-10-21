@@ -482,8 +482,8 @@
       const n = W * H, res = i.res;
       if (!noirK || noirK.length !== n) noirK = new Float32Array(n);
       const K = noirK, flash = i.t % 6 < 0.12;
-      const th = KF.Themes.get('env_noir'), lights = [{ x: i.player.x, y: i.player.y, r: 58 }].concat(th.lit || []);
-      K.fill(flash ? 1 : 0.16);
+      const th = KF.Themes.get('env_noir'), lights = [{ x: i.player.x, y: i.player.y, r: 84 }].concat(th.lit || []);
+      K.fill(flash ? 1 : 0.4);
       if (!flash) for (const l of lights) {
         const cx = l.x * res, cy = l.y * res, r = l.r * res, r2 = r * r;
         const x0 = Math.max(0, Math.floor(cx - r)), x1 = Math.min(W, Math.ceil(cx + r)), y0 = Math.max(0, Math.floor(cy - r)), y1 = Math.min(H, Math.ceil(cy + r));
@@ -496,7 +496,7 @@
       }
       for (let k = 0, o = 0; k < n; k++, o += 4) {
         let l = lum(d, o);
-        l = (l - 128) * 1.6 + 128;
+        l = (l - 90) * 1.3 + 112; // lifted: shadows stay grey, not black
         if (l > 228) l = 255; else l *= K[k]; // emissive whites stay lit in the dark
         l = l < 0 ? 0 : l > 255 ? 255 : l;
         d[o] = d[o + 1] = d[o + 2] = l;

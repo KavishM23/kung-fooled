@@ -25,10 +25,12 @@
   };
 
   class Player {
-    constructor(x, y) { this.reset(x, y); }
+    // tuning: KF.PlayerTuning, or a copy bent by the level's rule (see js/rules.js).
+    constructor(x, y, tuning = KF.PlayerTuning) { this.T = tuning; this.reset(x, y); }
 
     // (x, y) is the spawn point: centre-bottom of the hitbox.
     reset(x, y) {
+      const P = this.T;
       this.w = P.w; this.h = P.h;
       this.x = x - P.w / 2; this.y = y - P.h;
       this.prevX = this.x; this.prevY = this.y;
@@ -51,6 +53,7 @@
     get centerX() { return this.x + this.w / 2; }
 
     update(dt, input, world) {
+      const P = this.T;
       this.prevX = this.x; this.prevY = this.y;
       if (this.dead) return;
       const g = this.gravDir;
@@ -73,7 +76,7 @@
       const skid = turning && this.grounded && Math.abs(this.vx) > 90;
       if (skid && !this.skidding) this.events.push({ type: 'skid' });
       this.skidding = skid;
-      if (this.grounded && world.slipperyUnder(this, g)) a *= dir === 0 ? 0.12 : 0.3; // ice
+      if (this.grounded && (this.iceAll || world.slipperyUnder(this, g))) a *= dir === 0 ? 0.12 : 0.3; // ice
       this.vx = U.approach(this.vx, dir * P.runSpeed, a * dt);
 
       // Coyote time and jump buffering.
@@ -126,6 +129,7 @@
     // Forgiveness: if a wall stopped us mid-air and its top edge is only a few pixels above our feet,
     // step up onto it instead of sliding down the face.
     ledgeAssist(world, wantX) {
+      const P = this.T;
       const g = this.gravDir;
       if (this.grounded || this.vy * g < -60) return false;
       for (let k = 1; k <= P.ledgeAssist; k++) {
@@ -149,7 +153,7 @@
       this.grounded = false; this.jumping = false; this.coyoteT = 0;
     }
 
-    get fast() { return this.topSpeedT > 0.45 || Math.abs(this.vx) > P.runSpeed + 20; }
+    get fast() { return this.topSpeedT > 0.45 || Math.abs(this.vx) > this.T.runSpeed + 20; }
 
     updateState(dt) {
       const g = this.gravDir;

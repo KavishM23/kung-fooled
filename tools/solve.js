@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const SIM_FILES = ['core.js', 'physics.js', 'world.js', 'player.js', 'traps.js', 'stage.js', 'levels/doors.js'];
+const SIM_FILES = ['core.js', 'physics.js', 'world.js', 'player.js', 'traps.js', 'stage.js', 'rules.js', 'levels/doors.js'];
 const sandbox = { console, Math, JSON, Object, Array, Set, Map, Uint8Array, Error, parseInt, Number };
 sandbox.window = sandbox;
 vm.createContext(sandbox);

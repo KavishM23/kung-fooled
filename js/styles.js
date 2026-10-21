@@ -612,17 +612,6 @@
     },
   });
 
-  // Which style each stage uses (realm id -> five stages). A stage def's own `style` wins.
-  KF.StylePlan = {
-    rooftop: ['hd', 'oldtv', 'comic', 'gameboy', 'vhs'],
-    harbour: ['silent', 'blueprint', 'pocket', 'noir', 'cga'],
-    neon: ['glitch', 'vaporwave', 'mirror', 'thermal', 'bsod'],
-    temple: ['sketch', 'ink', 'nightvision', 'ascii', 'cube3d'],
-    train: ['nes8bit', 'negative', 'cinema', 'popart', 'vector'],
-    sakura: ['storybook', 'ukiyo', 'dream', 'duotone', 'polaroid'],
-    viking: ['emboss', 'stitch', 'candle', 'frost', 'golden'],
-  };
-
   // A stage environment: its own scenery, tiles and props, tied to a style (see js/envs/).
   // `extra` is merged onto the style itself (frames, overlays, a different post pass).
   KF.Env = {
@@ -636,7 +625,7 @@
   KF.Styles = {
     all: S,
     get(id) { const s = S[id] || S.hd; s.id = S[id] ? id : 'hd'; return s; },
-    forStage(realmId, index, def) { return this.get((def && def.style) || (KF.StylePlan[realmId] || [])[index] || 'hd'); },
+    forStage(realmId, index, def) { return this.get((def && def.style) || (KF.StylePlan[realmId] || [])[index] || 'hd'); }, // KF.StylePlan: js/rules.js
     // Run a style's pixel pass over a canvas (in place).
     post(style, canvas, info) {
       if (!style.post && !style.light) return;

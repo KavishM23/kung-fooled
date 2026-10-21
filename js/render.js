@@ -3,6 +3,13 @@
 (function (KF) {
   const T = KF.TILE, U = KF.util;
   const R = (ctx, c, x, y, w = 1, h = 1) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); };
+  const thumbs = {};
+  // Marching dashed outline: how the blueprint world shows things that are not built yet.
+  function dashed(ctx, x, y, w, h, c, t) {
+    const o = Math.floor(t * 8) % 4;
+    for (let i = -o; i < w; i += 4) { const a = Math.max(0, i), b = Math.min(w, i + 2); if (b > a) { R(ctx, c, x + a, y, b - a, 1); R(ctx, c, x + a, y + h - 1, b - a, 1); } }
+    for (let i = -o; i < h; i += 4) { const a = Math.max(0, i), b = Math.min(h, i + 2); if (b > a) { R(ctx, c, x, y + a, 1, b - a); R(ctx, c, x + w - 1, y + a, 1, b - a); } }
+  }
 
   function edgesAt(world, c, r) {
     // depth: tiles of the same kind stacked above this one (lets themes draw e.g. train livery bands)
@@ -97,7 +104,8 @@
           ctx.globalAlpha = 1;
           continue;
         }
-        if (!(tr instanceof KF.Traps.types.gravity || tr instanceof KF.Traps.types.reverse) || !tr.fired || !tr.seen) continue;
+        if (!(tr instanceof KF.Traps.types.gravity || tr instanceof KF.Traps.types.reverse) || !tr.fired) continue;
+        if (!tr.seen) { if (stage.rule && stage.rule.reveal) dashed(ctx, tr.rect.x - cam.x, tr.rect.y - cam.y, tr.rect.w, tr.rect.h, '#ffd0ff', t); continue; }
         const r = tr.rect, x = r.x - cam.x, y = r.y - cam.y;
         const grav = tr instanceof KF.Traps.types.gravity;
         const col = grav ? theme.zone.gravity : theme.zone.reverse;
@@ -120,10 +128,32 @@
       }
     },
 
+    // A small still of a theme (and optionally the style's pixel pass), for menus. Cached.
+    thumb(themeId, w, h, styleId) {
+      const key = themeId + '|' + w + 'x' + h + '|' + (styleId || '');
+      thumbs[key] = thumbs[key] || (() => {
+        const VW = KF.VIEW_W, VH = KF.VIEW_H, big = KF.makeHi(VW, VH, KF.RES, true), bx = big.getContext('2d');
+        const th = KF.Themes.get(themeId);
+        bx.fillStyle = th.bg; bx.fillRect(0, 0, VW, VH);
+        th.background(bx, { x: 120, y: 0 }, 3.3, { cheer: 0 });
+        for (let x = 0; x < VW; x += 16) for (let r = 0; r < 3; r++) th.tile(bx, x, 168 + r * 16, 'solid', { t: r === 0 }, U.hash2(x, r + 3));
+        const style = styleId && KF.Styles.get(styleId);
+        if (style && style.post) KF.Styles.post(style, big, KF.Styles.info(3.3, 1, KF.RES, VW / 2, 150, 200));
+        const c = KF.makeHi(w, h), x = c.getContext('2d');
+        x.imageSmoothingEnabled = true; x.drawImage(big, 0, 0, w, h);
+        return c;
+      })();
+      return thumbs[key];
+    },
+
     traps(ctx, stage, theme, cam, t) {
       const world = stage.world, types = KF.Traps.types;
+      const reveal = stage.rule && stage.rule.reveal;
       for (const tr of stage.traps) {
         const shake = tr.warning ? (Math.floor(t * 60) % 2 ? 1 : -1) : 0;
+        if (reveal && !tr.fired && tr.rect && (tr instanceof types.collapse || tr instanceof types.spikes || tr instanceof types.fakeFloor)) {
+          dashed(ctx, tr.rect.x - cam.x, tr.rect.y - cam.y, tr.rect.w, tr.rect.h, '#ff8a8a', t);
+        }
         if (tr instanceof types.collapse) {
           if (tr.drop > 260) continue;
           for (const [c, r, id] of tr.tiles) drawTile(ctx, world, theme, c, r, id, c * T - cam.x + shake, Math.round(r * T + tr.drop - cam.y));
@@ -196,7 +226,7 @@
           ctx.fillStyle = '#8a94a8'; ctx.beginPath(); ctx.arc(bx + 7, by + 6, 4, 0, 7); ctx.fill();
           R(ctx, '#ff4a3a', bx + 6, by + 5, 3, 3);
         } else if (tr instanceof types.hidden) {
-          if (!tr.fired) continue;
+          if (!tr.fired) { if (stage.rule && stage.rule.reveal) dashed(ctx, tr.rect.x - cam.x, tr.rect.y - cam.y, tr.rect.w, tr.rect.h, '#ffffff', t); continue; }
           for (let i = 0; i < tr.rect.w; i += T) theme.tile(ctx, tr.rect.x + i - cam.x, tr.rect.y - cam.y - Math.round(tr.popT * 4), 'alt', { t: true, b: true, l: i === 0, r: i + T >= tr.rect.w }, 0.5);
         }
       }

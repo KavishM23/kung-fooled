@@ -50,8 +50,7 @@
       const t = this.t, R = (c, x, y, w, h) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); };
       this.theme.background(ctx, { x: 40 + t * 6, y: 0 }, this.engine.time, { cheer: this.cleared !== undefined ? 1 : 0.2 });
       ctx.fillStyle = 'rgba(10,6,20,0.55)'; ctx.fillRect(0, 0, VW, VH);
-      KF.BigText.draw(ctx, 'CHOOSE YOUR REALM', VW / 2, 18, 2, 'fire');
-      KF.HUD.coins(ctx, VW - 8, 6, t);
+      KF.UI.header(ctx, 'CHOOSE YOUR REALM', null, t);
       KF.Doors.forEach((d, i) => {
         const cx = Math.round(VW / 2 + (i - this.scroll) * 112);
         if (cx < -70 || cx > VW + 70) return;
@@ -78,12 +77,10 @@
       });
       const d = KF.Doors[this.sel], unlocked = KF.Save.unlocked(this.sel);
       const msg = unlocked ? `BOSS: ${KF.Roster.R[d.id].boss.name}` : `BEAT THE ${KF.Doors[this.sel - 1].name} BOSS TO UNLOCK`;
-      F.draw(ctx, msg, VW / 2, 168, this.denied > 0 ? '#ff6050' : unlocked ? '#ffb0a0' : '#b0a8c0', 1, 'center', '#000');
+      F.draw(ctx, msg, VW / 2, 166, this.denied > 0 ? '#ff6050' : unlocked ? '#ffb0a0' : '#b0a8c0', 1, 'center', '#000');
       if (this.cleared !== undefined && t < 4) KF.BigText.draw(ctx, 'REALM CLEARED!', VW / 2, 110, 3, 'gold', t < 0.12 ? 3 - t * 16 : 1);
-      R('rgba(8,4,16,0.8)', 0, 180, VW, 36);
-      F.draw(ctx, 'ENTER: ENTER REALM     C: DOJO SHOP     F: STREET ARENA', VW / 2, 186, '#ffffff', 1, 'center', '#000');
-      F.draw(ctx, 'T: TRAINING     ESC: TITLE     M: SOUND', VW / 2, 198, '#a098b0', 1, 'center', '#000');
-      F.draw(ctx, `ARENA BEST STREAK ${KF.Save.data.arena.best}`, VW / 2, 208, '#7a7094', 1, 'center');
+      F.draw(ctx, `ARENA BEST STREAK ${KF.Save.data.arena.best}`, VW / 2, 177, '#7a7094', 1, 'center', '#000');
+      KF.UI.footer(ctx, 'ENTER: REALM    C: SHOP    F: ARENA    T: TRAINING', 'ESC: TITLE    M: SOUND');
     }
   }
   KF.MapScene = MapScene;

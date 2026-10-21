@@ -272,19 +272,14 @@
     },
     door: timberDoor({ out: TP.blue, frame: TP.brown, wood: TP.ochre, grain: '#a87020', hi: '#f0c060', iron: TP.blue, ironHi: '#5a6aa0', glow: '#ffd060' }),
   }, {
-    // Cross-stitch: each 3x3 cell is an X of thread over linen. Less linen shows through than the
-    // generic stitch pass so platforms keep their colour.
+    // Thread texture at full detail: every pixel keeps its colour, with diagonal stitch shading
+    // over it, so the player and hazards stay as sharp as anywhere else.
+    res: 2,
     post(d, W, H) {
-      const C = 3;
-      for (let cy = 0; cy < H; cy += C) for (let cx = 0; cx < W; cx += C) {
-        let r = 0, g = 0, b = 0, n = 0;
-        const ey = Math.min(H, cy + C), ex = Math.min(W, cx + C);
-        for (let y = cy; y < ey; y++) for (let x = cx; x < ex; x++) { const o = (y * W + x) * 4; r += d[o]; g += d[o + 1]; b += d[o + 2]; n++; }
-        r /= n; g /= n; b /= n;
-        for (let y = cy; y < ey; y++) for (let x = cx; x < ex; x++) {
-          const o = (y * W + x) * 4, lx = x - cx, ly = y - cy;
-          if (lx === ly || lx === C - 1 - ly) { d[o] = r; d[o + 1] = g; d[o + 2] = b; } else { const w = (x + y) % 2 ? 206 : 222; d[o] = w * 0.3 + r * 0.7; d[o + 1] = (w - 10) * 0.3 + g * 0.7; d[o + 2] = (w - 34) * 0.3 + b * 0.7; }
-        }
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const o = (y * W + x) * 4, a = (x + y) & 3, b = (x - y) & 3;
+        const f = a === 0 ? 0.8 : b === 0 ? 0.9 : a === 2 ? 1.06 : 1;
+        d[o] = Math.min(255, d[o] * f); d[o + 1] = Math.min(255, d[o + 1] * f); d[o + 2] = Math.min(255, d[o + 2] * f);
       }
     },
   });

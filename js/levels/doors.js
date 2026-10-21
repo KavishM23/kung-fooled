@@ -15,6 +15,6 @@
   KF.addStage = (doorId, def) => {
     const door = KF.Doors.find((d) => d.id === doorId);
     if (!door) throw new Error('Unknown door: ' + doorId);
-    door.stages.push(KF.util.deepFreeze(Object.assign({ theme: door.theme }, def)));
+    door.stages.push(KF.util.deepFreeze(Object.assign({ theme: door.theme, realm: doorId, index: door.stages.length }, def)));
   };
 })(window.KF);
