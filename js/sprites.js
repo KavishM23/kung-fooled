@@ -15,7 +15,7 @@
     const c = [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.max(0, Math.min(255, Math.round(v * f))));
     return '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('');
   }
-  const ramp = (a, b, c) => [rgba(a), rgba(b), rgba(c)]; // shadow, base, highlight
+  const ramp = (a, b, c) => [rgba(a), rgba(b), rgba(c), rgba(shade(a, 0.62))]; // shadow, base, highlight, core shadow
   const darkRamp = (r, f = 0.75) => r.map((h) => shade(h, f));
 
   // ---- palettes (hex ramps: shadow, base, highlight) ----
@@ -87,14 +87,24 @@
     return M;
   }
 
-  // Paint a mask: highlight on top/left edges, shadow on bottom/right; `sep` outlines it against
-  // parts already painted (keeps a front arm readable over the torso).
-  function paint(buf, W, H, mask, rp, sep = false) {
+  // Paint a mask with light from the top-left: a highlight band along top/left edges, a shadow
+  // band along bottom/right edges, a darker core shadow right at the edge, and a checker dither
+  // where shadow meets base. Band widths grow with the sprite's pixel scale, so big fight sprites
+  // get real shading instead of a one-pixel rim. `sep` outlines the part against painted parts.
+  function paint(buf, W, H, mask, rp, sep = false, S = 1) {
+    const hiW = Math.max(1, Math.round(S * 0.45)), shW = Math.max(1, Math.round(S * 0.75));
+    const deep = rp[3] || rp[0];
+    const out = (x, y) => !mask.get(x, y);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       if (!mask.get(x, y)) continue;
       let c = rp[1];
-      if (!mask.get(x, y - 1) || !mask.get(x - 1, y)) c = rp[2];
-      else if (!mask.get(x, y + 1) || !mask.get(x + 1, y) || !mask.get(x + 1, y + 1)) c = rp[0];
+      let lit = false, dark = 0;
+      for (let i = 1; i <= hiW && !lit; i++) if (out(x, y - i) || out(x - i, y)) lit = true;
+      if (!lit) {
+        if (out(x + 1, y + 1) || out(x, y + 1) || out(x + 1, y)) dark = 2;
+        else for (let i = 2; i <= shW + 1 && !dark; i++) if (out(x + i, y + i) || out(x, y + i) || out(x + i, y)) dark = i <= shW ? 1 : ((x + y) & 1 ? 1 : 0);
+      }
+      if (lit) c = rp[2]; else if (dark === 2 && S >= 2) c = deep; else if (dark) c = rp[0];
       if (sep) {
         for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
           const nx = x + dx, ny = y + dy;
@@ -104,11 +114,19 @@
       buf[y * W + x] = c;
     }
   }
-  function outline(buf, W, H) {
+  // Coloured outline: each outline pixel is a very dark tint of the colour it touches, which reads
+  // softer and richer than pure black (a classic pixel-art trick).
+  function outline(buf, W, H, colored) {
     const src = buf.slice();
+    const tintOf = (c) => {
+      const r = c & 255, g = (c >> 8) & 255, b = (c >> 16) & 255;
+      const k = 0.28, base = [0x1b, 0x10, 0x22];
+      return ((255 << 24) | (Math.round(base[2] * 0.6 + b * k) << 16) | (Math.round(base[1] * 0.6 + g * k) << 8) | Math.round(base[0] * 0.6 + r * k)) >>> 0;
+    };
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       if (src[y * W + x]) continue;
-      if ((x > 0 && src[y * W + x - 1]) || (x < W - 1 && src[y * W + x + 1]) || (y > 0 && src[(y - 1) * W + x]) || (y < H - 1 && src[(y + 1) * W + x])) buf[y * W + x] = OUT;
+      const n = (x > 0 && src[y * W + x - 1]) || (x < W - 1 && src[y * W + x + 1]) || (y > 0 && src[(y - 1) * W + x]) || (y < H - 1 && src[(y + 1) * W + x]);
+      if (n) buf[y * W + x] = colored && n !== OUT ? tintOf(n) : OUT;
     }
   }
   function ik(a, b, l1, l2, pref) {
@@ -152,7 +170,7 @@
     const buf = new Uint32Array(W * H);
     const L = mat.L;
     const mask = () => makeMask(W, H, S);
-    const put = (m, rp, sep) => paint(buf, W, H, m, rp, sep);
+    const put = (m, rp, sep) => paint(buf, W, H, m, rp, sep, S);
     const P = (x, y) => ({ x, y });
     const hip = P(BAX + (pose.hx || 0), BAY - 13 + (pose.hy || 0));
     const lean = pose.lean || 0, tilt = pose.tilt || 0;
@@ -266,13 +284,21 @@
     else if (pose.blink) { px(ex, ey, OUT); px(ex - 1, ey, OUT); }
     else { px(ex, ey, OUT); px(ex, ey - 1, OUT); px(ex - 1, ey - 1, OUT); }
     if (pose.mouth === 'open') { px(hd.x + 3, hd.y + 3, OUT); px(hd.x + 3, hd.y + 4, OUT); }
+    if (S >= 2) { // brow, ear and nose shadow on the bigger sprites
+      const one = (x, y, c) => { const X = Math.round(x * S), Y = Math.round(y * S); if (X >= 0 && Y >= 0 && X < W && Y < H && buf[Y * W + X]) buf[Y * W + X] = c; };
+      const browY = hd.y - 0.9 + (pose.dizzy ? -0.3 : 0);
+      for (let i = 0; i < 3; i++) one(ex - 1 + i * 0.4, browY - (pose.mouth === 'open' && i === 0 ? 0.3 : 0), mat.hair[0]);
+      put(mask().disc(hd.x - 0.6, hd.y + 0.9, 0.85), mat.skin);
+      one(hd.x + 3.4, hd.y + 1.6, mat.skin[0]); one(hd.x + 3.1, hd.y + 1.9, mat.skin[0]);
+      if (pose.mouth !== 'open') { one(hd.x + 2.6, hd.y + 3.2, mat.skin[0]); one(hd.x + 3.0, hd.y + 3.2, mat.skin[0]); }
+    }
     // Front arm last, outlined against the body.
     const upper = mask().line(shF, armF.joint, 1.45, 1.3);
     put(upper, sleeves ? mat.top : mat.skin, true);
     put(mask().line(armF.joint, armF.end, 1.3, 1.25), L.style === 'armor' ? mat.top : mat.skin, true);
     fist(armF, mat.wraps, true);
 
-    outline(buf, W, H);
+    outline(buf, W, H, S >= 2);
     return { buf, W, H };
   }
 
@@ -334,7 +360,9 @@
   const cache = new Map();
 
   // Build every frame for a look at a scale. Cached, since customisation screens rebuild often.
-  function buildSet(look = {}, S = 1, names = null) {
+  // scale = logical size (1 = 40x40 logical units). Pixels are rasterised at scale * RES.
+  function buildSet(look = {}, scale = 1, names = null) {
+    const S = scale * KF.RES;
     const key = JSON.stringify([look, S, names]);
     if (cache.has(key)) return cache.get(key);
     const mat = materials(look);
@@ -345,7 +373,7 @@
         return { img: c, ghostA: tint(c, '#38e8ff'), ghostB: tint(c, '#ff4fb8'), flash: tint(c, '#ffffff') };
       });
     }
-    const set = { frames, S, W: Math.round(BASE * S), H: Math.round(BASE * S), AX: Math.round(BAX * S), AY: Math.round(BAY * S), look };
+    const set = { frames, S, W: BASE * scale, H: BASE * scale, AX: BAX * scale, AY: BAY * scale, look };
     cache.set(key, set);
     return set;
   }
@@ -377,9 +405,11 @@
       ctx.save();
       ctx.translate(Math.round(x), Math.round(y));
       ctx.scale(facing < 0 ? -1 : 1, flipY ? -1 : 1);
-      ctx.drawImage(frame[which], -set.AX, -set.AY);
+      ctx.drawImage(frame[which], -set.AX, -set.AY, set.W, set.H);
       ctx.restore();
     },
+    // Draw a frame at its logical size with its feet anchor at the current origin.
+    blit(ctx, frame, set, which = 'img', dx = 0, dy = 0) { ctx.drawImage(frame[which], -set.AX + dx, -set.AY + dy, set.W, set.H); },
   };
   Sprites.setLook(DEFAULT_LOOK);
   KF.Sprites = Sprites;

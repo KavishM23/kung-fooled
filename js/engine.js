@@ -5,6 +5,7 @@
   class Engine {
     constructor(canvas) {
       this.canvas = canvas;
+      canvas.width = KF.VIEW_W * KF.RES; canvas.height = KF.VIEW_H * KF.RES;
       this.ctx = canvas.getContext('2d');
       this.ctx.imageSmoothingEnabled = false;
       this.input = new KF.Input(window);
@@ -19,15 +20,17 @@
     }
 
     resize() {
-      const s = Math.min(window.innerWidth / KF.VIEW_W, window.innerHeight / KF.VIEW_H);
-      const scale = s >= 1 ? Math.floor(s) : s; // integer scale keeps pixels square and sharp
-      this.canvas.style.width = KF.VIEW_W * scale + 'px';
-      this.canvas.style.height = KF.VIEW_H * scale + 'px';
+      // Whole multiples of the real canvas size keep every pixel square and sharp.
+      const W = KF.VIEW_W * KF.RES, H = KF.VIEW_H * KF.RES;
+      const s = Math.min(window.innerWidth / W, window.innerHeight / H);
+      const scale = s >= 1 ? Math.floor(s) : s;
+      this.canvas.style.width = W * scale + 'px';
+      this.canvas.style.height = H * scale + 'px';
     }
 
     setScene(scene) { this.scene = scene; }
     // Switch scenes behind a quick wipe. `make` builds the next scene once the screen is covered.
-    go(make) { if (!this.wipe) this.wipe = { t: 0, make, swapped: false }; }
+    go(make) { if (!this.wipe) this.wipe = { t: 0, make: () => { KF.Audio.setLowpass(null); KF.Narrator.clear(); return make(); }, swapped: false }; }
 
     step(dt) {
       const inp = this.input;
@@ -40,6 +43,7 @@
         if (this.wipe && !this.wipe.swapped) return;
       }
       if (this.scene) this.scene.update(dt);
+      KF.Narrator.update(dt);
     }
 
     renderWipe(ctx) {
@@ -65,7 +69,11 @@
           this.acc -= KF.STEP;
         }
         try {
+          this.ctx.setTransform(KF.RES, 0, 0, KF.RES, 0, 0);
+          this.ctx.imageSmoothingEnabled = false;
+          this.frame = (this.frame || 0) + 1;
           if (this.scene) this.scene.render(this.ctx, this.acc / KF.STEP);
+          KF.Narrator.render(this.ctx, this.time);
           this.renderWipe(this.ctx);
           if (KF.Audio.muted) KF.Font.draw(this.ctx, 'MUTE', KF.VIEW_W - 4, KF.VIEW_H - 9, '#7a7094', 1, 'right');
         } catch (e) { console.error(e); }

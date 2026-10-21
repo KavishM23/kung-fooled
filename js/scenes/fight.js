@@ -16,7 +16,12 @@
       this.mode = opts.mode;
       this.realmIdx = opts.realm ?? 0;
       this.realm = KF.Doors[this.realmIdx];
-      this.theme = KF.Themes.get(this.mode === 'arena' ? 'neon' : this.realm.theme);
+      // Fights keep the look of the stage before them; the arena picks a random look each bout.
+      const ids = Object.keys(KF.Styles.all).filter((k) => !['pocket', 'bsod', 'ascii'].includes(k));
+      this.style = KF.Styles.get(opts.style || (this.mode === 'arena' ? ids[Math.floor(Math.random() * ids.length)] : 'hd'));
+      this.theme = KF.Themes.get(this.style.theme || (this.mode === 'arena' ? 'neon' : this.realm.theme));
+      KF.Audio.setLowpass(this.style.audio && this.style.audio.lowpass);
+      KF.Narrator.y = 52;
       this.oppDef = opts.def;
       const ps = KF.Economy.playerStats();
       this.player = new KF.Fight.Fighter({ name: 'BAO', look: KF.Economy.look(), stats: ps, color: '#7cf0ff' }, 110, 1);
@@ -135,7 +140,7 @@
       const P = this.player, O = this.opp;
 
       if (this.phase === 'intro') {
-        if (this.cue('vs', 0.05)) A.sfx('round');
+        if (this.cue('vs', 0.05)) { A.sfx('round'); KF.Narrator.say(KF.Narrator.pick(this.mode === 'boss' ? KF.Narrator.LINES.bossIntro : KF.Narrator.LINES.fightIntro)); }
         if (this.phaseT > 1.8 || (this.phaseT > 0.6 && (input.jumpPressed || input.wasPressed('Enter', 'KeyJ')))) this.startRound();
         return;
       }
@@ -198,8 +203,10 @@
         } else this.coins = KF.Save.completeNode(this.realm.id, this.opts.node);
         A.sfx('win');
         this.fx.confetti(this.player.x, this.player.y - 40);
+        KF.Narrator.say(KF.Narrator.pick(KF.Narrator.LINES.fightWin), { now: true });
       } else {
         A.sfx('lose');
+        KF.Narrator.say(KF.Narrator.pick(KF.Narrator.LINES.fightLose), { now: true });
         if (this.mode === 'arena') this.coins = KF.Economy.earn(2 + this.opts.streak);
       }
       this.setPhase('result');
@@ -241,26 +248,35 @@
 
     // ---------- drawing ----------
     render(ctx) {
-      const t = this.engine.time, sh = this.fx.offset();
+      const t = this.engine.time, sh = this.fx.offset(), style = this.style;
       const mid = (this.player.x + this.opp.x) / 2;
       const cam = { x: (mid - VW / 2) * 0.4 + 200 + sh.x, y: sh.y };
-      ctx.fillStyle = this.theme.bg; ctx.fillRect(0, 0, VW, VH);
-      this.theme.background(ctx, { x: cam.x, y: 0 }, t, this.mood);
+      const res = style.res || KF.RES;
+      if (!this.wc || this.wc.res !== res) this.wc = KF.makeHi(VW, VH, res, !!style.post);
+      const w = this.wc.getContext('2d');
+      w.setTransform(res, 0, 0, res, 0, 0); w.imageSmoothingEnabled = false;
+      w.fillStyle = this.theme.bg; w.fillRect(0, 0, VW, VH);
+      this.theme.background(w, { x: cam.x, y: 0 }, t, this.mood);
       for (let x = -16; x < VW + 16; x += 16) {
         const wx = x - (Math.round(cam.x * 1) % 16);
-        this.theme.tile(ctx, wx, FLOOR + sh.y, 'solid', { t: true, d: 0 }, U.hash2(Math.floor((x + cam.x) / 16), 1));
-        this.theme.tile(ctx, wx, FLOOR + 16 + sh.y, 'solid', { d: 1 }, U.hash2(Math.floor((x + cam.x) / 16), 2));
+        this.theme.tile(w, wx, FLOOR + sh.y, 'solid', { t: true, d: 0 }, U.hash2(Math.floor((x + cam.x) / 16), 1));
+        this.theme.tile(w, wx, FLOOR + 16 + sh.y, 'solid', { d: 1 }, U.hash2(Math.floor((x + cam.x) / 16), 2));
       }
       const scam = { x: -sh.x, y: -sh.y };
       // Draw the one being hit behind the attacker.
       const order = this.opp.state === 'attack' ? [this.player, this.opp] : [this.opp, this.player];
-      if (this.phase !== 'intro') for (const f of order) f.draw(ctx, scam);
-      for (const p of this.projectiles) this.drawProjectile(ctx, p, scam, t);
-      this.fx.render(ctx, scam);
-      if (this.fx.flash > 0) { ctx.globalAlpha = this.fx.flash * 0.5; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, VW, VH); ctx.globalAlpha = 1; }
+      if (this.phase !== 'intro') for (const f of order) f.draw(w, scam);
+      for (const p of this.projectiles) this.drawProjectile(w, p, scam, t);
+      this.fx.render(w, scam);
+      if (this.fx.flash > 0) { w.globalAlpha = this.fx.flash * 0.5; w.fillStyle = '#fff'; w.fillRect(0, 0, VW, VH); w.globalAlpha = 1; }
+      const info = KF.Styles.info(t, this.engine.frame || 0, res, this.player.x, this.player.y - 30, this.player.x);
+      KF.Styles.post(style, this.wc, info);
+      if (style.compose) style.compose(ctx, this.wc, info); else KF.blit(ctx, this.wc, 0, 0);
+      if (style.under) style.under(ctx, info);
       if (this.engine.debug) this.drawDebug(ctx, scam);
       this.drawHUD(ctx, t);
       this.drawOverlay(ctx, t);
+      if (style.overlay) style.overlay(ctx, info);
     }
 
     drawProjectile(ctx, p, cam, t) {
@@ -336,7 +352,7 @@
         const k = Math.min(1, pt * 3);
         const drawBig = (f, x, flip) => {
           const set = f.sprites, fr = set.frames.idle[Math.floor(pt * 4) % 4];
-          ctx.save(); ctx.translate(x, 150); ctx.scale(flip ? -1.4 : 1.4, 1.4); ctx.drawImage(fr.img, -set.AX, -set.AY); ctx.restore();
+          ctx.save(); ctx.translate(x, 150); ctx.scale(flip ? -1.4 : 1.4, 1.4); KF.Sprites.blit(ctx, fr, set); ctx.restore();
         };
         drawBig(this.player, 30 + 60 * k, false);
         drawBig(this.opp, VW - 30 - 60 * k, true);

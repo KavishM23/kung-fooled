@@ -40,10 +40,28 @@ window.KF = window.KF || {};
     },
   };
 
+  // The screen is drawn in logical 384x216 coordinates, but the real canvas has RES times as
+  // many pixels, so sprites and scenery can carry finer pixel detail than the gameplay grid.
+  KF.RES = 2;
+
   KF.makeCanvas = (w, h) => {
     const c = document.createElement('canvas');
     c.width = w; c.height = h;
     c.getContext('2d').imageSmoothingEnabled = false;
     return c;
   };
+  // A canvas measured in logical units (lw x lh) but backed by RES x more pixels; its context is
+  // pre-scaled so drawing code keeps using logical coordinates (0.5 = one real pixel).
+  // read: the canvas will be read back every frame (style post-processing).
+  KF.makeHi = (lw, lh, res = KF.RES, read = false) => {
+    const c = document.createElement('canvas');
+    c.width = Math.ceil(lw * res); c.height = Math.ceil(lh * res);
+    const x = c.getContext('2d', read ? { willReadFrequently: true } : undefined);
+    x.imageSmoothingEnabled = false;
+    c.lw = lw; c.lh = lh; c.res = res;
+    x.setTransform(res, 0, 0, res, 0, 0);
+    return c;
+  };
+  // Draw any canvas at its logical size.
+  KF.blit = (ctx, img, x, y, w = img.lw ?? img.width, h = img.lh ?? img.height) => ctx.drawImage(img, x, y, w, h);
 })(window.KF);

@@ -14,7 +14,9 @@
         this.ctx = new AC();
         this.master = this.ctx.createGain(); this.master.gain.value = this.muted ? 0 : 0.8;
         const comp = this.ctx.createDynamicsCompressor();
-        this.master.connect(comp); comp.connect(this.ctx.destination);
+        // A low-pass on everything lets styles muffle the sound (old TV, silent film...).
+        this.tone_ = this.ctx.createBiquadFilter(); this.tone_.type = 'lowpass'; this.tone_.frequency.value = this.toneHz || 22000;
+        this.master.connect(this.tone_); this.tone_.connect(comp); comp.connect(this.ctx.destination);
         this.sfxBus = this.ctx.createGain(); this.sfxBus.gain.value = 0.55; this.sfxBus.connect(this.master);
         this.musicBus = this.ctx.createGain(); this.musicBus.gain.value = 0.32; this.musicBus.connect(this.master);
         const len = this.ctx.sampleRate;
@@ -35,6 +37,7 @@
       if (this.master) this.master.gain.setTargetAtTime(m ? 0 : 0.8, this.ctx.currentTime, 0.02);
     },
     get now() { return this.ctx ? this.ctx.currentTime : 0; },
+    setLowpass(hz) { this.toneHz = hz || 22000; if (this.tone_) this.tone_.frequency.setTargetAtTime(this.toneHz, this.ctx.currentTime, 0.05); },
 
     // ---- primitives ----
     tone({ type = 'square', f0 = 440, f1 = null, dur = 0.1, vol = 0.3, at = 0, attack = 0.005, bus = null, curve = 'exp' }) {
@@ -150,6 +153,7 @@
         case 'special': this.tone({ type: 'square', f0: 400, f1: 1200, dur: 0.12, vol: 0.1 }); break;
         case 'lose': [392, 349, 311, 262].forEach((f, i) => this.tone({ type: 'triangle', f0: f, dur: 0.25, vol: 0.25, at: i * 0.18 })); break;
         case 'buy': [784, 988, 1319].forEach((f, i) => this.tone({ type: 'square', f0: f, dur: 0.08, vol: 0.12, at: i * 0.06 })); break;
+        case 'blip': this.tone({ type: 'square', f0: 420 + Math.random() * 160, dur: 0.03, vol: 0.05 }); break;
         case 'pause': this.tone({ type: 'triangle', f0: 440, f1: 220, dur: 0.12, vol: 0.2 }); break;
       }
     },

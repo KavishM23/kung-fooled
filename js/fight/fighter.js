@@ -200,12 +200,13 @@
       ctx.save();
       ctx.translate(x, y);
       ctx.scale(this.facing, 1);
-      if (lying && this.grounded) { ctx.rotate(-Math.PI / 2); ctx.drawImage(fr.img, -set.AX - 10, -set.AY + 30); }
-      else if (lying) { ctx.rotate(-0.6); ctx.drawImage(fr.img, -set.AX, -set.AY); }
-      else ctx.drawImage(fr.img, -set.AX, -set.AY);
+      const B = KF.Sprites.blit;
+      if (lying && this.grounded) { ctx.rotate(-Math.PI / 2); B(ctx, fr, set, 'img', -10, 30); }
+      else if (lying) { ctx.rotate(-0.6); B(ctx, fr, set); }
+      else B(ctx, fr, set);
       if (this.flash > 0) {
         ctx.globalAlpha = Math.min(1, this.flash);
-        if (lying && this.grounded) ctx.drawImage(fr.flash, -set.AX - 10, -set.AY + 30); else if (!lying) ctx.drawImage(fr.flash, -set.AX, -set.AY);
+        if (lying && this.grounded) B(ctx, fr, set, 'flash', -10, 30); else if (!lying) B(ctx, fr, set, 'flash');
       }
       ctx.restore();
     }

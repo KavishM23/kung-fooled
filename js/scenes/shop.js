@@ -12,6 +12,8 @@
       this.theme = KF.Themes.get('temple');
       this.tab = 0; this.sel = 0; this.scroll = 0; this.t = 0; this.msg = null;
       A.music('temple');
+      KF.Narrator.y = 168;
+      if (!engine.shopSeen) { engine.shopSeen = true; KF.Narrator.say(KF.Narrator.LINES.shop[0]); }
     }
     entries() {
       const tab = TABS[this.tab];
@@ -60,7 +62,7 @@
       R('#0a0610', 8, 34, 122, 150); R('#1c1630', 9, 35, 120, 148);
       const set = KF.Sprites.buildSet(this.previewLook(), 1.8, ['idle', 'jab', 'kick', 'victory']);
       const cycle = Math.floor(t / 1.2) % 4, fr = cycle === 1 ? set.frames.jab[0] : cycle === 2 ? set.frames.kick[0] : cycle === 3 ? set.frames.victory[2] : set.frames.idle[Math.floor(t * 4) % 4];
-      ctx.save(); ctx.translate(66, 140); ctx.scale(1.3, 1.3); ctx.drawImage(fr.img, -set.AX, -set.AY); ctx.restore();
+      ctx.save(); ctx.translate(66, 140); ctx.scale(1.3, 1.3); KF.Sprites.blit(ctx, fr, set); ctx.restore();
       R('#2a2240', 20, 140, 98, 4);
       const st = E.playerStats();
       [['POWER', 'power'], ['GUARD', 'guard'], ['HEALTH', 'health'], ['SPEED', 'speed']].forEach(([n, k], i) => {

@@ -14,7 +14,11 @@
       this.stageIdx = opts.stage ?? 0;
       this.door = this.training ? { id: 'training', name: 'DOJO', music: 'temple', stages: [KF.Levels.test] } : KF.Doors[this.doorIdx];
       this.def = this.training ? KF.Levels.test : this.door.stages[this.stageIdx];
-      this.theme = KF.Themes.get(this.def.theme);
+      this.style = this.training ? KF.Styles.get('hd') : KF.Styles.forStage(this.door.id, this.stageIdx, this.def);
+      this.theme = KF.Themes.get(this.style.theme || this.def.theme);
+      KF.Audio.setLowpass(this.style.audio && this.style.audio.lowpass);
+      this.idleT = 0; this.saidIdle = false;
+      KF.Narrator.y = 40;
       this.deaths = 0;
       this.time = 0;
       this.memory = { seen: {} };
@@ -25,7 +29,7 @@
       this.deathPulse = 0;
       this.banner = null;
       this.newAttempt();
-      this.setPhase('intro');
+      this.setPhase(this.style.crashIntro ? 'crash' : 'intro');
       A.music(this.door.music);
       KF.HUD.lag = 1;
     }
@@ -70,6 +74,11 @@
             fx.spark(e.x, U.clamp(e.y, this.cam.y + 20, this.cam.y + VH - 20), 1.4);
             fx.flash = 1; fx.shake(7, 0.4);
             this.deaths++; this.deathPulse = 1; this.mood.cheer = 1.2;
+            if (!this.training) {
+              const L = KF.Narrator.LINES, n = this.deaths;
+              if (L.deathCount[n]) KF.Narrator.say(L.deathCount[n], { now: true });
+              else if (n === 1 || Math.random() < 0.3) KF.Narrator.say(KF.Narrator.pick(L.death), { now: true, hold: 1.6 });
+            }
             break;
           case 'crumble': A.sfx('crumble'); fx.debris(e.x, e.y + 2, e.w, ['#d5bd9c', '#8e4436', '#5c2a2c', '#9c8468']); fx.shake(2, 0.2); break;
           case 'spikes': A.sfx('spikes'); break;
@@ -117,16 +126,26 @@
       if (input.wasPressed('KeyR') && (this.phase === 'play' || this.phase === 'ko')) { this.restart(false); return; }
 
       switch (this.phase) {
+        case 'crash': // fake crash screen before the stage "recovers"
+          if (this.cue('beep', 0.05)) A.sfx('bonk');
+          if (this.phaseT > 2.6 || (this.phaseT > 0.8 && input.wasPressed('Enter', 'Space'))) { this.setPhase('intro'); this.fx.shake(6, 0.3); }
+          break;
         case 'intro':
           p.stateT += dt;
           if (this.cue('round', 0.05)) { A.sfx('round'); this.fx.shake(3, 0.2); }
           if (this.phaseT > 0.5 && (input.jumpPressed || input.wasPressed('Enter'))) this.phaseT = Math.max(this.phaseT, 0.95);
-          if (this.cue('go', 0.95)) { A.sfx('go'); this.fx.shake(5, 0.25); }
+          if (this.cue('go', 0.95)) {
+            A.sfx('go'); this.fx.shake(5, 0.25);
+            if (!this.training) KF.Narrator.say(KF.Narrator.pick(KF.Narrator.LINES.style[this.style.id] || KF.Narrator.LINES.style.hd));
+          }
           if (this.phaseT >= 1.05) { this.phase = 'play'; this.goT = 0; }
           break;
         case 'play':
           this.time += dt;
           this.stage.step(dt, input);
+          // Stand still too long and the narrator gets bored.
+          this.idleT = Math.abs(p.vx) < 1 && p.grounded ? this.idleT + dt : 0;
+          if (this.idleT > 7 && !this.saidIdle) { this.saidIdle = true; KF.Narrator.say(KF.Narrator.pick(KF.Narrator.LINES.idle)); }
           if (p.reversed && !this.wasReversed) A.sfx('reverse');
           this.wasReversed = p.reversed;
           this.handleEvents();
@@ -180,6 +199,7 @@
       const p = this.stage.player;
       p.state = 'victory'; p.stateT = 0; p.vx = 0;
       this.trail = [];
+      if (!this.training) KF.Narrator.say(KF.Narrator.pick(this.deaths === 0 ? KF.Narrator.LINES.perfect : KF.Narrator.LINES.win), { now: true });
       this.coins = this.training ? 0 : KF.Save.completeNode(this.door.id, this.stageIdx * 2, { deaths: this.deaths });
     }
 
@@ -187,8 +207,9 @@
     next() {
       const e = this.engine, r = this.doorIdx, s = this.stageIdx;
       if (this.training) { e.go(() => new KF.MapScene(e)); return; }
-      if (s === this.door.stages.length - 1) e.go(() => new KF.FightScene(e, { mode: 'boss', realm: r, node: 9, def: KF.Roster.bossDef(r) }));
-      else e.go(() => new KF.FightScene(e, { mode: 'street', realm: r, node: s * 2 + 1, def: KF.Roster.streetDef(r, s) }));
+      const style = this.style.id;
+      if (s === this.door.stages.length - 1) e.go(() => new KF.FightScene(e, { mode: 'boss', realm: r, node: 9, def: KF.Roster.bossDef(r), style }));
+      else e.go(() => new KF.FightScene(e, { mode: 'street', realm: r, node: s * 2 + 1, def: KF.Roster.streetDef(r, s), style }));
     }
 
     updatePause(input) {
@@ -205,48 +226,62 @@
     }
 
     render(ctx, alpha) {
-      const st = this.stage, p = st.player, c = this.cam;
+      const st = this.stage, p = st.player, c = this.cam, style = this.style;
       const frozen = this.phase === 'hitstop' || this.paused;
       const a = frozen ? 1 : alpha;
       const sh = this.fx.offset();
       const cam = { x: Math.round(U.lerp(c.prevX, c.x, a)) + sh.x, y: Math.round(U.lerp(c.prevY, c.y, a)) + sh.y };
       const t = this.engine.time;
 
-      ctx.fillStyle = this.theme.bg; ctx.fillRect(0, 0, VW, VH);
-      this.theme.background(ctx, cam, t, this.mood);
-      KF.Render.zones(ctx, st, this.theme, cam, t);
-      KF.Render.labels(ctx, this.def, this.theme, cam);
-      ctx.drawImage(this.layer, -cam.x, -cam.y);
-      KF.Render.traps(ctx, st, this.theme, cam, t);
+      // The world is drawn into its own canvas so the stage's style can rework it.
+      const res = style.res || KF.RES;
+      if (!this.wc || this.wc.res !== res) this.wc = KF.makeHi(VW, VH, res, !!style.post);
+      const w = this.wc.getContext('2d');
+      w.setTransform(res, 0, 0, res, 0, 0); w.imageSmoothingEnabled = false;
+      w.fillStyle = this.theme.bg; w.fillRect(0, 0, VW, VH);
+      this.theme.background(w, cam, t, this.mood);
+      KF.Render.zones(w, st, this.theme, cam, t);
+      KF.Render.labels(w, this.def, this.theme, cam);
+      if (style.extrude) KF.Render.extrude(w, st, this.theme, cam);
+      KF.blit(w, this.layer, -cam.x, -cam.y);
+      KF.Render.traps(w, st, this.theme, cam, t);
       const doorOpen = this.phase === 'win' ? Math.min(1, this.phaseT * 4) : 0;
-      KF.Render.door(ctx, st, cam, t, doorOpen);
+      KF.Render.door(w, st, cam, t, doorOpen, this.theme);
 
       const pos = { x: U.lerp(p.prevX, p.x, a), y: U.lerp(p.prevY, p.y, a) };
+      const glow = style.playerGlow || 0;
       if (this.phase === 'ko') {
         if (this.ko) {
           const k = this.ko, fr = KF.Sprites.frames.hurt[0];
-          ctx.save();
-          ctx.translate(Math.round(k.x - cam.x), Math.round(k.y - cam.y));
-          ctx.rotate(Math.round(k.rot / (Math.PI / 4)) * (Math.PI / 4)); // snap to 45 degrees: crunchy arcade spin
-          ctx.scale(k.facing < 0 ? -1 : 1, k.flip ? -1 : 1);
-          ctx.drawImage(fr.img, -KF.Sprites.AX, -24);
-          ctx.restore();
+          w.save();
+          w.translate(Math.round(k.x - cam.x), Math.round(k.y - cam.y));
+          w.rotate(Math.round(k.rot / (Math.PI / 4)) * (Math.PI / 4)); // snap to 45 degrees: crunchy arcade spin
+          w.scale(k.facing < 0 ? -1 : 1, k.flip ? -1 : 1);
+          if (this.theme.drawPlayer) KF.Font.draw(w, 'X', 0, -10, '#8af4ff', 3, 'center');
+          else KF.Sprites.blit(w, fr, KF.Sprites.set, 'img', 0, KF.Sprites.AY - 24);
+          w.restore();
         }
       } else if (this.phase === 'hitstop') {
-        KF.Render.player(ctx, p, pos, cam, { state: 'hurt', flash: Math.floor(this.phaseT * 40) % 2 ? 1 : 0 });
-      } else {
-        KF.Render.player(ctx, p, pos, cam, { trail: this.trail, flash: this.spawnFlash * 0.8, state: this.phase === 'win' ? 'victory' : null });
+        KF.Render.player(w, p, pos, cam, { state: 'hurt', flash: Math.floor(this.phaseT * 40) % 2 ? 1 : glow, theme: this.theme });
+      } else if (this.phase !== 'crash') {
+        KF.Render.player(w, p, pos, cam, { trail: this.trail, flash: Math.max(glow, this.spawnFlash * 0.8), state: this.phase === 'win' ? 'victory' : null, theme: this.theme });
       }
-      this.fx.render(ctx, cam);
-      if (this.fx.flash > 0) { ctx.globalAlpha = this.fx.flash * 0.5; ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, VW, VH); ctx.globalAlpha = 1; }
+      this.fx.render(w, cam);
+      if (this.fx.flash > 0) { w.globalAlpha = this.fx.flash * 0.5; w.fillStyle = '#ffffff'; w.fillRect(0, 0, VW, VH); w.globalAlpha = 1; }
+
+      const info = KF.Styles.info(t, this.engine.frame || 0, res, pos.x + p.w / 2 - cam.x, pos.y + p.h / 2 - cam.y, p.x);
+      KF.Styles.post(style, this.wc, info);
+      if (style.compose) style.compose(ctx, this.wc, info); else KF.blit(ctx, this.wc, 0, 0);
+      if (style.under) style.under(ctx, info);
       if (this.debug) KF.Render.debug(ctx, this, cam);
 
-      KF.HUD.draw(ctx, {
+      if (this.phase !== 'crash') KF.HUD.draw(ctx, {
         stageIndex: this.stageIdx, stageCount: this.door.stages.length, worldName: this.door.name, stageName: this.def.name,
         remaining: st.remaining, time: this.time, round: this.deaths + 1, deaths: this.deaths, deathPulse: this.deathPulse,
         reversed: p.reversed && this.phase === 'play', flipped: p.gravDir < 0,
       }, t);
       this.renderOverlay(ctx, t);
+      if (style.overlay) style.overlay(ctx, info);
     }
 
     renderOverlay(ctx, t) {
@@ -269,9 +304,23 @@
         const bt = this.banner.t;
         BT.draw(ctx, this.banner.text, VW / 2, 70, 3, 'steel', slam(bt, 2.5, 0.08), bt > 0.6 ? (0.9 - bt) / 0.3 : 1);
       }
+      if (this.phase === 'crash') {
+        ctx.fillStyle = '#0c2a8a'; ctx.fillRect(0, 0, VW, VH);
+        F.draw(ctx, 'X_X', 30, 30, '#ffffff', 8);
+        F.draw(ctx, 'KUNG FOOLED HAS STOPPED WORKING.', 30, 104, '#ffffff', 1);
+        F.draw(ctx, 'IT WAS PROBABLY YOUR FAULT.', 30, 116, '#ffffff', 1);
+        F.draw(ctx, `COLLECTING EXCUSES... ${Math.min(100, Math.floor(pt * 48))}% COMPLETE`, 30, 136, '#9ab0ff', 1);
+        F.draw(ctx, 'STOP CODE: STAGE_TOO_HARD', 30, 160, '#9ab0ff', 1);
+        return;
+      }
       if (this.phase === 'ko' || this.phase === 'hitstop') {
         const kt = this.phase === 'ko' ? pt : 0;
-        if (this.phase === 'ko') BT.draw(ctx, 'K.O.', VW / 2, 92, 7, 'blood', slam(kt, 4, 0.1));
+        if (this.phase === 'ko' && this.style.koCard) { // silent-film intertitle instead of K.O.
+          ctx.fillStyle = '#0a0806'; ctx.fillRect(60, 60, VW - 120, 70);
+          ctx.strokeStyle = '#e8dcc0'; ctx.lineWidth = 1; ctx.strokeRect(65.5, 65.5, VW - 131, 59); ctx.strokeRect(68.5, 68.5, VW - 137, 53);
+          F.draw(ctx, this.style.koCard[0], VW / 2, 78, '#f4ead4', 3, 'center');
+          F.draw(ctx, this.style.koCard[1], VW / 2, 108, '#f4ead4', 1, 'center');
+        } else if (this.phase === 'ko') BT.draw(ctx, this.style.ko || 'K.O.', VW / 2, 92, (this.style.ko || 'K.O.').length > 6 ? 4 : 7, 'blood', slam(kt, 4, 0.1));
         if (kt > 0.35) F.draw(ctx, Math.floor(t * 3) % 2 ? 'JUMP: AGAIN' : '', VW / 2, 130, '#ffffff', 1, 'center', '#000');
       }
       if (this.phase === 'win' && pt > 0.45) {

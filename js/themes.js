@@ -9,8 +9,8 @@
   // ---------- shared pixel helpers ----------
   function hexRGB(h) { const n = parseInt(h.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; }
   // Vertical gradient with 2x2 ordered dithering between bands, written straight into ImageData.
-  function ditherSky(colors, w = VW, h = VH) {
-    const c = KF.makeCanvas(w, h), x = c.getContext('2d');
+  function ditherSky(colors, lw = VW, lh = VH) {
+    const c = KF.makeHi(lw, lh), x = c.getContext('2d'), w = c.width, h = c.height;
     const img = x.createImageData(w, h), d = img.data;
     const cols = colors.map(hexRGB), bayer = [0.125, 0.625, 0.875, 0.375];
     for (let y = 0; y < h; y++) {
@@ -25,10 +25,10 @@
     return c;
   }
   function tiled(ctx, img, camX, par, y = 0) {
-    const w = img.width;
-    let ox = -Math.round(camX * par) % w;
+    const w = img.lw ?? img.width;
+    let ox = -Math.round(camX * par * KF.RES) / KF.RES % w;
     if (ox > 0) ox -= w;
-    for (let x = ox; x < VW; x += w) ctx.drawImage(img, x, y);
+    for (let x = ox; x < VW; x += w) KF.blit(ctx, img, x, y);
   }
   // Screen x of a world-space background feature that repeats every `span` px.
   const wrapX = (wx, camX, par, span) => ((((wx - camX * par) % span) + span) % span) - 24;
@@ -60,7 +60,7 @@
     }));
     const map = { up: (x, y) => [x, y], down: (x, y) => [x, 15 - y], left: (x, y) => [y, x], right: (x, y) => [15 - y, x] };
     for (const dir in map) {
-      const c = KF.makeCanvas(16, 16), ctx = c.getContext('2d');
+      const c = KF.makeHi(16, 16), ctx = c.getContext('2d');
       lined.forEach((row, y) => row.forEach((col, x) => { if (col) { const [nx, ny] = map[dir](x, y); R(ctx, col, nx, ny); } }));
       Art.spikes[dir] = c;
     }
@@ -229,7 +229,7 @@
       }
       R(sx, '#5a3456', 0, 60, 120, 1); R(sx, '#5a3456', 40, 64, 160, 1); R(sx, '#6e3c58', 200, 92, 140, 1); R(sx, '#6e3c58', 250, 96, 90, 1);
       const rnd = U.rng(11);
-      this.far = KF.makeCanvas(640, VH);
+      this.far = KF.makeHi(640, VH);
       const f = this.far.getContext('2d');
       this.windows = [];
       for (let x = 0; x < 640;) {
@@ -243,7 +243,7 @@
         if (rnd() < 0.3) R(f, '#3a2a4c', x + Math.floor(w / 2), VH - h - 10, 1, 10);
         x += w + Math.floor(rnd() * 4);
       }
-      this.mid = KF.makeCanvas(768, VH);
+      this.mid = KF.makeHi(768, VH);
       const m = this.mid.getContext('2d');
       this.lights = []; this.boards = [];
       for (let x = 0; x < 768;) {
@@ -270,7 +270,7 @@
       }
     },
     background(ctx, cam, t, mood) {
-      ctx.drawImage(this.sky, 0, 0);
+      KF.blit(ctx, this.sky, 0, 0);
       tiled(ctx, this.far, cam.x, 0.1, -6);
       for (const wv of this.windows) {
         if (Math.sin(t * 2 + wv.ph * 3) > 0.6 && U.hash2(Math.floor(t * 3), wv.x) > 0.5) continue;
@@ -331,7 +331,7 @@
       s.globalAlpha = 0.08; s.fillStyle = '#c8c8b0'; s.beginPath(); s.arc(300, 44, 26, 0, 7); s.fill(); s.globalAlpha = 1;
       s.fillStyle = '#b4b6a2'; s.beginPath(); s.arc(300, 44, 13, 0, 7); s.fill();
       R(s, '#9a9c8a', 294, 40, 3, 2); R(s, '#9a9c8a', 302, 48, 4, 2);
-      this.far = KF.makeCanvas(640, VH);
+      this.far = KF.makeHi(640, VH);
       const f = this.far.getContext('2d');
       for (let x = 0; x < 640;) {
         const w = 10 + Math.floor(rnd() * 24), h = 14 + Math.floor(rnd() * 34);
@@ -339,7 +339,7 @@
         for (let k = 0; k < w * h / 40; k++) if (rnd() < 0.5) R(f, '#5e5a44', x + 1 + Math.floor(rnd() * (w - 2)), 152 - h + Math.floor(rnd() * h));
         x += w + Math.floor(rnd() * 6);
       }
-      this.mid = KF.makeCanvas(768, VH);
+      this.mid = KF.makeHi(768, VH);
       const m = this.mid.getContext('2d');
       this.portholes = [];
       for (let x = 20; x < 768; x += 190 + Math.floor(rnd() * 80)) {
@@ -356,7 +356,7 @@
       for (let x = 30; x < 1000; x += 120 + Math.floor(rnd() * 60)) this.posts.push({ x, ph: rnd() * 6 });
     },
     background(ctx, cam, t, mood) {
-      ctx.drawImage(this.sky, 0, 0);
+      KF.blit(ctx, this.sky, 0, 0);
       for (const s of this.stars) if (Math.sin(t * 2.5 + s.ph) > 0.3) R(ctx, '#8a98b8', s.x, s.y);
       tiled(ctx, this.far, cam.x, 0.08);
       // Water with drifting shimmer and the moon's reflection.
@@ -414,7 +414,7 @@
     build() {
       this.sky = ditherSky(['#07050d', '#0e0918', '#170c26', '#1e1030', '#241434']);
       const rnd = U.rng(31);
-      this.far = KF.makeCanvas(640, VH);
+      this.far = KF.makeHi(640, VH);
       const f = this.far.getContext('2d');
       this.strips = [];
       for (let x = 0; x < 640;) {
@@ -423,7 +423,7 @@
         if (rnd() < 0.6) this.strips.push({ x: x + Math.floor(w / 2), y: VH - h + 6, h: Math.floor(h * 0.4), c: rnd() < 0.5 ? '#5a2a66' : '#244a5e', ph: rnd() * 9 });
         x += w + Math.floor(rnd() * 5);
       }
-      this.mid = KF.makeCanvas(768, VH);
+      this.mid = KF.makeHi(768, VH);
       const m = this.mid.getContext('2d');
       this.signs = [];
       const cols = ['#a03a78', '#2e8a8a', '#a08a2e', '#5a4ab0'];
@@ -437,7 +437,7 @@
       }
     },
     background(ctx, cam, t, mood) {
-      ctx.drawImage(this.sky, 0, 0);
+      KF.blit(ctx, this.sky, 0, 0);
       tiled(ctx, this.far, cam.x, 0.08);
       for (const s of this.strips) {
         const x = Math.round(wrapX(s.x, cam.x, 0.08, 640)) + 24;
@@ -510,16 +510,17 @@
   // ========== TEMPLE COURTYARD (title, door select, training) ==========
   themes.temple = {
     id: 'temple', name: 'TEMPLE', bg: '#1a2236',
+    cube: { top: '#e0d4b8', side: '#6c604e', under: '#3e3428', edge: '#2a1e18' },
     signBoard: '#e8d8b0', signInk: '#3a1a10',
     zone: { gravity: '#8a7aff', reverse: '#ff58c8' },
     build() {
       this.sky = ditherSky(['#161c30', '#202640', '#2e2e4c', '#3e3652', '#563e58', '#6a4a5a']);
       const rnd = U.rng(41);
-      this.far = KF.makeCanvas(640, VH);
+      this.far = KF.makeHi(640, VH);
       const f = this.far.getContext('2d');
       let h = 70;
       for (let x = 0; x < 640; x++) { h += (rnd() - 0.5) * 3; h = U.clamp(h, 40, 100); R(f, '#2a2a42', x, VH - h - 30, 1, h + 30); }
-      this.mid = KF.makeCanvas(768, VH);
+      this.mid = KF.makeHi(768, VH);
       const m = this.mid.getContext('2d');
       const roof = (cx, y, w) => {
         for (let i = 0; i < w; i++) { const d = Math.abs(i - w / 2) / (w / 2); R(m, '#1c1a2e', cx - w / 2 + i, y - Math.round(d * d * 5), 1, 6); }
@@ -540,7 +541,7 @@
       }
     },
     background(ctx, cam, t, mood) {
-      ctx.drawImage(this.sky, 0, 0);
+      KF.blit(ctx, this.sky, 0, 0);
       tiled(ctx, this.far, cam.x, 0.06);
       tiled(ctx, this.mid, cam.x, 0.22);
       for (let i = 0; i < 6; i++) {
@@ -588,12 +589,12 @@
       sx.fillStyle = '#b8805a'; sx.beginPath(); sx.arc(90, 150, 22, 0, 7); sx.fill();
       for (let y = 140; y < 172; y += 4) R(sx, '#a86c54', 60, y, 60, 1);
       const rnd = U.rng(51);
-      this.far = KF.makeCanvas(640, VH);
+      this.far = KF.makeHi(640, VH);
       const f = this.far.getContext('2d');
       let h = 60;
       for (let x = 0; x < 640; x++) { h += (rnd() - 0.5) * 4; h = U.clamp(h, 30, 90); R(f, '#2e2648', x, VH - h - 40, 1, h + 40); }
       for (let x = 0; x < 640; x += 3) if (rnd() < 0.2) R(f, '#5a4a5a', x, VH - 50 - Math.floor(rnd() * 8), 1, 1);
-      this.mid = KF.makeCanvas(768, VH);
+      this.mid = KF.makeHi(768, VH);
       const m = this.mid.getContext('2d');
       for (let x = 0; x < 768;) { // tree line + pylons
         const w = 6 + Math.floor(rnd() * 14), th = 10 + Math.floor(rnd() * 22);
@@ -603,7 +604,7 @@
       }
     },
     background(ctx, cam, t, mood) {
-      ctx.drawImage(this.sky, 0, 0);
+      KF.blit(ctx, this.sky, 0, 0);
       const run = t * 240; // the train's speed
       tiled(ctx, this.far, cam.x + run, 0.05);   // offset = (camera + distance travelled) * parallax
       tiled(ctx, this.mid, cam.x + run, 0.35);
@@ -680,11 +681,11 @@
         if (y >= 88 && y < 96) for (let x = -half; x < half; x += 5) R(sx, '#b8aab8', 250 + x + ((y * 3) % 5), y, 2, 1);
       }
       sx.fillStyle = '#d8c0c0'; sx.beginPath(); sx.arc(80, 48, 9, 0, 7); sx.fill();
-      this.far = KF.makeCanvas(640, VH);
+      this.far = KF.makeHi(640, VH);
       const f = this.far.getContext('2d');
       let h = 50;
       for (let x = 0; x < 640; x++) { h += (rnd() - 0.5) * 3; h = U.clamp(h, 30, 70); R(f, '#3c3452', x, VH - h - 44, 1, h + 44); }
-      this.mid = KF.makeCanvas(768, VH);
+      this.mid = KF.makeHi(768, VH);
       const m = this.mid.getContext('2d');
       this.trees = [];
       for (let x = 30; x < 768; x += 150 + Math.floor(rnd() * 60)) { // cherry trees
@@ -704,7 +705,7 @@
       for (let x = 400; x < 470; x++) { const y = 150 - Math.round(Math.sin(((x - 400) / 70) * Math.PI) * 10); R(m, '#5a2228', x, y, 1, 3); if (x % 10 === 0) R(m, '#5a2228', x, y - 6, 1, 6); }
     },
     background(ctx, cam, t, mood) {
-      ctx.drawImage(this.sky, 0, 0);
+      KF.blit(ctx, this.sky, 0, 0);
       tiled(ctx, this.far, cam.x, 0.08);
       tiled(ctx, this.mid, cam.x, 0.25);
       for (let i = 0; i < 5; i++) { // floating lanterns drifting up
@@ -751,7 +752,7 @@
       this.sky = ditherSky(['#0c101e', '#121a2c', '#1a243a', '#24304a', '#2e3c56', '#384860']);
       const sx = this.sky.getContext('2d'), rnd = U.rng(71);
       for (let i = 0; i < 60; i++) R(sx, '#5a6a88', Math.floor(rnd() * VW), Math.floor(rnd() * 100));
-      this.far = KF.makeCanvas(640, VH);
+      this.far = KF.makeHi(640, VH);
       const f = this.far.getContext('2d');
       for (let x = 0; x < 640;) { // jagged snowy peaks
         const w = 50 + Math.floor(rnd() * 70), hgt = 50 + Math.floor(rnd() * 50), top = 150 - hgt;
@@ -762,7 +763,7 @@
         }
         x += Math.floor(w * 0.7);
       }
-      this.mid = KF.makeCanvas(768, VH);
+      this.mid = KF.makeHi(768, VH);
       const m = this.mid.getContext('2d');
       for (let x = 0; x < 768; x++) R(m, '#16203a', x, 150, 1, 8); // fjord water line
       this.halls = [];
@@ -780,7 +781,7 @@
       }
     },
     background(ctx, cam, t, mood) {
-      ctx.drawImage(this.sky, 0, 0);
+      KF.blit(ctx, this.sky, 0, 0);
       // Aurora: slow waving ribbons.
       for (let band = 0; band < 3; band++) {
         ctx.globalAlpha = 0.16 - band * 0.03;
@@ -834,6 +835,7 @@
   };
 
   KF.Themes = {
+    add(id, theme) { themes[id] = theme; },
     get(id) {
       const th = themes[id] || themes.temple;
       if (!th.built) { th.build(); th.built = true; }

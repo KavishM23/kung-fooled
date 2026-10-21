@@ -8,11 +8,11 @@
   // Small live-looking preview of each realm's arena, rendered once from its theme.
   function thumb(door) {
     if (thumbs[door.id]) return thumbs[door.id];
-    const big = KF.makeCanvas(VW, VH), bx = big.getContext('2d');
+    const big = KF.makeHi(VW, VH), bx = big.getContext('2d');
     const th = KF.Themes.get(door.theme);
     th.background(bx, { x: 120, y: 0 }, 3.3, { cheer: 0 });
     for (let x = 0; x < VW; x += 16) { th.tile(bx, x, 168, 'solid', { t: true, d: 0 }, KF.util.hash2(x, 3)); th.tile(bx, x, 184, 'solid', { d: 1 }, KF.util.hash2(x, 4)); th.tile(bx, x, 200, 'solid', { d: 2 }, KF.util.hash2(x, 5)); }
-    const c = KF.makeCanvas(96, 54), x = c.getContext('2d');
+    const c = KF.makeHi(96, 54), x = c.getContext('2d');
     x.imageSmoothingEnabled = true; x.drawImage(big, 0, 0, 96, 54);
     thumbs[door.id] = c;
     return c;
@@ -29,6 +29,8 @@
       this.scroll = this.sel;
       A.music('temple');
       if (opts.cleared !== undefined) A.sfx('win');
+      KF.Narrator.y = 132;
+      if (!engine.mapSeen) { engine.mapSeen = true; KF.Narrator.say(KF.Narrator.LINES.map[0]); }
     }
     update(dt) {
       this.t += dt;
@@ -59,7 +61,7 @@
         const x = cx - 52, y = 44 + (sel ? -4 : 0);
         R(sel ? '#ffd040' : '#0a0610', x - 2, y - 2, 108, 112);
         R('#1a1428', x, y, 104, 108);
-        ctx.drawImage(thumb(d), x + 4, y + 4);
+        KF.blit(ctx, thumb(d), x + 4, y + 4);
         if (!unlocked) { ctx.fillStyle = 'rgba(8,4,16,0.75)'; ctx.fillRect(x + 4, y + 4, 96, 54); }
         F.draw(ctx, `REALM ${i + 1}`, cx, y + 63, sel ? '#ffd040' : '#a098b0', 1, 'center', '#000');
         F.draw(ctx, d.name, cx, y + 73, '#ffffff', 1, 'center', '#000');

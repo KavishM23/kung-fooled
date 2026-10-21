@@ -10,6 +10,18 @@ coins, which buy outfits, headgear, hair, fist wraps, stat upgrades and special 
 **Realms:** Rooftop at Dusk, Harbour, Neon Night Market, Temple Courtyard, Sky Express, Sakura
 Spring, Viking Fjord. Each has its own arena art, music, traps and fighters.
 
+**Every stage looks different.** All 35 stages have their own visual style, so no two look
+alike: an old black-and-white TV broadcast, a silent film with title cards, a Game Boy screen,
+VHS tape, a blueprint, an AR phone game, film noir in the rain, CGA, glitch, vaporwave, a
+mirrored stage, thermal camera, pencil sketch, ink wash, night vision, ASCII, real 3D blocks,
+NES, a film negative, cinemascope, pop art, vector arcade, storybook, ukiyo-e, a dream, a
+Polaroid, embroidery, candlelight, frost, gold leaf and a fake blue-screen crash. The art
+itself is drawn at twice the logical resolution, with shaded pixel-art fighters.
+
+**THE GAME talks back.** The game has a narrator called THE GAME, inspired by *There Is No
+Game*. It is grumpy, doesn't really want you playing, comments on your deaths and on each new
+art style, and messes with the menus. Try pressing Enter on the title screen.
+
 **Play:** open `index.html` in a browser. No build step, no server, no dependencies.
 
 ## Controls
@@ -62,7 +74,14 @@ js/levels/       doors and stages          js/music.js    the four chiptune trac
 js/scenes/       title, map, realm path,   tools/solve.js level checker (Node)
                  shop, fight, play          tools/fightsim.js fight balance (Node)
 js/fight/        fighter, AI, roster        js/economy.js  shop items, upgrades, coins
+js/styles.js     per-stage visual styles   js/narrator.js THE GAME's lines + text box
 ```
+
+Styles are post-process passes over the rendered world, plus optional hooks: `under`/`overlay`
+drawing, `compose` (for example the AR phone frame), a theme override (ASCII, BSOD), `res`
+(1 = chunky low-res), `extrude` (3D faces), a custom K.O. card and an audio low-pass filter.
+`KF.StylePlan` in `js/styles.js` assigns a style to each stage. A stage can also set
+`style: 'noir'` directly.
 
 Fighters, the player included, are all built from one code-drawn skeleton. A *look* (outfit
 style and colours, hair, headgear, beard, skin) picks the materials, so every shop item and

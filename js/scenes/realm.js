@@ -21,7 +21,7 @@
     node(i) {
       const roster = KF.Roster.R[this.door.id];
       if (i === 9) return { kind: 'boss', name: roster.boss.name, label: 'BOSS' };
-      if (i % 2 === 0) return { kind: 'stage', name: this.door.stages[i / 2].name, label: `STAGE ${i / 2 + 1}` };
+      if (i % 2 === 0) return { kind: 'stage', name: this.door.stages[i / 2].name, label: `STAGE ${i / 2 + 1}`, look: KF.Styles.forStage(this.door.id, i / 2, this.door.stages[i / 2]).name };
       return { kind: 'street', name: roster.fighters[(i - 1) / 2].name, label: 'STREET FIGHT' };
     }
     update(dt) {
@@ -34,9 +34,10 @@
       if (inp.wasPressed('Enter', 'Space')) {
         A.sfx('confirm');
         const i = this.sel, r = this.r;
+        const prevStage = Math.floor((i - 1) / 2), style = i % 2 ? KF.Styles.forStage(this.door.id, prevStage, this.door.stages[prevStage]).id : null;
         if (i % 2 === 0) e.go(() => new KF.PlayScene(e, { door: r, stage: i / 2 }));
-        else if (i === 9) e.go(() => new KF.FightScene(e, { mode: 'boss', realm: r, node: 9, def: KF.Roster.bossDef(r) }));
-        else e.go(() => new KF.FightScene(e, { mode: 'street', realm: r, node: i, def: KF.Roster.streetDef(r, (i - 1) / 2) }));
+        else if (i === 9) e.go(() => new KF.FightScene(e, { mode: 'boss', realm: r, node: 9, def: KF.Roster.bossDef(r), style }));
+        else e.go(() => new KF.FightScene(e, { mode: 'street', realm: r, node: i, def: KF.Roster.streetDef(r, (i - 1) / 2), style }));
       }
       const tx = this.nodeX(this.sel);
       this.walking = Math.abs(tx - this.px) > 1;
@@ -76,7 +77,7 @@
       let info;
       if (n.kind === 'stage') {
         const best = this.save.best[this.sel / 2];
-        info = `REWARD ${first ? '20 (+10 PERFECT)' : '5'} COINS` + (best !== undefined ? `   BEST: ${best} DEATHS` : '');
+        info = `${n.look}   REWARD ${first ? '20 (+10 PERFECT)' : '5'} COINS` + (best !== undefined ? `   BEST ${best}` : '');
       } else if (n.kind === 'street') info = `REWARD ${first ? 25 + 10 * this.r : 8} COINS   BEST OF 3 ROUNDS`;
       else info = `REWARD ${first ? 80 + 20 * this.r : 20} COINS   BEAT IT TO UNLOCK THE NEXT REALM`;
       F.draw(ctx, info, VW / 2, 167, '#ffd040', 1, 'center', '#000');

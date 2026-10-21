@@ -14,7 +14,7 @@
   function drawTile(ctx, world, theme, c, r, id, x, y) {
     const td = KF.TileById[id];
     if (!td) return;
-    if (td.spike) ctx.drawImage(KF.Art.spikes[td.spike], x, y);
+    if (td.spike) { if (theme.spike) theme.spike(ctx, x, y, td.spike); else KF.blit(ctx, KF.Art.spikes[td.spike], x, y); }
     else theme.tile(ctx, x, y, td.art, edgesAt(world, c, r), U.hash2(c, r));
   }
 
@@ -23,12 +23,63 @@
 
     // Static tiles baked into one canvas per attempt (trap-owned tiles are drawn live instead).
     bakeStage(world, theme) {
-      const c = KF.makeCanvas(world.pixelW, world.pixelH), ctx = c.getContext('2d');
+      const c = KF.makeHi(world.pixelW, world.pixelH), ctx = c.getContext('2d');
       for (let r = 0; r < world.rows; r++) for (let col = 0; col < world.cols; col++) {
         const id = world.tiles[r * world.cols + col];
         if (id) drawTile(ctx, world, theme, col, r, id, col * T, r * T);
       }
+      KF.Render.detail(c, world);
       return c;
+    },
+
+    // Hi-res detail pass: a fine, deterministic grain over solid tiles (one real pixel at a time),
+    // so materials read as stone, brick and wood instead of flat blocks. Hazards stay clean.
+    detail(c, world) {
+      const x = c.getContext('2d'), W = c.width, H = c.height, res = c.res || 1;
+      const img = x.getImageData(0, 0, W, H), d = img.data;
+      for (let py = 0; py < H; py++) {
+        const r = Math.floor(py / res / T);
+        for (let px = 0; px < W; px++) {
+          const o = (py * W + px) * 4;
+          if (!d[o + 3]) continue;
+          const td = KF.TileById[world.visualId(Math.floor(px / res / T), r)];
+          if (!td || !td.solid) continue;
+          let h = (px * 374761393 + py * 668265263) | 0; h = Math.imul(h ^ (h >>> 13), 1274126177);
+          const k = 1 + (((h >>> 8) & 255) / 255 - 0.5) * 0.14;
+          d[o] = Math.min(255, d[o] * k); d[o + 1] = Math.min(255, d[o + 1] * k); d[o + 2] = Math.min(255, d[o + 2] * k);
+        }
+      }
+      x.putImageData(img, 0, 0);
+    },
+
+    // 3D mode: give every solid tile (and moving block) visible depth toward a vanishing point.
+    extrude(ctx, stage, theme, cam) {
+      const w = stage.world, col = theme.cube || { top: '#c8c0b0', side: '#5a5450', under: '#34302c', edge: '#1a1614' };
+      const VX = KF.VIEW_W / 2, VY = KF.VIEW_H * 0.42, K = 0.13;
+      const back = (x, y) => [x + (VX - x) * K, y + (VY - y) * K];
+      const faces = [];
+      const box = (x0, y0, x1, y1, open) => {
+        const [bx0, by0] = back(x0, y0), [bx1, by1] = back(x1, y1);
+        if (open.t && y0 > VY) faces.push([col.top, [[x0, y0], [x1, y0], [bx1, by0], [bx0, by0]], y0]);
+        if (open.b && y1 < VY) faces.push([col.under, [[x0, y1], [x1, y1], [bx1, by1], [bx0, by1]], -y1]);
+        if (open.l && x0 > VX) faces.push([col.side, [[x0, y0], [x0, y1], [bx0, by1], [bx0, by0]], x0]);
+        if (open.r && x1 < VX) faces.push([col.side, [[x1, y0], [x1, y1], [bx1, by1], [bx1, by0]], -x1]);
+      };
+      const c0 = Math.max(0, Math.floor(cam.x / T) - 2), c1 = Math.min(w.cols - 1, Math.floor((cam.x + KF.VIEW_W) / T) + 2);
+      const solid = (c, r) => { const td = KF.TileById[w.tileId(c, r)]; return !!(td && td.solid); };
+      for (let r = 0; r < w.rows; r++) for (let c = c0; c <= c1; c++) {
+        if (!solid(c, r)) continue;
+        const x0 = c * T - cam.x, y0 = r * T - cam.y;
+        box(x0, y0, x0 + T, y0 + T, { t: !solid(c, r - 1), b: !solid(c, r + 1), l: !solid(c - 1, r), r: !solid(c + 1, r) });
+      }
+      for (const s of w.dynamicSolids) if (s.active !== false) box(s.x - cam.x, s.y - cam.y, s.x + s.w - cam.x, s.y + s.h - cam.y, { t: 1, b: 1, l: 1, r: 1 });
+      faces.sort((a, b) => Math.abs(b[2]) - Math.abs(a[2]));
+      ctx.lineWidth = 0.5; ctx.strokeStyle = col.edge;
+      for (const [fill, pts] of faces) {
+        ctx.fillStyle = fill; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]);
+        for (let i = 1; i < 4; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+        ctx.closePath(); ctx.fill(); ctx.stroke();
+      }
     },
 
     zones(ctx, stage, theme, cam, t) {
@@ -92,11 +143,12 @@
           const d = { up: [0, off], down: [0, -off], left: [off, 0], right: [-off, 0] }[tr.dir];
           for (const [c, r] of tr.cells) {
             ctx.save(); ctx.beginPath(); ctx.rect(c * T - cam.x, r * T - cam.y, T, T); ctx.clip();
-            ctx.drawImage(KF.Art.spikes[tr.dir], c * T - cam.x + d[0], r * T - cam.y + d[1]);
+            if (theme.spike) theme.spike(ctx, c * T - cam.x + d[0], r * T - cam.y + d[1], tr.dir);
+            else KF.blit(ctx, KF.Art.spikes[tr.dir], c * T - cam.x + d[0], r * T - cam.y + d[1]);
             ctx.restore();
           }
         } else if (tr instanceof types.spring) {
-          KF.Art.spring(ctx, tr.rect.x - 2 - cam.x, tr.rect.y - 9 - cam.y, tr.squash);
+          (theme.spring || KF.Art.spring)(ctx, tr.rect.x - 2 - cam.x, tr.rect.y - 9 - cam.y, tr.squash);
         } else if (tr instanceof types.shy) {
           const s = tr.solid, x = Math.round(s.x - cam.x), y = Math.round(s.y - cam.y);
           for (let i = 0; i < s.w; i += T) theme.tile(ctx, x + i, y, 'oneway', {}, 0.3);
@@ -110,7 +162,7 @@
           }
         } else if (tr instanceof types.fakeDoor) {
           const r = tr.rect;
-          KF.Art.door(ctx, r.x - cam.x, r.y - cam.y, { lantern: false, open: tr.fired ? 1 : 0, t });
+          (theme.door || KF.Art.door)(ctx, r.x - cam.x, r.y - cam.y, { lantern: false, open: tr.fired ? 1 : 0, t });
           if (tr.fired) KF.Art.glove(ctx, r.x - cam.x + (tr.dirX > 0 ? 12 : 4), r.y - cam.y + 16, tr.dirX, Math.min(1, tr.fireT * 12));
         } else if (tr instanceof types.fakeFloor) {
           // Drawn exactly like real floor until you've found it; then a ghost outline.
@@ -150,15 +202,15 @@
       }
     },
 
-    door(ctx, stage, cam, t, open = 0) {
+    door(ctx, stage, cam, t, open = 0, theme = {}) {
       const d = stage.world.door;
       if (!d) return;
-      KF.Art.door(ctx, d.x - cam.x, d.y - cam.y, { lantern: true, open, t, legs: d.moving ? d.runT : 0, flipped: d.flipped });
+      (theme.door || KF.Art.door)(ctx, d.x - cam.x, d.y - cam.y, { lantern: true, open, t, legs: d.moving ? d.runT : 0, flipped: d.flipped });
     },
 
     labels(ctx, def, theme, cam) {
       // A sign at [c, r] stands on the tile below r.
-      for (const l of def.labels || []) KF.Art.sign(ctx, l.at[0] * T + 8 - cam.x, (l.at[1] + 1) * T - 18 - cam.y, l.text, theme);
+      for (const l of def.labels || []) (theme.sign || KF.Art.sign)(ctx, l.at[0] * T + 8 - cam.x, (l.at[1] + 1) * T - 18 - cam.y, l.text, theme);
     },
 
     // The fighter. pos = interpolated hitbox top-left in world space.
@@ -167,6 +219,7 @@
       const flip = p.gravDir < 0;
       const feet = (flip ? pos.y : pos.y + p.h) - cam.y;
       const state = opts.state || (p.skidding && p.grounded ? 'skid' : p.state);
+      if (opts.theme && opts.theme.drawPlayer) return opts.theme.drawPlayer(ctx, p, cx, feet, state, opts);
       const frame = KF.Sprites.pick(state, opts.t ?? p.stateT);
       for (const g of opts.trail || []) {
         ctx.globalAlpha = g.a;
