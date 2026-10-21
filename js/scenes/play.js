@@ -17,8 +17,6 @@
       this.style = this.training ? KF.Styles.get('hd') : KF.Styles.forStage(this.door.id, this.stageIdx, this.def);
       this.theme = KF.Themes.get(this.style.theme || this.def.theme);
       KF.Audio.setLowpass(this.style.audio && this.style.audio.lowpass);
-      this.idleT = 0; this.saidIdle = false;
-      KF.Narrator.y = 40;
       this.deaths = 0;
       this.time = 0;
       this.memory = { seen: {} };
@@ -75,9 +73,6 @@
             fx.flash = 1; fx.shake(7, 0.4);
             this.deaths++; this.deathPulse = 1; this.mood.cheer = 1.2;
             if (!this.training) {
-              const L = KF.Narrator.LINES, n = this.deaths;
-              if (L.deathCount[n]) KF.Narrator.say(L.deathCount[n], { now: true });
-              else if (n === 1 || Math.random() < 0.3) KF.Narrator.say(KF.Narrator.pick(L.death), { now: true, hold: 1.6 });
             }
             break;
           case 'crumble': A.sfx('crumble'); fx.debris(e.x, e.y + 2, e.w, ['#d5bd9c', '#8e4436', '#5c2a2c', '#9c8468']); fx.shake(2, 0.2); break;
@@ -136,7 +131,6 @@
           if (this.phaseT > 0.5 && (input.jumpPressed || input.wasPressed('Enter'))) this.phaseT = Math.max(this.phaseT, 0.95);
           if (this.cue('go', 0.95)) {
             A.sfx('go'); this.fx.shake(5, 0.25);
-            if (!this.training) KF.Narrator.say(KF.Narrator.pick(KF.Narrator.LINES.style[this.style.id] || KF.Narrator.LINES.style.hd));
           }
           if (this.phaseT >= 1.05) { this.phase = 'play'; this.goT = 0; }
           break;
@@ -144,8 +138,6 @@
           this.time += dt;
           this.stage.step(dt, input);
           // Stand still too long and the narrator gets bored.
-          this.idleT = Math.abs(p.vx) < 1 && p.grounded ? this.idleT + dt : 0;
-          if (this.idleT > 7 && !this.saidIdle) { this.saidIdle = true; KF.Narrator.say(KF.Narrator.pick(KF.Narrator.LINES.idle)); }
           if (p.reversed && !this.wasReversed) A.sfx('reverse');
           this.wasReversed = p.reversed;
           this.handleEvents();
@@ -199,7 +191,6 @@
       const p = this.stage.player;
       p.state = 'victory'; p.stateT = 0; p.vx = 0;
       this.trail = [];
-      if (!this.training) KF.Narrator.say(KF.Narrator.pick(this.deaths === 0 ? KF.Narrator.LINES.perfect : KF.Narrator.LINES.win), { now: true });
       this.coins = this.training ? 0 : KF.Save.completeNode(this.door.id, this.stageIdx * 2, { deaths: this.deaths });
     }
 

@@ -623,6 +623,16 @@
     viking: ['emboss', 'stitch', 'candle', 'frost', 'golden'],
   };
 
+  // A stage environment: its own scenery, tiles and props, tied to a style (see js/envs/).
+  // `extra` is merged onto the style itself (frames, overlays, a different post pass).
+  KF.Env = {
+    add(styleId, theme, extra) {
+      KF.Themes.add('env_' + styleId, Object.assign({ id: 'env_' + styleId }, theme));
+      S[styleId].theme = 'env_' + styleId;
+      if (extra) Object.assign(S[styleId], extra);
+    },
+  };
+
   KF.Styles = {
     all: S,
     get(id) { const s = S[id] || S.hd; s.id = S[id] ? id : 'hd'; return s; },

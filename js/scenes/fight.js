@@ -21,7 +21,6 @@
       this.style = KF.Styles.get(opts.style || (this.mode === 'arena' ? ids[Math.floor(Math.random() * ids.length)] : 'hd'));
       this.theme = KF.Themes.get(this.style.theme || (this.mode === 'arena' ? 'neon' : this.realm.theme));
       KF.Audio.setLowpass(this.style.audio && this.style.audio.lowpass);
-      KF.Narrator.y = 52;
       this.oppDef = opts.def;
       const ps = KF.Economy.playerStats();
       this.player = new KF.Fight.Fighter({ name: 'BAO', look: KF.Economy.look(), stats: ps, color: '#7cf0ff' }, 110, 1);
@@ -140,7 +139,7 @@
       const P = this.player, O = this.opp;
 
       if (this.phase === 'intro') {
-        if (this.cue('vs', 0.05)) { A.sfx('round'); KF.Narrator.say(KF.Narrator.pick(this.mode === 'boss' ? KF.Narrator.LINES.bossIntro : KF.Narrator.LINES.fightIntro)); }
+        if (this.cue('vs', 0.05)) A.sfx('round');
         if (this.phaseT > 1.8 || (this.phaseT > 0.6 && (input.jumpPressed || input.wasPressed('Enter', 'KeyJ')))) this.startRound();
         return;
       }
@@ -203,10 +202,8 @@
         } else this.coins = KF.Save.completeNode(this.realm.id, this.opts.node);
         A.sfx('win');
         this.fx.confetti(this.player.x, this.player.y - 40);
-        KF.Narrator.say(KF.Narrator.pick(KF.Narrator.LINES.fightWin), { now: true });
       } else {
         A.sfx('lose');
-        KF.Narrator.say(KF.Narrator.pick(KF.Narrator.LINES.fightLose), { now: true });
         if (this.mode === 'arena') this.coins = KF.Economy.earn(2 + this.opts.streak);
       }
       this.setPhase('result');

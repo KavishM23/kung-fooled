@@ -30,7 +30,7 @@
 
     setScene(scene) { this.scene = scene; }
     // Switch scenes behind a quick wipe. `make` builds the next scene once the screen is covered.
-    go(make) { if (!this.wipe) this.wipe = { t: 0, make: () => { KF.Audio.setLowpass(null); KF.Narrator.clear(); return make(); }, swapped: false }; }
+    go(make) { if (!this.wipe) this.wipe = { t: 0, make: () => { KF.Audio.setLowpass(null); return make(); }, swapped: false }; }
 
     step(dt) {
       const inp = this.input;
@@ -43,7 +43,6 @@
         if (this.wipe && !this.wipe.swapped) return;
       }
       if (this.scene) this.scene.update(dt);
-      KF.Narrator.update(dt);
     }
 
     renderWipe(ctx) {
@@ -73,7 +72,6 @@
           this.ctx.imageSmoothingEnabled = false;
           this.frame = (this.frame || 0) + 1;
           if (this.scene) this.scene.render(this.ctx, this.acc / KF.STEP);
-          KF.Narrator.render(this.ctx, this.time);
           this.renderWipe(this.ctx);
           if (KF.Audio.muted) KF.Font.draw(this.ctx, 'MUTE', KF.VIEW_W - 4, KF.VIEW_H - 9, '#7a7094', 1, 'right');
         } catch (e) { console.error(e); }

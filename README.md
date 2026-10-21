@@ -10,17 +10,23 @@ coins, which buy outfits, headgear, hair, fist wraps, stat upgrades and special 
 **Realms:** Rooftop at Dusk, Harbour, Neon Night Market, Temple Courtyard, Sky Express, Sakura
 Spring, Viking Fjord. Each has its own arena art, music, traps and fighters.
 
-**Every stage looks different.** All 35 stages have their own visual style, so no two look
-alike: an old black-and-white TV broadcast, a silent film with title cards, a Game Boy screen,
-VHS tape, a blueprint, an AR phone game, film noir in the rain, CGA, glitch, vaporwave, a
-mirrored stage, thermal camera, pencil sketch, ink wash, night vision, ASCII, real 3D blocks,
-NES, a film negative, cinemascope, pop art, vector arcade, storybook, ukiyo-e, a dream, a
-Polaroid, embroidery, candlelight, frost, gold leaf and a fake blue-screen crash. The art
-itself is drawn at twice the logical resolution, with shaded pixel-art fighters.
+**Every stage is a different world.** Inspired by how *There Is No Game* changes genre and
+medium every chapter, each of the 35 stages is its own place, not a recolour. Examples:
+- a 1950s TV studio set in black and white
+- a comic-book city
+- a handheld-RPG town in four greens
+- a VHS home video of a backyard
+- a silent-film dock and a blueprint drawing
+- an AR phone game, rainy noir and a DOS pirate ship
+- a corrupted-memory market, vaporwave, a funhouse of mirrors and a thermal camera
+- a fake crash screen
+- a notebook doodle, ink-wash mountains, night-vision ruins, text mode and a 3D toy-block room
+- a wild-west railroad on the NES and a film negative of a subway
+- a widescreen train robbery, a pop-art poster and an 80s vector arcade
+- a pop-up book, a woodblock wave, a dream, a tea house and a holiday photo
+- a runestone carving, the Bayeux tapestry, a mead hall by candlelight, a glacier cave and Valhalla
 
-**THE GAME talks back.** The game has a narrator called THE GAME, inspired by *There Is No
-Game*. It is grumpy, doesn't really want you playing, comments on your deaths and on each new
-art style, and messes with the menus. Try pressing Enter on the title screen.
+The art is drawn at twice the logical resolution, with shaded pixel-art fighters.
 
 **Play:** open `index.html` in a browser. No build step, no server, no dependencies.
 
@@ -74,10 +80,12 @@ js/levels/       doors and stages          js/music.js    the four chiptune trac
 js/scenes/       title, map, realm path,   tools/solve.js level checker (Node)
                  shop, fight, play          tools/fightsim.js fight balance (Node)
 js/fight/        fighter, AI, roster        js/economy.js  shop items, upgrades, coins
-js/styles.js     per-stage visual styles   js/narrator.js THE GAME's lines + text box
+js/styles.js     per-stage visual styles   js/envs/       per-stage environments
 ```
 
-Styles are post-process passes over the rendered world, plus optional hooks: `under`/`overlay`
+Each stage pairs a *style* (the medium) with an *environment* (the place). The environment is
+a full theme with its own scenery, tiles and props, registered with
+`KF.Env.add(styleId, theme, extra)` in `js/envs/<realm>.js`. Styles are post-process passes over the rendered world, plus optional hooks: `under`/`overlay`
 drawing, `compose` (for example the AR phone frame), a theme override (ASCII, BSOD), `res`
 (1 = chunky low-res), `extrude` (3D faces), a custom K.O. card and an audio low-pass filter.
 `KF.StylePlan` in `js/styles.js` assigns a style to each stage. A stage can also set

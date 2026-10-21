@@ -12,8 +12,6 @@
       this.theme = KF.Themes.get('temple');
       this.tab = 0; this.sel = 0; this.scroll = 0; this.t = 0; this.msg = null;
       A.music('temple');
-      KF.Narrator.y = 168;
-      if (!engine.shopSeen) { engine.shopSeen = true; KF.Narrator.say(KF.Narrator.LINES.shop[0]); }
     }
     entries() {
       const tab = TABS[this.tab];

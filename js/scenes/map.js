@@ -29,8 +29,6 @@
       this.scroll = this.sel;
       A.music('temple');
       if (opts.cleared !== undefined) A.sfx('win');
-      KF.Narrator.y = 132;
-      if (!engine.mapSeen) { engine.mapSeen = true; KF.Narrator.say(KF.Narrator.LINES.map[0]); }
     }
     update(dt) {
       this.t += dt;

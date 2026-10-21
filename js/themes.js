@@ -834,8 +834,12 @@
     },
   };
 
+  // Shared painters for the per-stage environments in js/envs/.
+  KF.ThemeKit = { R, OUT, hexRGB, ditherSky, tiled, wrapX, bricks, stone, edges, lantern, Art };
+
   KF.Themes = {
     add(id, theme) { themes[id] = theme; },
+    has(id) { return !!themes[id]; },
     get(id) {
       const th = themes[id] || themes.temple;
       if (!th.built) { th.build(); th.built = true; }
