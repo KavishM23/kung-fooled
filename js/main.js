@@ -16,7 +16,8 @@
     engine.setScene(new KF.PlayScene(engine, { door: KF.Doors.findIndex((d) => d.id === m[1]), stage: Math.max(0, (+m[2] || 1) - 1) }));
   } else if ((m2 = /[?&]fight=([a-z]+)-(\d)/.exec(window.location.search))) { // ?fight=oldtv-1 (street) or -2 (boss)
     const r = Math.max(0, KF.Doors.findIndex((d) => d.id === m2[1])), k = +m2[2];
-    engine.setScene(new KF.FightScene(engine, k >= 2 ? { mode: 'boss', realm: r, node: KF.Path.boss, def: KF.Roster.bossDef(r) } : { mode: 'street', realm: r, node: KF.Path.street, def: KF.Roster.streetDef(r, 0) }));
+    if (m2[1] === 'cyber' && k >= 2) engine.setScene(new KF.PlayScene(engine, { door: r, stage: 3 }));
+    else engine.setScene(new KF.FightScene(engine, k >= 2 ? { mode: 'boss', realm: r, node: KF.Path.boss, def: KF.Roster.bossDef(r) } : { mode: 'street', realm: r, node: KF.Path.street, def: KF.Roster.streetDef(r, 0) }));
   } else if (/[?&]scene=shop/.test(window.location.search)) engine.setScene(new KF.ShopScene(engine));
   else if (/[?&]scene=map/.test(window.location.search)) engine.setScene(new KF.MapScene(engine));
   else engine.setScene(new KF.TitleScene(engine));

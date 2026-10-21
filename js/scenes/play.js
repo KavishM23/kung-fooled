@@ -46,6 +46,7 @@
       this.ko = null;
       this.spawnFlash = 1;
       this.wasReversed = false;
+      if (this.def.combat) this.cursor = 'crosshair';
       this.cam = { x: 0, y: 0, prevX: 0, prevY: 0 };
       this.updateCamera(1); this.cam.prevX = this.cam.x; this.cam.prevY = this.cam.y;
     }
@@ -69,6 +70,12 @@
       const fx = this.fx, th = this.theme;
       for (const e of this.stage.events) {
         switch (e.type) {
+          case 'shot': A.sfx('punch', { speed: 3 }); break;
+          case 'swing': A.sfx('whoosh'); break;
+          case 'impact': A.sfx('punch'); fx.spark(e.x, e.y, 0.6); break;
+          case 'shatter': A.sfx('crumble'); fx.shake(3, 0.15); break;
+          case 'blocked': A.sfx('block'); fx.spark(e.x, e.y, 0.5); break;
+          case 'damage': A.sfx('punch'); fx.shake(4, 0.15); break;
           case 'jump': KF.Present.sfx(this.style.id, 'jump'); fx.dust(e.x, e.y, 4, 0, e.g); break;
           case 'land':
             KF.Present.sfx(this.style.id, 'land', { speed: e.speed });
@@ -144,7 +151,12 @@
           break;
         case 'play':
           this.time += dt;
-          this.stage.step(dt, input);
+          const controls = { left: input.left, right: input.right, jumpHeld: input.jumpHeld, jumpPressed: input.jumpPressed,
+            shoot: input.isDown('KeyF', 'KeyV') || input.wasPressed('KeyF', 'KeyV') || (input.clicked && !click),
+            melee: input.isDown('KeyJ', 'KeyZ', 'KeyK', 'KeyX') || input.wasPressed('KeyJ', 'KeyZ', 'KeyK', 'KeyX') || input.rclicked,
+            block: input.isDown('KeyS', 'ArrowDown') };
+          if (input.clicked && !click && input.mouse.seen) { controls.aimX = input.mouse.x + this.cam.x; controls.aimY = input.mouse.y + this.cam.y; }
+          this.stage.step(dt, controls);
           // Stand still too long and the narrator gets bored.
           if (p.reversed && !this.wasReversed) A.sfx('reverse');
           this.wasReversed = p.reversed;
@@ -204,12 +216,14 @@
       p.state = 'victory'; p.stateT = 0; p.vx = 0;
       this.trail = [];
       this.coins = this.training ? 0 : KF.Save.completeNode(this.door.id, KF.Path.nodeOfStage(this.stageIdx), { deaths: this.deaths });
+      if (this.def.combat && this.stage.combat.cleared) this.coins += KF.Save.completeNode(this.door.id, KF.Path.boss);
     }
 
     // After a stage: the realm's next street fighter, or its boss after stage 5.
     next() {
       const e = this.engine, r = this.doorIdx, s = this.stageIdx;
       if (this.training) { e.go(() => new KF.MapScene(e)); return; }
+      if (this.def.combat) { e.go(() => new KF.MapScene(e, { cleared: r })); return; }
       const style = this.style.id;
       const env = this.def.env;
       // Path: level, level, street fight, level, level, boss.
@@ -256,6 +270,7 @@
       if (sight) w.restore();
       const doorOpen = this.phase === 'win' ? Math.min(1, this.phaseT * 4) : 0;
       KF.Render.door(w, st, cam, t, doorOpen, this.theme);
+      if (st.combat) KF.CombatRender.world(w, st, cam);
 
       const glow = style.playerGlow || 0;
       if (this.phase === 'ko' && this.rule.rewind && this.hist.length) {
@@ -269,7 +284,7 @@
           w.rotate(Math.round(k.rot / (Math.PI / 4)) * (Math.PI / 4)); // snap to 45 degrees: crunchy arcade spin
           w.scale(k.facing < 0 ? -1 : 1, k.flip ? -1 : 1);
           if (this.theme.drawPlayer) KF.Font.draw(w, 'X', 0, -10, '#8af4ff', 3, 'center');
-          else KF.Sprites.blit(w, fr, KF.Sprites.set, 'img', 0, KF.Sprites.AY - 24);
+          else KF.Render.figure(w, fr, { dy: KF.Sprites.AY - 24 });
           w.restore();
         }
       } else if (this.phase === 'hitstop') {
@@ -311,6 +326,7 @@
         scene: this, worldName: this.worldName, remaining: st.remaining, time: this.time, deaths: this.deaths, deathPulse: this.deathPulse,
         reversed: p.reversed !== !!st.rule.reverse && this.phase === 'play', flipped: p.gravDir < 0,
       }, t);
+      if (st.combat && this.phase === 'play') KF.CombatRender.hud(ctx, st);
       this.renderOverlay(ctx, t);
     }
 
@@ -369,7 +385,7 @@
         }
         if (pt > 1.2 && Math.floor(t * 3) % 2) {
           const last = !this.training && this.stageIdx === this.door.stages.length - 1;
-          F.draw(ctx, this.training ? 'JUMP: BACK TO MAP' : last ? 'JUMP: FACE THE BOSS!' : this.stageIdx === 1 ? 'JUMP: A CHALLENGER APPROACHES' : 'JUMP: NEXT LEVEL', VW / 2, 175, '#ffd040', 1, 'center', '#000');
+          F.draw(ctx, this.training || this.def.combat ? 'JUMP: BACK TO MAP' : last ? 'JUMP: FACE THE BOSS!' : this.stageIdx === 1 ? 'JUMP: A CHALLENGER APPROACHES' : 'JUMP: NEXT LEVEL', VW / 2, 175, '#ffd040', 1, 'center', '#000');
         }
       }
       if (this.paused) {

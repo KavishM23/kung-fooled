@@ -1,7 +1,7 @@
 'use strict';
 // Per-world presentation: the K.O. card, the start text, the win text, and the sounds that go
-// with them. Every world speaks its own visual language: a 1950s studio gets an art-deco APPLAUSE
-// sign and a laugh track, a Game Boy gets a GAME OVER box and a pulse-wave jingle, a woodblock
+// with them. Every world speaks its own visual language: the silent city gets film intertitles,
+// a Game Boy gets a GAME OVER box and a pulse-wave jingle, a woodblock
 // print gets a red seal and a shamisen.
 //
 // API (logical 384x216 coordinates, ctx already scaled):
@@ -691,7 +691,7 @@
   const W = {};
   const film = { jump: 'jumpSoft', land: 'landWood' };
   W.hd = { ko: ['arcade', 'K.O.'], go: ['arcade', 'GO!', { style: 'fire', fade: true }], win: ['arcade', 'YOU WIN', { style: 'fire', scale: 5 }], snd: {} };
-  W.oldtv = { ko: ['deco', 'APPLAUSE'], go: ['deco', 'ON AIR'], win: ['deco', 'CURTAIN CALL'], lose: ['deco', 'BOO!'], snd: { death: 'deathSitcom', go: 'goBell', win: 'winSitcom', ...film } };
+  W.oldtv = { ko: ['intertitle', 'ALAS!', { sub: 'OUR HERO HAS FALLEN.' }], go: ['intertitle', 'ACT ONE', { sub: 'A WALK THROUGH THE SILENT CITY' }], win: ['intertitle', 'THE END', { sub: 'ON TO THE NEXT REEL!' }], lose: ['intertitle', 'DEFEAT!', { sub: 'AN UNHAPPY ENDING.' }], snd: { death: 'deathSilent', go: 'goClapper', win: 'winPiano', ...film } };
   W.comic = { ko: ['pow', ['POW!', 'KAPOW!', 'SPLAT!', 'BONK!']], go: ['balloon', "LET'S GO!"], win: ['pow', 'HOORAY!', { outer: '#2a6ad8', inner: '#7ad8ff', shadow: '#1a3a8a' }], snd: { death: 'deathCartoon', go: 'goWhistle', win: 'winBrass', jump: 'jumpCartoon' } };
   W.gameboy = { ko: ['gbBox', 'GAME OVER', { sub: 'CONTINUE?  YES' }], go: ['gbBox', 'START!'], win: ['gbBox', 'STAGE CLEAR!', { sub: 'SAVING...' }], snd: { death: 'deathGB', go: 'goChip', win: 'winChip', jump: 'jumpPulse' } };
   W.vhs = { ko: ['osd', 'STOP', { icon: 'stop', big: true }], go: ['osd', 'PLAY', { icon: 'play', big: true }], win: ['osd', 'STOP', { icon: 'stop', sub: 'END OF TAPE' }], rewind: ['osd', 'REW', { icon: 'rew', big: true, sub: 'REWINDING...' }], snd: { death: 'deathVHS', go: 'goVHS', win: 'winSitcom' } };

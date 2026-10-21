@@ -40,7 +40,7 @@
       this.realm = KF.Doors[this.realmIdx];
       // Fights keep the look of the stage before them; the arena picks a random look each bout.
       const ids = Object.keys(KF.Styles.all).filter((k) => !['pocket', 'bsod', 'ascii'].includes(k));
-      this.style = KF.Styles.get(opts.style || (this.mode === 'arena' ? ids[Math.floor(Math.random() * ids.length)] : 'hd'));
+      this.style = KF.Styles.get(opts.style || (this.mode === 'arena' ? ids[Math.floor(Math.random() * ids.length)] : this.realm.style));
       this.hiRes = !!this.style.smooth; engine.fit(this);
       this.theme = KF.Themes.get(opts.env || this.style.theme || (this.mode === 'arena' ? 'neon' : this.realm.theme)); // the place you just played
       KF.Audio.setLowpass(this.style.audio && this.style.audio.lowpass);

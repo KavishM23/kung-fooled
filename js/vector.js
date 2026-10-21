@@ -57,6 +57,7 @@
       let r = m[k];
       if (crystal) r = [SP.CRYSTAL[0], SP.CRYSTAL[1], SP.CRYSTAL[2]];
       else if (vlook === 'rubberhose') r = greyRamp(r, k);
+      else if (vlook === 'cinematic') r = r.map((h) => { const [rr, gg, bb] = hexRGB(h), v = rr * 0.3 + gg * 0.59 + bb * 0.11; return toHex(v, v, v * 0.96); });
       else if (vlook === 'lowpoly') r = paleRamp(r);
       else if (vlook === 'woodblock') r = r.map((h) => mix(h, '#d8c8a0', 0.12)); // a little paper in every ink
       m[k] = r; m[k + 'B'] = dark(r, k === 'pants' ? 0.7 : 0.75); // back limbs sit in shade
@@ -382,6 +383,7 @@
 
   // ---------- painters ----------
   const LOOKS = {
+    cinematic: { ow: 0.18, out: '#0d1115', shadeFill: 'linear' },
     video: { ow: 0.55, out: '#14101a', shadeFill: 'linear' },
     rubberhose: { ow: 0.75, out: '#000000', shadeFill: 'flat-band', eyes: 'pie' },
     inked: { ow: 0.85, out: '#0a0608', shadeFill: 'flat', hatch: true, ink: true },
