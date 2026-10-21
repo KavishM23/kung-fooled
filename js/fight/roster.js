@@ -68,6 +68,9 @@
     boss: st('JARL BJORN IRONBEARD', { head: 'horned', beard: true, hairColor: 'red', top: 'steel', style: 'armor', pants: 'hide', trim: 'ivory', wraps: 'steel', skin: 'light' }, '#ff8040', 'stomp'),
   };
 
+  // Placeholder until the cyber realm's fighters are designed.
+  R.cyber = { fighters: R.neon.fighters.slice(), boss: R.neon.boss };
+
   // Difficulty and stats. Street fighters ramp up through a realm; bosses are clearly harder.
   function streetDef(realmIdx, k) {
     const f = R[KF.Doors[realmIdx].id].fighters[k];

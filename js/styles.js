@@ -616,6 +616,7 @@
   // `extra` is merged onto the style itself (frames, overlays, a different post pass).
   KF.Env = {
     add(styleId, theme, extra) {
+      S[styleId] = S[styleId] || { name: theme.name }; // new worlds can bring their own style
       KF.Themes.add('env_' + styleId, Object.assign({ id: 'env_' + styleId }, theme));
       S[styleId].theme = 'env_' + styleId;
       if (extra) Object.assign(S[styleId], extra);
