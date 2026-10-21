@@ -189,8 +189,8 @@
     }
 
     draw(ctx, cam = { x: 0, y: 0 }) {
-      const fr = this.frame(), set = this.sprites;
-      const x = Math.round(this.x - cam.x), y = Math.round(this.y - cam.y);
+      const fr = this.frame(), set = this.sprites, vl = KF.Vec.active();
+      const x = vl ? this.x - cam.x : Math.round(this.x - cam.x), y = vl ? this.y - cam.y : Math.round(this.y - cam.y);
       // Shadow on the floor.
       ctx.globalAlpha = 0.35; ctx.fillStyle = '#000';
       const sw = Math.max(10, 26 - (FLOOR - this.y) * 0.1);
@@ -200,6 +200,14 @@
       ctx.save();
       ctx.translate(x, y);
       ctx.scale(this.facing, 1);
+      if (vl) { // smooth style: draw the pose as vector shapes (KF.Vec), same anchor and scale
+        const fig = (dx, dy) => KF.Render.figure(ctx, fr, { set, dx, dy, flash: this.flash, crystal: set.crystal });
+        if (lying && this.grounded) { ctx.rotate(-Math.PI / 2); fig(-10, 30); }
+        else if (lying) { ctx.rotate(-0.6); fig(0, 0); }
+        else fig(0, 0);
+        ctx.restore();
+        return;
+      }
       const B = KF.Sprites.blit;
       if (lying && this.grounded) { ctx.rotate(-Math.PI / 2); B(ctx, fr, set, 'img', -10, 30); }
       else if (lying) { ctx.rotate(-0.6); B(ctx, fr, set); }

@@ -625,7 +625,7 @@
     for (const name of names || Object.keys(POSES)) {
       frames[name] = POSES[name].map((pose) => {
         const c = toCanvas(drawPose(pose, mat, S));
-        return { img: c, ghostA: tint(c, '#38e8ff'), ghostB: tint(c, '#ff4fb8'), flash: tint(c, '#ffffff') };
+        return { img: c, ghostA: tint(c, '#38e8ff'), ghostB: tint(c, '#ff4fb8'), flash: tint(c, '#ffffff'), pose }; // pose: for KF.Vec
       });
     }
     const set = { frames, S, W: BASE * scale, H: BASE * scale, AX: BAX * scale, AY: BAY * scale, look };
@@ -648,7 +648,7 @@
 
   // KF.Sprites is the player's current platforming set; setLook() swaps it after customisation.
   const Sprites = {
-    COLORS, SKIN, HAIR, DEFAULT_LOOK, POSES, buildSet,
+    COLORS, SKIN, HAIR, CRYSTAL, DEFAULT_LOOK, POSES, buildSet, ik, BASE, BAX, BAY, // ik + BASE/BAX/BAY: shared with js/vector.js
     W: BASE, H: BASE, AX: BAX, AY: BAY,
     set: null,
     get frames() { return this.set.frames; },

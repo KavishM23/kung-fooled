@@ -28,7 +28,7 @@
       x.putImageData(img, 0, 0);
       return Object.assign({}, fr, { img: c });
     });
-    return Object.assign({}, set, { frames });
+    return Object.assign({}, set, { frames, crystal: true }); // crystal: vector looks draw red glass too
   }
 
   class FightScene {
@@ -485,6 +485,13 @@
         const k = Math.min(1, pt * 3);
         const drawBig = (f, x, flip) => {
           // Built at 2.5 rather than scaling the 1.8 fight set, so every pixel stays the same size.
+          const vl = KF.Vec.active();
+          if (vl) { // smooth style: a big vector portrait
+            ctx.save(); ctx.translate(x, 150); ctx.scale(flip ? -1 : 1, 1);
+            KF.Vec.draw(ctx, KF.Sprites.POSES.idle[Math.floor(pt * 4) % 4], f.sprites.look, { vlook: vl, scale: 2.5, crystal: f.sprites.crystal, t: pt });
+            ctx.restore();
+            return;
+          }
           const set = f.vsSet || (f.vsSet = f.sprites.look && !this.superhot ? KF.Sprites.buildSet(f.sprites.look, 2.5, ['idle']) : f.sprites);
           const fr = set.frames.idle[Math.floor(pt * 4) % 4], k2 = set === f.sprites ? 1.4 : 1;
           ctx.save(); ctx.translate(x, 150); ctx.scale(flip ? -k2 : k2, k2); KF.Sprites.blit(ctx, fr, set); ctx.restore();

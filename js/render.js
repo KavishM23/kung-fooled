@@ -252,6 +252,19 @@
       const state = opts.state || (p.skidding && p.grounded ? 'skid' : p.state);
       if (opts.theme && opts.theme.drawPlayer) return opts.theme.drawPlayer(ctx, p, cx, feet, state, opts);
       const frame = KF.Sprites.pick(state, opts.t ?? p.stateT);
+      const vl = KF.Vec.active();
+      if (vl) { // smooth style: the same pose drawn as vector shapes
+        const look = KF.Sprites.set.look, t = KF.engine.time;
+        for (const g of opts.trail || []) {
+          ctx.save(); ctx.translate(g.x - cam.x, g.y - cam.y); ctx.scale(g.facing < 0 ? -1 : 1, g.flip ? -1 : 1);
+          KF.Vec.draw(ctx, g.frame.pose, look, { vlook: vl, tint: g.which === 'ghostA' ? '#38e8ff' : '#ff4fb8', alpha: g.a, noShadow: true });
+          ctx.restore();
+        }
+        ctx.save(); ctx.translate(cx, feet); ctx.scale(p.facing < 0 ? -1 : 1, flip ? -1 : 1);
+        KF.Vec.draw(ctx, frame.pose, look, { vlook: vl, flash: opts.flash, t, noShadow: flip || !p.grounded });
+        ctx.restore();
+        return frame;
+      }
       for (const g of opts.trail || []) {
         ctx.globalAlpha = g.a;
         KF.Sprites.draw(ctx, g.frame, g.x - cam.x, g.y - cam.y, g.facing, g.flip, g.which);
@@ -260,6 +273,20 @@
       KF.Sprites.draw(ctx, frame, cx, feet, p.facing, flip);
       if (opts.flash) { ctx.globalAlpha = opts.flash; KF.Sprites.draw(ctx, frame, cx, feet, p.facing, flip, 'flash'); ctx.globalAlpha = 1; }
       return frame;
+    },
+
+    // One figure (a sprite frame) with its feet at the current origin, pixel or vector to suit the
+    // scene. opts: { set (default: the player's), dx, dy, flash, crystal }. Used for the K.O. tumble.
+    figure(ctx, frame, opts = {}) {
+      const set = opts.set || KF.Sprites.set, vl = KF.Vec.active();
+      if (vl && frame.pose) {
+        ctx.save(); ctx.translate(opts.dx || 0, opts.dy || 0);
+        KF.Vec.draw(ctx, frame.pose, set.look, { vlook: vl, scale: set.W / KF.Sprites.BASE, flash: opts.flash, crystal: opts.crystal || set.crystal, noShadow: true });
+        ctx.restore();
+      } else {
+        KF.Sprites.blit(ctx, frame, set, 'img', opts.dx || 0, opts.dy || 0);
+        if (opts.flash > 0) { ctx.globalAlpha = Math.min(1, opts.flash); KF.Sprites.blit(ctx, frame, set, 'flash', opts.dx || 0, opts.dy || 0); ctx.globalAlpha = 1; }
+      }
     },
 
     debug(ctx, scene, cam) {
