@@ -3,18 +3,21 @@
 A troll platformer dressed as a late-90s arcade fighter. Run from the left of each stage to the
 exit door. The stage will betray you. Learn each trap by dying to it; respawn is instant.
 
-Between levels you fight. Each realm is five levels, each one a different world, with a street
-fight after each of the first four and a boss at the end. Beat the boss to unlock the next realm. Fights and stages pay
-coins, which buy outfits, headgear, hair, fist wraps, stat upgrades and special moves in the Dojo.
+**Ten realms, ten styles.** Each realm is one visual medium, and its four levels are different
+places shown in that medium. The realms are ARCADE (full colour), OLD TV (black and white),
+POCKET (four Game Boy greens), COMIC, AR GO (the world through your phone), 8-BIT, WOODBLOCK
+(Edo prints), VHS (home video), VAPORWAVE and CYBER. In the Old TV realm, for example, you play
+a 1950s TV studio, the rooftops, the sky express and the docks, all live in black and white.
+Each realm's style also brings its own rule, K.O. card and sounds.
 
-**Realms:** Rooftop at Dusk, Harbour, Neon Night Market, Temple Courtyard, Sky Express, Sakura
-Spring, Viking Fjord, and Cyber (Neo-Tokyo 2099). Each has its own music, traps and fighters,
-and every street fighter is themed to the world they guard: a 1950s TV host after the studio,
-a bowler-hatted scrapper after the silent film, a carnival strongman after the hall of mirrors.
+A realm runs level, level, street fight, level, level, boss. Beat the boss to unlock the next
+realm. Levels and fights pay coins, which buy outfits, headgear, hair, fist wraps, stat
+upgrades and special moves in the Dojo. Each realm's street fighter and boss suit its style:
+Johnny TV and the bowler-hatted Bramble in Old TV, Bug Kid and Grandma Hana in Pocket, and
+Volt and THE SYSTEM in Cyber. Every other fighter appears in the Street Arena.
 
-**Cyber and SUPERHOT.** The eighth realm's worlds are a neon megacity, a hologram district,
-1997-style low-poly VR, chrome Y2K and a SUPERHOT tribute. In that last world, time moves
-only when you move. Its boss, THE SYSTEM, is a red crystal man fought the same way, and he
+**Cyber and SUPERHOT.** The last realm's places are a neon megacity, a hologram district and
+chrome Y2K. Its finale breaks into a SUPERHOT tribute, where time moves only when you move. Its boss, THE SYSTEM, is a red crystal man fought the same way, and he
 shatters into shards when you win.
 
 **Every world has its own K.O., start and win cards and sounds.** Some examples:
@@ -27,25 +30,11 @@ shatters into shards when you win.
 
 All of it is drawn and synthesised in code (`js/present.js`, `js/audio.js`).
 
-**Every stage is a different world.** Inspired by how *There Is No Game* changes genre and
-medium every chapter, each of the 35 stages is its own place, not a recolour. Examples:
-- a 1950s TV studio set in black and white
-- a comic-book city
-- a handheld-RPG town in four greens
-- a VHS home video of a backyard
-- a silent-film dock and a blueprint drawing
-- an AR phone game, rainy noir and a DOS pirate ship
-- a corrupted-memory market, vaporwave, a funhouse of mirrors and a thermal camera
-- a fake crash screen
-- a notebook doodle, ink-wash mountains, night-vision ruins, text mode and a 3D toy-block room
-- a wild-west railroad on the NES and a film negative of a subway
-- a widescreen train robbery, a pop-art poster and an 80s vector arcade
-- a pop-up book, a woodblock wave, a dream, a tea house and a holiday photo
-- a runestone carving, the Bayeux tapestry, a mead hall by candlelight, a glacier cave and Valhalla
+**Arena styles.** The other styles built along the way still appear as random looks for
+Street Arena fights. They include silent film, noir, blueprint, glitch, thermal camera, ink wash,
+pop art, a pop-up book, the Bayeux tapestry and more.
 
-The art is drawn at twice the logical resolution, with shaded pixel-art fighters.
-
-**Each world bends one rule**, shown on the level's title card. Some examples:
+**Each style bends one rule**, shown on the level's title card. Some examples:
 - The silent film runs undercranked, so everything is 15% faster.
 - Vaporwave is "slowed + reverb", so everything runs at 80%.
 - The NES world gives full-height jumps only.
@@ -89,8 +78,9 @@ Movement has 80 ms coyote time, 100 ms jump buffering and variable jump height (
 1 tile, a full hold 3.5 tiles, 0.56 s in the air). Clipping a ceiling edge slides you past it, and
 clipping a ledge's top corner while falling pops you up onto it.
 
-Tip: `index.html?stage=harbour-3` jumps straight into a stage (`rooftop`, `harbour`, `neon`,
-`temple`, `train`, `sakura`, `viking`, `cyber`, 1-5), `?fight=viking-2` into a street fight (5 = the boss),
+Tip: `index.html?stage=oldtv-3` jumps straight into a level. It takes
+each realm id (`arcade`, `oldtv`, `pocket`, `comic`, `argo`, `eightbit`, `woodblock`,
+`vhs`, `vapor`, `cyber`) with level 1-4, and `?fight=oldtv-1` into a realm's street fight (`-2` = the boss),
 `?scene=shop` into the shop, `?stage=training` into the dojo.
 
 ## Project layout
@@ -130,8 +120,10 @@ All movement numbers are in `KF.PlayerTuning` at the top of `js/player.js`.
 
 ## Adding a stage
 
-Each realm is five stages. Stages live in `js/levels/world1.js`–`world7.js` (one file per realm).
-Each one is a tile grid plus a trap list:
+Stages live in `js/levels/world1.js` to `world8.js`, grouped in buckets (`rooftop`, `harbour`, ...,
+`cyber`). `js/levels/doors.js` deals the buckets out to the ten realms in order, so difficulty
+keeps rising, and gives each level its realm's style and a place (`envs`). Each stage is a tile
+grid plus a trap list:
 
 ```js
 KF.addStage('rooftop', {

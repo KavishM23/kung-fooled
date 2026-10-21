@@ -214,7 +214,7 @@
   // Phone-camera AR parody: the stage is a tilted plane over a "camera feed", with a phone UI.
   let feed = null;
   S.pocket = {
-    name: 'AR MODE',
+    name: 'AR MODE', clearBg: true,
     compose(ctx, wc, i) {
       if (!feed) {
         feed = KF.makeHi(VW, VH); const x = feed.getContext('2d');
@@ -619,6 +619,9 @@
       S[styleId] = S[styleId] || { name: theme.name }; // new worlds can bring their own style
       KF.Themes.add('env_' + styleId, Object.assign({ id: 'env_' + styleId }, theme));
       S[styleId].theme = 'env_' + styleId;
+      // A world may retune its style's pixel pass for its own scenery; other places shown in that
+      // style keep the original, general pass (postOther).
+      if (extra && 'post' in extra && !('postOther' in S[styleId])) S[styleId].postOther = S[styleId].post || null;
       if (extra) Object.assign(S[styleId], extra);
     },
   };
@@ -628,10 +631,14 @@
     get(id) { const s = S[id] || S.hd; s.id = S[id] ? id : 'hd'; return s; },
     forStage(realmId, index, def) { return this.get((def && def.style) || (KF.StylePlan[realmId] || [])[index] || 'hd'); }, // KF.StylePlan: js/rules.js
     // Run a style's pixel pass over a canvas (in place).
+    // info.themeId: the place being shown. Its own world uses style.post; any other place the
+    // style's general pass (see KF.Env.add).
     post(style, canvas, info) {
-      if (!style.post && !style.light) return;
+      const own = !info.themeId || info.themeId === 'env_' + style.id || !('postOther' in style);
+      const fn = own ? style.post : style.postOther;
+      if (!fn && !style.light) return;
       const x = canvas.getContext('2d'), img = x.getImageData(0, 0, canvas.width, canvas.height);
-      if (style.post) style.post(img.data, canvas.width, canvas.height, info);
+      if (fn) fn.call(style, img.data, canvas.width, canvas.height, info);
       x.putImageData(img, 0, 0);
     },
     info(t, frame, res, px, py, worldX, fight = false) {

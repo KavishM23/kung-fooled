@@ -41,7 +41,7 @@
       // Fights keep the look of the stage before them; the arena picks a random look each bout.
       const ids = Object.keys(KF.Styles.all).filter((k) => !['pocket', 'bsod', 'ascii'].includes(k));
       this.style = KF.Styles.get(opts.style || (this.mode === 'arena' ? ids[Math.floor(Math.random() * ids.length)] : 'hd'));
-      this.theme = KF.Themes.get(this.style.theme || (this.mode === 'arena' ? 'neon' : this.realm.theme));
+      this.theme = KF.Themes.get(opts.env || this.style.theme || (this.mode === 'arena' ? 'neon' : this.realm.theme)); // the place you just played
       KF.Audio.setLowpass(this.style.audio && this.style.audio.lowpass);
       this.oppDef = opts.def;
       const ps = KF.Economy.playerStats();
@@ -321,7 +321,7 @@
       else if (choice === 'LEAVE ARENA') e.go(() => new KF.MapScene(e));
       else if (choice === 'BACK TO REALM') e.go(() => new KF.RealmScene(e, r));
       else if (this.mode === 'boss') e.go(() => new KF.MapScene(e, { cleared: r }));
-      else { const stage = (this.opts.node + 1) / 2; e.go(() => new KF.PlayScene(e, { door: r, stage })); }
+      else e.go(() => new KF.PlayScene(e, { door: r, stage: KF.Path.stageOfNode(this.opts.node + 1) }));
     }
 
     updatePause(input) {
@@ -342,8 +342,9 @@
       if (!this.wc || this.wc.res !== res) this.wc = KF.makeHi(VW, VH, res, !!style.post);
       const w = this.wc.getContext('2d');
       w.setTransform(res, 0, 0, res, 0, 0); w.imageSmoothingEnabled = false;
-      w.fillStyle = this.theme.bg; w.fillRect(0, 0, VW, VH);
-      this.theme.background(w, { x: cam.x, y: 0 }, t, this.mood);
+      if (style.clearBg) w.clearRect(0, 0, VW, VH); // AR: the camera feed shows through
+      else { w.fillStyle = this.theme.bg; w.fillRect(0, 0, VW, VH); }
+      if (!style.clearBg || this.theme.id === 'env_' + style.id) this.theme.background(w, { x: cam.x, y: 0 }, t, this.mood);
       for (let x = -16; x < VW + 16; x += 16) {
         const wx = x - (Math.round(cam.x * 1) % 16);
         this.theme.tile(w, wx, FLOOR + sh.y, 'solid', { t: true, d: 0 }, U.hash2(Math.floor((x + cam.x) / 16), 1));
@@ -370,6 +371,7 @@
       const cardsOnTop = !!style.compose || KF.Present.onTop(style.id);
       if (!cardsOnTop) this.drawCards(w, t); // into the world, so the style's palette applies
       const info = KF.Styles.info(t, this.engine.frame || 0, res, this.player.x, this.player.y - 30, this.player.x, true);
+      info.themeId = this.theme.id;
       KF.Styles.post(style, this.wc, info);
       const glitch = this.superhot && ((this.phase === 'round' && this.phaseT < 0.35) || (this.phase === 'intro' && this.phaseT > 1.5));
       if (style.compose) style.compose(ctx, this.wc, info);

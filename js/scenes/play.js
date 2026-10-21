@@ -15,9 +15,9 @@
       this.door = this.training ? { id: 'training', name: 'DOJO', music: 'temple', stages: [KF.Levels.test] } : KF.Doors[this.doorIdx];
       this.def = this.training ? KF.Levels.test : this.door.stages[this.stageIdx];
       this.style = this.training ? KF.Styles.get('hd') : KF.Styles.forStage(this.door.id, this.stageIdx, this.def);
-      this.theme = KF.Themes.get(this.style.theme || this.def.theme);
+      this.theme = KF.Themes.get(this.def.env || this.style.theme || this.def.theme);
       this.rule = this.training ? { name: 'TRAINING DOJO', rule: null } : KF.Rules.get(this.def);
-      this.worldName = this.rule.name;
+      this.worldName = this.training ? 'TRAINING DOJO' : KF.placeName(this.def.env);
       KF.Audio.setLowpass(this.style.audio && this.style.audio.lowpass);
       this.deaths = 0;
       this.time = 0;
@@ -30,7 +30,7 @@
       this.banner = null;
       this.newAttempt();
       this.setPhase(this.style.crashIntro ? 'crash' : 'intro');
-      A.music(this.door.music);
+      A.music(this.def.music || this.door.music);
       KF.HUD.lag = 1;
     }
 
@@ -202,7 +202,7 @@
       const p = this.stage.player;
       p.state = 'victory'; p.stateT = 0; p.vx = 0;
       this.trail = [];
-      this.coins = this.training ? 0 : KF.Save.completeNode(this.door.id, this.stageIdx * 2, { deaths: this.deaths });
+      this.coins = this.training ? 0 : KF.Save.completeNode(this.door.id, KF.Path.nodeOfStage(this.stageIdx), { deaths: this.deaths });
     }
 
     // After a stage: the realm's next street fighter, or its boss after stage 5.
@@ -210,8 +210,11 @@
       const e = this.engine, r = this.doorIdx, s = this.stageIdx;
       if (this.training) { e.go(() => new KF.MapScene(e)); return; }
       const style = this.style.id;
-      if (s === this.door.stages.length - 1) e.go(() => new KF.FightScene(e, { mode: 'boss', realm: r, node: 9, def: KF.Roster.bossDef(r), style }));
-      else e.go(() => new KF.FightScene(e, { mode: 'street', realm: r, node: s * 2 + 1, def: KF.Roster.streetDef(r, s), style }));
+      const env = this.def.env;
+      // Path: level, level, street fight, level, level, boss.
+      if (s === this.door.stages.length - 1) e.go(() => new KF.FightScene(e, { mode: 'boss', realm: r, node: KF.Path.boss, def: KF.Roster.bossDef(r), style, env }));
+      else if (s === 1) e.go(() => new KF.FightScene(e, { mode: 'street', realm: r, node: KF.Path.street, def: KF.Roster.streetDef(r, 0), style, env }));
+      else e.go(() => new KF.PlayScene(e, { door: r, stage: s + 1 }));
     }
 
     updatePause(input) {
@@ -236,8 +239,9 @@
       if (!this.wc || this.wc.res !== res) this.wc = KF.makeHi(VW, VH, res, !!style.post);
       const w = this.wc.getContext('2d');
       w.setTransform(res, 0, 0, res, 0, 0); w.imageSmoothingEnabled = false;
-      w.fillStyle = this.theme.bg; w.fillRect(0, 0, VW, VH);
-      this.theme.background(w, cam, t, this.mood);
+      if (style.clearBg) w.clearRect(0, 0, VW, VH); // AR: the camera feed shows through
+      else { w.fillStyle = this.theme.bg; w.fillRect(0, 0, VW, VH); }
+      if (!style.clearBg || this.theme.id === 'env_' + style.id) this.theme.background(w, cam, t, this.mood);
       KF.Render.zones(w, st, this.theme, cam, t);
       KF.Render.labels(w, this.def, this.theme, cam);
       if (style.extrude) KF.Render.extrude(w, st, this.theme, cam);
@@ -278,6 +282,7 @@
       const cardsOnTop = !!style.compose || KF.Present.onTop(style.id);
       if (!cardsOnTop) this.renderCards(w, t);
       const info = KF.Styles.info(t, this.engine.frame || 0, res, pos.x + p.w / 2 - cam.x, pos.y + p.h / 2 - cam.y, p.x);
+      info.themeId = this.theme.id;
       KF.Styles.post(style, this.wc, info);
       const roll = this.rule.roll, rollT = roll && this.time > roll.dur ? this.time % roll.every : 1e9; // never on the opening frames
       if (style.compose) style.compose(ctx, this.wc, info);
@@ -332,7 +337,7 @@
           ctx.fillStyle = 'rgba(8,4,16,0.75)'; ctx.fillRect(0, 108 - 34 * k, VW, 68 * k);
           BT.draw(ctx, this.worldName, VW / 2, 92, BT.fit ? BT.fit(this.worldName, VW - 40, 4) : 3, 'steel', slam(pt));
           if (pt > 0.15 && this.rule.rule) F.draw(ctx, this.rule.rule, VW / 2, 114, '#ffd040', 1, 'center', '#000');
-          if (pt > 0.25) F.draw(ctx, `"${this.def.name}"`, VW / 2, 128, '#b8b0c8', 1, 'center', '#000');
+          if (pt > 0.25 && !this.training) F.draw(ctx, `${this.door.name}  -  LEVEL ${this.stageIdx + 1} OF ${this.door.stages.length}`, VW / 2, 128, '#b8b0c8', 1, 'center', '#000');
         }
       }
       if (this.style.compose || KF.Present.onTop(this.style.id)) this.renderCards(ctx, t);
@@ -363,7 +368,7 @@
         }
         if (pt > 1.2 && Math.floor(t * 3) % 2) {
           const last = !this.training && this.stageIdx === this.door.stages.length - 1;
-          F.draw(ctx, this.training ? 'JUMP: BACK TO MAP' : last ? 'JUMP: FACE THE BOSS!' : 'JUMP: A CHALLENGER APPROACHES', VW / 2, 175, '#ffd040', 1, 'center', '#000');
+          F.draw(ctx, this.training ? 'JUMP: BACK TO MAP' : last ? 'JUMP: FACE THE BOSS!' : this.stageIdx === 1 ? 'JUMP: A CHALLENGER APPROACHES' : 'JUMP: NEXT LEVEL', VW / 2, 175, '#ffd040', 1, 'center', '#000');
         }
       }
       if (this.paused) {

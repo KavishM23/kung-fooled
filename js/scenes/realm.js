@@ -1,6 +1,6 @@
 'use strict';
-// A realm: five levels, each its own world, with a street fight after each of the first four and
-// a boss at the end. Shown as a row of cards; each node unlocks the next. Cleared nodes can be
+// A realm: one style, four levels in different places, a street fight in the middle and a boss
+// at the end. Shown as a row of cards; each node unlocks the next. Cleared nodes can be
 // replayed for smaller rewards.
 (function (KF) {
   const F = KF.Font, A = KF.Audio, VW = KF.VIEW_W, U = KF.util;
@@ -14,21 +14,24 @@
       this.door = KF.Doors[realmIdx];
       this.theme = KF.Themes.get(this.door.theme);
       this.save = KF.Save.realm(this.door.id);
-      this.sel = Math.min(9, this.save.node);
+      this.sel = Math.min(KF.Path.count - 1, this.save.node);
       this.scroll = this.sel;
       this.t = 0;
       A.music(this.door.music);
     }
+    // Nodes along the path (KF.Path): level, level, street fight, level, level, boss.
     node(i) {
-      const roster = KF.Roster.R[this.door.id];
-      if (i === 9) return { kind: 'boss', name: roster.boss.name, label: 'BOSS', look: roster.boss.look };
-      if (i % 2 === 1) { const f = roster.fighters[(i - 1) / 2]; return { kind: 'street', name: f.name, label: 'STREET FIGHT', look: f.look }; }
-      const def = this.door.stages[i / 2], rule = KF.Rules.get(def), style = KF.Styles.forStage(this.door.id, i / 2, def);
-      return { kind: 'level', name: rule.name, title: def.name, rule: rule.rule, label: `LEVEL ${i / 2 + 1}`, style, def };
+      const roster = KF.Roster.R[this.door.id], kind = KF.Path.kinds[i];
+      if (kind === 'boss') return { kind, name: roster.boss.name, label: 'BOSS', look: roster.boss.look };
+      if (kind === 'street') { const f = roster.fighters[0]; return { kind, name: f.name, label: 'STREET FIGHT', look: f.look }; }
+      const s = KF.Path.stageOfNode(i), def = this.door.stages[s], rule = KF.Rules.get(def), style = KF.Styles.forStage(this.door.id, s, def);
+      return { kind, stage: s, name: KF.placeName(def.env), rule: rule.rule, label: `LEVEL ${s + 1}`, style, def };
     }
+    // The style a fight at node i uses: the one of the level just before it.
+    fightOpts(i) { const def = this.door.stages[KF.Path.stageOfNode(i - 1)]; return { style: def.style, env: def.env }; }
     update(dt) {
       this.t += dt;
-      const inp = this.engine.input, e = this.engine, max = Math.min(9, this.save.node);
+      const inp = this.engine.input, e = this.engine, max = Math.min(KF.Path.count - 1, this.save.node);
       if (inp.wasPressed('ArrowLeft', 'KeyA')) { this.sel = Math.max(0, this.sel - 1); A.sfx('select'); }
       if (inp.wasPressed('ArrowRight', 'KeyD')) { if (this.sel < max) { this.sel++; A.sfx('select'); } else A.sfx('bonk'); }
       this.scroll += (this.sel - this.scroll) * Math.min(1, dt * 10);
@@ -39,11 +42,10 @@
       if (inp.wasPressed('KeyC') || click === 'shop') e.go(() => new KF.ShopScene(e, { back: this.r }));
       if (go) {
         A.sfx('confirm');
-        const i = this.sel, r = this.r;
-        const prev = Math.floor((i - 1) / 2), style = i % 2 ? KF.Styles.forStage(this.door.id, prev, this.door.stages[prev]).id : null;
-        if (i % 2 === 0) e.go(() => new KF.PlayScene(e, { door: r, stage: i / 2 }));
-        else if (i === 9) e.go(() => new KF.FightScene(e, { mode: 'boss', realm: r, node: 9, def: KF.Roster.bossDef(r), style }));
-        else e.go(() => new KF.FightScene(e, { mode: 'street', realm: r, node: i, def: KF.Roster.streetDef(r, (i - 1) / 2), style }));
+        const i = this.sel, r = this.r, kind = KF.Path.kinds[i];
+        if (kind === 'level') e.go(() => new KF.PlayScene(e, { door: r, stage: KF.Path.stageOfNode(i) }));
+        else if (kind === 'boss') e.go(() => new KF.FightScene(e, { mode: 'boss', realm: r, node: i, def: KF.Roster.bossDef(r), ...this.fightOpts(i) }));
+        else e.go(() => new KF.FightScene(e, { mode: 'street', realm: r, node: i, def: KF.Roster.streetDef(r, 0), ...this.fightOpts(i) }));
       }
     }
     card(ctx, i, cx, t) {
@@ -54,9 +56,9 @@
       KF.UI.region(this, 'c' + i, x - 2, y - 2, CW + 4, CH + 4);
       R(ctx, '#161226', x, y, CW, CH);
       const tw = CW - 8, th = 63;
-      if (n.kind === 'level') KF.blit(ctx, KF.Render.thumb(n.style.theme || n.def.theme, tw, th, n.style.id), x + 4, y + 4);
+      if (n.kind === 'level') KF.blit(ctx, KF.Render.thumb(n.def.env, tw, th, n.style.id), x + 4, y + 4);
       else { // fighters: their portrait in front of the realm
-        KF.blit(ctx, KF.Render.thumb(this.door.theme, tw, th), x + 4, y + 4);
+        KF.blit(ctx, KF.Render.thumb(this.fightOpts(i).env, tw, th, this.fightOpts(i).style), x + 4, y + 4);
         R(ctx, n.kind === 'boss' ? 'rgba(80,0,10,0.55)' : 'rgba(8,4,16,0.45)', x + 4, y + 4, tw, th);
         const set = KF.Sprites.buildSet(n.look, 1, ['idle']);
         ctx.save(); ctx.translate(cx, y + 62); ctx.scale(-1, 1);
@@ -75,27 +77,27 @@
       this.theme.background(ctx, { x: t * 10, y: 0 }, this.engine.time, { cheer: 0.25 });
       R(ctx, 'rgba(10,6,20,0.55)', 0, 0, VW, KF.VIEW_H);
       KF.UI.header(ctx, this.door.name, this.door.sub, t);
-      for (let i = 0; i < 10; i++) {
+      for (let i = 0; i < KF.Path.count; i++) {
         const cx = VW / 2 + (i - this.scroll) * GAP;
         if (cx > -CW && cx < VW + CW) this.card(ctx, i, cx, t);
       }
       // Progress: ten pips, levels square, fights round.
-      const px0 = VW / 2 - 9 * 9;
-      for (let i = 0; i < 10; i++) {
-        const x = px0 + i * 18, y = 150, n = i % 2 === 0 ? 'level' : 'fight', on = this.save.won[i], here = i === this.sel;
-        if (i < 9) R(ctx, i < this.save.node ? '#ffd040' : '#3a3050', x + 3, y + 2, 15, 1);
+      const N = KF.Path.count, px0 = VW / 2 - (N - 1) * 12;
+      for (let i = 0; i < N; i++) {
+        const x = px0 + i * 24, y = 150, n = KF.Path.kinds[i], on = this.save.won[i], here = i === this.sel;
+        if (i < N - 1) R(ctx, i < this.save.node ? '#ffd040' : '#3a3050', x + 3, y + 2, 21, 1);
         R(ctx, here ? '#ffffff' : '#0a0610', x - 3, y - 2, 9, 9);
-        R(ctx, on ? (i === 9 ? '#ff5040' : n === 'fight' ? '#7cd8ff' : '#ffd040') : i <= this.save.node ? '#6a6080' : '#2a2238', x - 2, y - 1, 7, 7);
+        R(ctx, on ? (n === 'boss' ? '#ff5040' : n === 'street' ? '#7cd8ff' : '#ffd040') : i <= this.save.node ? '#6a6080' : '#2a2238', x - 2, y - 1, 7, 7);
       }
       // Details for the chosen node.
       const n = this.node(this.sel), first = !this.save.won[this.sel];
       let a, b;
       if (n.kind === 'level') {
-        const best = this.save.best[this.sel / 2];
+        const best = this.save.best[n.stage];
         a = n.rule || 'THE ORIGINAL. NO TWISTS, JUST TRAPS.';
-        b = `"${n.title}"   REWARD ${first ? '20 (+10 PERFECT)' : '5'}` + (best !== undefined ? `   BEST ${best} DEATHS` : '');
-      } else if (n.kind === 'street') { a = `${n.name} WANTS A FIGHT`; b = `BEST OF 3   REWARD ${first ? 25 + 10 * this.r : 8}`; }
-      else { a = `${n.name} RULES THIS REALM`; b = `REWARD ${first ? 80 + 20 * this.r : 20}   ` + (this.r === KF.Doors.length - 1 ? 'THE FINAL BOSS' : 'WIN TO UNLOCK THE NEXT REALM'); }
+        b = `REWARD ${first ? '20 (+10 PERFECT)' : '5'}` + (best !== undefined ? `   BEST ${best} DEATHS` : '');
+      } else if (n.kind === 'street') { a = `${n.name} WANTS A FIGHT`; b = `BEST OF 3   REWARD ${first ? 40 + 10 * this.r : 10}`; }
+      else { a = `${n.name} RULES THIS REALM`; b = `REWARD ${first ? 100 + 20 * this.r : 20}   ` + (this.r === KF.Doors.length - 1 ? 'THE FINAL BOSS' : 'WIN TO UNLOCK THE NEXT REALM'); }
       F.draw(ctx, a, VW / 2, 166, n.kind === 'level' ? '#ffd040' : '#ffb0a0', 1, 'center', '#000');
       F.draw(ctx, b, VW / 2, 177, '#c8c0d8', 1, 'center', '#000');
       KF.UI.buttonBar(ctx, this, [['go', 'GO (ENTER)'], ['shop', 'SHOP (C)'], ['back', 'MAP (ESC)']]);

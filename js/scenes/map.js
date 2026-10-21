@@ -3,21 +3,6 @@
 // Dojo shop, the Street Arena, or the training dojo.
 (function (KF) {
   const F = KF.Font, A = KF.Audio, VW = KF.VIEW_W, VH = KF.VIEW_H;
-  const thumbs = {};
-
-  // Small live-looking preview of each realm's arena, rendered once from its theme.
-  function thumb(door) {
-    if (thumbs[door.id]) return thumbs[door.id];
-    const big = KF.makeHi(VW, VH), bx = big.getContext('2d');
-    const th = KF.Themes.get(door.theme);
-    th.background(bx, { x: 120, y: 0 }, 3.3, { cheer: 0 });
-    for (let x = 0; x < VW; x += 16) { th.tile(bx, x, 168, 'solid', { t: true, d: 0 }, KF.util.hash2(x, 3)); th.tile(bx, x, 184, 'solid', { d: 1 }, KF.util.hash2(x, 4)); th.tile(bx, x, 200, 'solid', { d: 2 }, KF.util.hash2(x, 5)); }
-    const c = KF.makeHi(96, 54), x = c.getContext('2d');
-    x.imageSmoothingEnabled = true; x.drawImage(big, 0, 0, 96, 54);
-    thumbs[door.id] = c;
-    return c;
-  }
-
   class MapScene {
     constructor(engine, opts = {}) {
       this.engine = engine;
@@ -62,16 +47,16 @@
         R(sel ? '#ffd040' : KF.UI.hover(this, 'r' + i) ? '#6a5a8a' : '#0a0610', x - 2, y - 2, 108, 112);
         KF.UI.region(this, 'r' + i, x - 2, y - 2, 108, 112);
         R('#1a1428', x, y, 104, 108);
-        KF.blit(ctx, thumb(d), x + 4, y + 4);
+        KF.blit(ctx, KF.Render.thumb(d.theme, 96, 54, d.style), x + 4, y + 4);
         if (!unlocked) { ctx.fillStyle = 'rgba(8,4,16,0.75)'; ctx.fillRect(x + 4, y + 4, 96, 54); }
         F.draw(ctx, `REALM ${i + 1}`, cx, y + 63, sel ? '#ffd040' : '#a098b0', 1, 'center', '#000');
         F.draw(ctx, d.name, cx, y + 73, '#ffffff', 1, 'center', '#000');
         F.draw(ctx, d.sub, cx, y + 82, '#9ad8ff', 1, 'center', '#000');
-        // progress pips: 5 stages + 4 fights + boss
-        for (let k = 0; k < 10; k++) {
-          const done = save.won[k], px = x + 7 + k * 9.2;
+        // progress pips: level, level, fight, level, level, boss
+        for (let k = 0; k < KF.Path.count; k++) {
+          const done = save.won[k], px = x + 16 + k * 13, kind = KF.Path.kinds[k];
           R('#0a0610', px, y + 94, 7, 7);
-          R(done ? (k === 9 ? '#ff5040' : k % 2 ? '#7cf0ff' : '#ffd040') : '#2a2238', px + 1, y + 95, 5, 5);
+          R(done ? (kind === 'boss' ? '#ff5040' : kind === 'street' ? '#7cf0ff' : '#ffd040') : '#2a2238', px + 1, y + 95, 5, 5);
         }
         if (!unlocked) {
           R('#0a0610', cx - 7, y + 18, 14, 14); R('#8a8098', cx - 6, y + 24, 12, 7); R('#8a8098', cx - 4, y + 19, 8, 2); R('#8a8098', cx - 4, y + 19, 2, 6); R('#8a8098', cx + 2, y + 19, 2, 6);

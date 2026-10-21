@@ -59,7 +59,7 @@
     vector: { name: 'VECTOR LINE', rule: 'WIREFRAME ONLY. NO FILL, NO MERCY.' },
 
     storybook: { name: 'THE POP-UP BOOK', rule: 'ONCE UPON A TIME.' },
-    ukiyo: { name: 'THE GREAT WAVE', rule: 'A HEADWIND OFF THE SEA.', wind: -24 },
+    ukiyo: { name: 'THE GREAT WAVE', rule: 'LIGHT AS PAPER: YOU FLOAT A LITTLE.', tuning: { gravity: 0.88 } },
     dream: { name: 'THE DREAM', rule: 'LOW GRAVITY. YOU FLOAT.', tuning: { gravity: 0.62, maxFall: 0.7 } },
     duotone: { name: 'THE TEA HOUSE', rule: 'TWO COLOURS. THAT IS ALL.' },
     polaroid: { name: 'HANAMI PHOTO', rule: 'SMILE FOR THE CAMERA.' },

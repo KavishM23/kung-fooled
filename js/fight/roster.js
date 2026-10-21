@@ -79,26 +79,41 @@
     boss: st('THE SYSTEM', { material: 'crystal', hair: 'bald', style: 'tank', build: 'heavy' }, '#ff3030', 'rush'),
   };
 
+  // Who guards each realm: one street fighter in the middle and a boss at the end, picked from the
+  // cast above to suit the realm's style. Everyone else still turns up in the Street Arena.
+  const ALL = [];
+  for (const id in R) { ALL.push(...R[id].fighters); ALL.push(R[id].boss); }
+  const byName = (n) => { const f = ALL.find((x) => x.name === n); if (!f) throw new Error('No fighter ' + n); return f; };
+  const CAST = {
+    arcade: ['MIRA', 'THE LANDLORD'], oldtv: ['JOHNNY TV', 'BRAMBLE'], pocket: ['BUG KID', 'GRANDMA HANA'],
+    comic: ['THE GREAT ZORBO', 'CAPTAIN KAPOW'], argo: ['LIKEZ', 'HOLO IDOL'], eightbit: ['DUSTY', 'BLACK BART'],
+    woodblock: ['OLD BRUSH', 'HANAKO OF THE STORM'], vhs: ['DAICHI', 'THE DETECTIVE'], vapor: ['AESTHETIC', 'NEON EMPRESS'],
+    cyber: ['VOLT', 'THE SYSTEM'],
+  };
+  const REALM = {};
+  for (const id in CAST) REALM[id] = { fighters: [byName(CAST[id][0])], boss: byName(CAST[id][1]) };
+
   // Difficulty and stats. Street fighters ramp up through a realm; bosses are clearly harder.
   function streetDef(realmIdx, k) {
-    const f = R[KF.Doors[realmIdx].id].fighters[k];
-    const d = Math.min(0.72, 0.12 + 0.07 * realmIdx + 0.06 * k);
+    const f = REALM[KF.Doors[realmIdx].id].fighters[k];
+    const d = Math.min(0.72, 0.16 + 0.065 * realmIdx + 0.06 * k);
     return { ...f, d, stats: { health: 85 + 6 * realmIdx + 4 * k, power: 0.85 + 0.05 * realmIdx, guard: 1, speed: 0.95 + 0.02 * realmIdx, special: f.special } };
   }
   function bossDef(realmIdx) {
-    const b = R[KF.Doors[realmIdx].id].boss;
+    const b = REALM[KF.Doors[realmIdx].id].boss;
     const d = Math.min(0.88, 0.48 + 0.06 * realmIdx);
     return { ...b, d, boss: true, stats: { health: 140 + 15 * realmIdx, power: 1.0 + 0.06 * realmIdx, guard: 0.95, speed: 1.0 + 0.025 * realmIdx, special: b.special } };
   }
   // Street Arena: random fighters from unlocked realms, tougher each win, capped below bosses.
+  // Street Arena: anyone from the cast whose realm (or an earlier one) you have reached.
   function arenaDef(streak) {
-    const pool = [];
-    KF.Doors.forEach((door, i) => { if (KF.Save.unlocked(i)) R[door.id].fighters.forEach((f, k) => pool.push([i, k])); });
-    const [i, k] = pool[Math.floor(Math.random() * pool.length)];
-    const base = streetDef(i, k);
+    let reach = 0;
+    KF.Doors.forEach((door, i) => { if (KF.Save.unlocked(i)) reach = i; });
+    const pool = ALL.filter((f) => !Object.keys(CAST).some((id, i) => i > reach && CAST[id].includes(f.name)));
+    const f = pool[Math.floor(Math.random() * pool.length)];
     const d = Math.min(0.68, 0.15 + 0.05 * streak);
-    return { ...base, d, stats: { ...base.stats, health: 90 + 4 * streak, power: 0.9 + 0.03 * Math.min(streak, 10) } };
+    return { ...f, d, stats: { health: 90 + 4 * streak, power: 0.9 + 0.03 * Math.min(streak, 10), guard: 1, speed: 1, special: f.special } };
   }
 
-  KF.Roster = { R, streetDef, bossDef, arenaDef };
+  KF.Roster = { R: REALM, ALL, streetDef, bossDef, arenaDef };
 })(window.KF);
