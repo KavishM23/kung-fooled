@@ -8,6 +8,7 @@
     '#': { id: 1, solid: true, art: 'solid' },
     '=': { id: 2, solid: true, art: 'alt' },     // solid, drawn as the theme's prop block (crate, AC unit...)
     '-': { id: 3, oneWay: true, art: 'oneway' }, // jump up through, land on top
+    '~': { id: 8, solid: true, art: 'ice', slippery: true }, // ice: you slide
     '^': { id: 4, spike: 'up' },
     'v': { id: 5, spike: 'down' },
     '<': { id: 6, spike: 'left' },
@@ -102,6 +103,13 @@
 
     overlapsSolid(x, y, w, h, self) {
       return this.solidsIn(x, y, w, h, self).some((s) => !s.oneWay);
+    }
+
+    // Is the tile right under these feet slippery? (g = gravity direction)
+    slipperyUnder(b, g = 1) {
+      const y = g > 0 ? b.y + b.h + 1 : b.y - 1, r = Math.floor(y / T);
+      for (const x of [b.x + 1, b.x + b.w - 1]) { const td = this.tileDef(Math.floor(x / T), r); if (td && td.slippery) return true; }
+      return false;
     }
 
     spikeHit(b) {

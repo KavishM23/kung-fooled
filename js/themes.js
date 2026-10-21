@@ -157,6 +157,7 @@
       R(ctx, cfg.color, sx + 1, by, w - 2, 5);
       R(ctx, cfg.rim, sx + 1, by, w - 2, 1);
       if (hat) { R(ctx, cfg.color, sx - 1, by, w + 2, 1); R(ctx, cfg.color, sx + 1, by - 2, w - 2, 2); }
+      if (cfg.horns && i % 3 !== 1) { R(ctx, cfg.color, sx - 1, by - 2, 1, 3); R(ctx, cfg.color, sx + w, by - 2, 1, 3); R(ctx, cfg.color, sx - 2, by - 3, 1, 1); R(ctx, cfg.color, sx + w + 1, by - 3, 1, 1); }
       if (cheer > 0.2 && (i % 2 === 0 || cheer > 0.7)) {
         R(ctx, cfg.color, sx - 1, by - 3 + bob, 1, 6); R(ctx, cfg.color, sx + w, by - 3 + bob, 1, 6);
       }
@@ -660,6 +661,174 @@
       } else {
         R(ctx, '#c8ccd6', x, y, 16, 1); R(ctx, '#8a909c', x, y + 1, 16, 2); R(ctx, '#3a3e4a', x, y + 3, 16, 1);
         for (let i = 2; i < 16; i += 4) R(ctx, '#3a3e4a', x + i, y + 1, 2, 1);
+      }
+    },
+  };
+
+  // ========== SAKURA SPRING (cherry-blossom valley at twilight) ==========
+  themes.sakura = {
+    id: 'sakura', name: 'SAKURA', bg: '#2e2c48',
+    signBoard: '#f4e8e0', signInk: '#7a2040', signPost: '#5a2a24',
+    zone: { gravity: '#8a7aff', reverse: '#ff58c8' },
+    build() {
+      this.sky = ditherSky(['#2a2a46', '#3a3656', '#544462', '#70546a', '#8c6272', '#9c7078']);
+      const sx = this.sky.getContext('2d'), rnd = U.rng(61);
+      // Snow-capped peak in the distance.
+      for (let y = 70; y < 170; y++) {
+        const half = (y - 70) * 1.5;
+        R(sx, y < 92 ? '#b8aab8' : '#4e4462', 250 - half, y, half * 2, 1);
+        if (y >= 88 && y < 96) for (let x = -half; x < half; x += 5) R(sx, '#b8aab8', 250 + x + ((y * 3) % 5), y, 2, 1);
+      }
+      sx.fillStyle = '#d8c0c0'; sx.beginPath(); sx.arc(80, 48, 9, 0, 7); sx.fill();
+      this.far = KF.makeCanvas(640, VH);
+      const f = this.far.getContext('2d');
+      let h = 50;
+      for (let x = 0; x < 640; x++) { h += (rnd() - 0.5) * 3; h = U.clamp(h, 30, 70); R(f, '#3c3452', x, VH - h - 44, 1, h + 44); }
+      this.mid = KF.makeCanvas(768, VH);
+      const m = this.mid.getContext('2d');
+      this.trees = [];
+      for (let x = 30; x < 768; x += 150 + Math.floor(rnd() * 60)) { // cherry trees
+        R(m, '#2c2032', x, 100, 5, 120); R(m, '#2c2032', x - 18, 104, 22, 3); R(m, '#2c2032', x + 4, 96, 24, 3);
+        for (let k = 0; k < 90; k++) {
+          const a = rnd() * 6.28, r = Math.sqrt(rnd()) * 34;
+          R(m, ['#6a3a5a', '#7e4866', '#94587a'][k % 3], x + Math.round(Math.cos(a) * r * 1.5), 92 + Math.round(Math.sin(a) * r * 0.7), 3, 2);
+        }
+        this.trees.push(x);
+      }
+      for (let x = 110; x < 768; x += 300) { // torii gate
+        R(m, '#4a1e24', x, 110, 4, 60); R(m, '#4a1e24', x + 36, 110, 4, 60);
+        R(m, '#4a1e24', x - 6, 106, 52, 5); R(m, '#4a1e24', x - 2, 118, 44, 3); R(m, '#5a2a2a', x - 8, 104, 56, 2);
+      }
+      // River with an arched bridge.
+      for (let x = 0; x < 768; x++) R(m, '#30304e', x, 158, 1, 6);
+      for (let x = 400; x < 470; x++) { const y = 150 - Math.round(Math.sin(((x - 400) / 70) * Math.PI) * 10); R(m, '#5a2228', x, y, 1, 3); if (x % 10 === 0) R(m, '#5a2228', x, y - 6, 1, 6); }
+    },
+    background(ctx, cam, t, mood) {
+      ctx.drawImage(this.sky, 0, 0);
+      tiled(ctx, this.far, cam.x, 0.08);
+      tiled(ctx, this.mid, cam.x, 0.25);
+      for (let i = 0; i < 5; i++) { // floating lanterns drifting up
+        const age = (t * 0.05 + i * 0.21) % 1, x = Math.round(wrapX(i * 90 + 40, cam.x, 0.3, 450)) + 24 + Math.sin(t + i) * 4;
+        ctx.globalAlpha = 0.5 * Math.sin(age * Math.PI); R(ctx, '#c0705a', x, Math.round(150 - age * 120), 3, 4); R(ctx, '#e0a070', x + 1, Math.round(151 - age * 120), 1, 2); ctx.globalAlpha = 1;
+      }
+      R(ctx, '#1e1a30', 0, 152, VW, VH - 152);
+      Art.crowd(ctx, cam.x, t, { y: 154, par: 0.5, color: '#251f38', rim: '#5a4460', seed: 33, gap: 2, hats: 0.35, cheer: mood.cheer });
+      for (let i = 0; i < 40; i++) { // lots of petals
+        const ph = i * 0.37, age = (t * (0.08 + (i % 5) * 0.015) + ph) % 1;
+        const x = Math.round(((i * 41 + age * 160 + Math.sin(t * 1.3 + i) * 10 - cam.x * (0.4 + (i % 3) * 0.2)) % (VW + 20) + VW + 20) % (VW + 20)) - 10;
+        R(ctx, i % 3 ? '#c07890' : '#e0a0b8', x, Math.round(age * VH), i % 4 ? 2 : 1, 1);
+      }
+    },
+    tile(ctx, x, y, art, e, seed) {
+      if (art === 'solid') {
+        R(ctx, '#8a5a3a', x, y, 16, 16);
+        for (let k = 0; k < 4; k++) { const h = U.hash2(Math.floor(seed * 99) + k, y); R(ctx, k % 2 ? '#6e4430' : '#a87050', x + Math.floor(h * 13), y + 3 + k * 3 + Math.floor(h * 2), 3, 2); }
+        if (e.t) {
+          R(ctx, '#9ad070', x, y, 16, 1); R(ctx, '#6aa84a', x, y + 1, 16, 3); R(ctx, '#3e6a2e', x, y + 4, 16, 1);
+          for (let i = 0; i < 16; i += 3) R(ctx, '#6aa84a', x + i, y + 5, 1, 1 + ((i + Math.floor(seed * 7)) % 2));
+          R(ctx, '#ffb0c8', x + Math.floor(seed * 12) + 1, y + 1); R(ctx, '#ff90b0', x + ((Math.floor(seed * 37) % 14) + 1), y + 2);
+        }
+        edges(ctx, x, y, e, '#2a160e');
+      } else if (art === 'alt') { // stone lantern block
+        R(ctx, '#9a9494', x, y, 16, 16); R(ctx, '#b8b2b0', x, y, 16, 2); R(ctx, '#6a6466', x, y + 14, 16, 2);
+        R(ctx, '#3a2a2a', x + 5, y + 5, 6, 5); R(ctx, '#ffb070', x + 6, y + 6, 4, 3);
+        edges(ctx, x, y, e, '#2a2426');
+      } else if (art === 'ice') {
+        themes.viking.tile(ctx, x, y, 'ice', e, seed);
+      } else { // red bridge plank
+        R(ctx, '#ff6a5a', x, y, 16, 1); R(ctx, '#c8302a', x, y + 1, 16, 2); R(ctx, '#5a1418', x, y + 3, 16, 1);
+        R(ctx, '#5a1418', x + 7, y + 4, 2, 4);
+      }
+    },
+  };
+
+  // ========== VIKING FJORD (frozen north under the aurora) ==========
+  themes.viking = {
+    id: 'viking', name: 'FJORD', bg: '#121826',
+    signBoard: '#d8c8a8', signInk: '#2a1a10', signPost: '#4a3420',
+    zone: { gravity: '#8a8aff', reverse: '#ff58c8' },
+    build() {
+      this.sky = ditherSky(['#0c101e', '#121a2c', '#1a243a', '#24304a', '#2e3c56', '#384860']);
+      const sx = this.sky.getContext('2d'), rnd = U.rng(71);
+      for (let i = 0; i < 60; i++) R(sx, '#5a6a88', Math.floor(rnd() * VW), Math.floor(rnd() * 100));
+      this.far = KF.makeCanvas(640, VH);
+      const f = this.far.getContext('2d');
+      for (let x = 0; x < 640;) { // jagged snowy peaks
+        const w = 50 + Math.floor(rnd() * 70), hgt = 50 + Math.floor(rnd() * 50), top = 150 - hgt;
+        for (let i = 0; i < w; i++) {
+          const yy = top + Math.abs(i - w / 2) * (hgt / (w / 2));
+          R(f, '#26304a', x + i, yy, 1, 216 - yy);
+          if (yy < top + 14) R(f, '#7a8aa8', x + i, yy, 1, 3);
+        }
+        x += Math.floor(w * 0.7);
+      }
+      this.mid = KF.makeCanvas(768, VH);
+      const m = this.mid.getContext('2d');
+      for (let x = 0; x < 768; x++) R(m, '#16203a', x, 150, 1, 8); // fjord water line
+      this.halls = [];
+      for (let x = 20; x < 768; x += 240 + Math.floor(rnd() * 60)) {
+        // longship with a striped sail
+        R(m, '#1a1420', x, 140, 70, 6); R(m, '#1a1420', x + 4, 146, 62, 3); R(m, '#1a1420', x - 4, 132, 6, 10); R(m, '#1a1420', x + 68, 132, 6, 10);
+        R(m, '#1a1420', x + 33, 96, 2, 44);
+        for (let k = 0; k < 7; k++) R(m, k % 2 ? '#4a2228' : '#5e5a5a', x + 18, 100 + k * 5, 32, 5);
+        for (let k = 0; k < 6; k++) { m.fillStyle = k % 2 ? '#4a3a2a' : '#3a4a5a'; m.beginPath(); m.arc(x + 8 + k * 11, 140, 4, 0, 7); m.fill(); }
+        // mead hall
+        const hx = x + 120;
+        R(m, '#1c1824', hx, 118, 60, 40); for (let i = 0; i < 40; i++) R(m, '#1c1824', hx - 6 + i * 1.8, 118 - Math.min(i, 40 - i) * 0.9, 2, 2);
+        R(m, '#4a3420', hx + 26, 140, 8, 18);
+        this.halls.push(hx);
+      }
+    },
+    background(ctx, cam, t, mood) {
+      ctx.drawImage(this.sky, 0, 0);
+      // Aurora: slow waving ribbons.
+      for (let band = 0; band < 3; band++) {
+        ctx.globalAlpha = 0.16 - band * 0.03;
+        ctx.fillStyle = band === 1 ? '#5ad8b0' : '#4aa0c8';
+        for (let x = 0; x < VW; x += 2) {
+          const y = 28 + band * 14 + Math.sin(x * 0.02 + t * 0.6 + band) * 10 + Math.sin(x * 0.051 - t * 0.4) * 5;
+          ctx.fillRect(x, Math.round(y), 2, 10 + Math.round(Math.sin(x * 0.03 + t + band) * 4 + 4));
+        }
+      }
+      ctx.globalAlpha = 1;
+      tiled(ctx, this.far, cam.x, 0.08);
+      tiled(ctx, this.mid, cam.x, 0.25);
+      for (const hx of this.halls) { // chimney smoke
+        const x = Math.round(wrapX(hx + 30, cam.x, 0.25, 768)) + 24;
+        if (x < -10 || x > VW + 10) continue;
+        for (let k = 0; k < 4; k++) { const a = (t * 0.3 + k / 4) % 1; ctx.globalAlpha = 0.2 * (1 - a); R(ctx, '#8a90a0', x + Math.round(Math.sin(t + k) * 3 + a * 8), Math.round(100 - a * 40), 4 + a * 6, 3); }
+        ctx.globalAlpha = 1;
+      }
+      R(ctx, '#10141f', 0, 152, VW, VH - 152);
+      Art.crowd(ctx, cam.x, t, { y: 154, par: 0.5, color: '#181d2c', rim: '#4a5470', seed: 77, gap: 2, horns: true, cheer: mood.cheer });
+      for (let i = 0; i < 45; i++) { // snowfall
+        const age = (t * (0.06 + (i % 4) * 0.02) + i * 0.13) % 1;
+        const x = Math.round(((i * 53 + Math.sin(t + i) * 8 - cam.x * (0.5 + (i % 3) * 0.2)) % (VW + 10) + VW + 10) % (VW + 10)) - 5;
+        R(ctx, i % 3 ? '#a8b4c8' : '#e0e8f4', x, Math.round(age * VH), i % 5 ? 1 : 2, i % 5 ? 1 : 2);
+      }
+    },
+    tile(ctx, x, y, art, e, seed) {
+      if (art === 'solid') {
+        stone(ctx, x, y, 0, 16, seed, { base: '#6a7484', mortar: '#3e4656', hi: '#8a94a4', chip: '#555e6e' });
+        if (seed > 0.85) { R(ctx, '#9aa8c0', x + 5, y + 7, 1, 6); R(ctx, '#9aa8c0', x + 5, y + 7, 4, 1); R(ctx, '#9aa8c0', x + 8, y + 10, 1, 3); } // rune
+        if (e.t) {
+          R(ctx, '#f4f8ff', x, y, 16, 2); R(ctx, '#c8d4e8', x, y + 2, 16, 2); R(ctx, '#8a9ab8', x, y + 4, 16, 1);
+          R(ctx, '#c8d4e8', x + Math.floor(seed * 10) + 2, y + 5, 3, 1);
+        }
+        edges(ctx, x, y, e, '#1a1e2a');
+      } else if (art === 'alt') { // shield wall: round shield on planks
+        R(ctx, '#6a4426', x, y, 16, 16); R(ctx, '#4a2e18', x, y + 5, 16, 1); R(ctx, '#4a2e18', x, y + 10, 16, 1);
+        ctx.fillStyle = '#1a1020'; ctx.beginPath(); ctx.arc(x + 8, y + 8, 7, 0, 7); ctx.fill();
+        ctx.fillStyle = seed > 0.5 ? '#b83a2a' : '#2a5a9a'; ctx.beginPath(); ctx.arc(x + 8, y + 8, 6, 0, 7); ctx.fill();
+        R(ctx, '#e8e0d0', x + 7, y + 2, 2, 12); R(ctx, '#e8e0d0', x + 2, y + 7, 12, 2); R(ctx, '#c8ccd6', x + 7, y + 7, 2, 2);
+        edges(ctx, x, y, e, '#1a1020');
+      } else if (art === 'ice') { // slippery ice: shiny pale blue with glints
+        R(ctx, '#8ac8f0', x, y, 16, 16); R(ctx, '#b8e4ff', x, y, 16, 3); R(ctx, '#5a9ad0', x, y + 13, 16, 3);
+        R(ctx, '#ffffff', x + 3 + Math.floor(seed * 6), y + 1, 4, 1); R(ctx, '#ffffff', x + 10, y + 6, 1, 3); R(ctx, '#d8f0ff', x + 4, y + 9, 2, 1);
+        edges(ctx, x, y, e, '#1a2a4a');
+      } else { // log plank
+        R(ctx, '#b88050', x, y, 16, 1); R(ctx, '#8a5a30', x, y + 1, 16, 2); R(ctx, '#4a2e18', x, y + 3, 16, 1);
+        R(ctx, '#e8eef8', x + 2, y, 5, 1);
       }
     },
   };

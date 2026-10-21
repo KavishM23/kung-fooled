@@ -14,7 +14,7 @@
       const i = this.engine.input;
       if (this.t > 0.3 && i.wasPressed('Enter', 'Space', 'KeyW', 'ArrowUp')) {
         KF.Audio.sfx('confirm');
-        this.engine.go(() => new KF.SelectScene(this.engine));
+        this.engine.go(() => new KF.MapScene(this.engine));
       }
     }
     render(ctx) {
@@ -30,8 +30,9 @@
       const fr = KF.Sprites.pick('idle', t);
       ctx.save(); ctx.translate(58, 200); ctx.scale(2, 2); ctx.drawImage(fr.img, -KF.Sprites.AX, -KF.Sprites.AY); ctx.restore();
       if (t > 0.6 && Math.floor(t * 2.5) % 2) F.draw(ctx, 'PRESS ENTER', VW / 2, 150, '#ffffff', 2, 'center', '#000');
-      F.draw(ctx, 'ARROWS/AD MOVE   SPACE/W JUMP   R RESTART   M SOUND', VW / 2, 190, '#b0a8c8', 1, 'center', '#000');
-      F.draw(ctx, 'EVERY TRAP CAN BE BEATEN. EVENTUALLY.', VW / 2, 202, '#7a7094', 1, 'center', '#000');
+      F.draw(ctx, 'PLATFORMS: ARROWS/AD MOVE  SPACE/W JUMP  R RESTART', VW / 2, 184, '#b0a8c8', 1, 'center', '#000');
+      F.draw(ctx, 'FIGHTS: J PUNCH  K KICK  L SPECIAL  S BLOCK', VW / 2, 194, '#b0a8c8', 1, 'center', '#000');
+      F.draw(ctx, 'EVERY TRAP CAN BE BEATEN. EVENTUALLY.', VW / 2, 205, '#7a7094', 1, 'center', '#000');
     }
   }
   KF.TitleScene = TitleScene;

@@ -3,6 +3,13 @@
 A troll platformer dressed as a late-90s arcade fighter. Run from the left of each stage to the
 exit door. The stage will betray you. Learn each trap by dying to it; respawn is instant.
 
+Between stages you fight. Each realm is five platform stages, a street fight after each of the
+first four, and a boss at the end. Beat the boss to unlock the next realm. Fights and stages pay
+coins, which buy outfits, headgear, hair, fist wraps, stat upgrades and special moves in the Dojo.
+
+**Realms:** Rooftop at Dusk, Harbour, Neon Night Market, Temple Courtyard, Sky Express, Sakura
+Spring, Viking Fjord. Each has its own arena art, music, traps and fighters.
+
 **Play:** open `index.html` in a browser. No build step, no server, no dependencies.
 
 ## Controls
@@ -15,15 +22,31 @@ exit door. The stage will betray you. Learn each trap by dying to it; respawn is
 | Esc | Pause (resume / restart / quit) |
 | M | Mute |
 | F1 | Show hitboxes and movement debug info |
-| T (door select) | Training dojo (the movement test stage) |
+| T (realm map) | Training dojo (the movement test stage) |
+| C (realm map) | Dojo shop: customise and upgrade |
+| F (realm map) | Street Arena: an endless ladder of fights for coins |
+
+**Fights** (best of three rounds, 60 s each):
+
+| Key | Action |
+| --- | --- |
+| A/D or arrows | Walk |
+| W / Up / Space | Jump (punch or kick in the air for a jump kick) |
+| S / Down | Block (takes a little chip damage) |
+| J (or Z) | Punch. Press 3 times quickly for jab, cross, uppercut |
+| K (or X) | Kick (slower, longer reach, more damage) |
+| L (or C) | Special move, when the meter is at least half full |
+
+Landing hits fills your special meter. Specials (buy more in the shop): Spirit Wave
+(projectile), Tiger Rush (dashing elbow), Whirlwind Kick (multi-hit), Quake Stomp (ground wave).
 
 Movement has 80 ms coyote time, 100 ms jump buffering and variable jump height (a tap hops about
 1 tile, a full hold 3.5 tiles, 0.56 s in the air). Clipping a ceiling edge slides you past it, and
 clipping a ledge's top corner while falling pops you up onto it.
 
 Tip: `index.html?stage=harbour-3` jumps straight into a stage (`rooftop`, `harbour`, `neon`,
-`temple`, `train`, 1-5),
-`index.html?stage=training` into the dojo.
+`temple`, `train`, `sakura`, `viking`, 1-5), `?fight=viking-2` into a street fight (5 = the boss),
+`?scene=shop` into the shop, `?stage=training` into the dojo.
 
 ## Project layout
 
@@ -36,16 +59,23 @@ js/player.js     movement + tuning         js/bigtext.js  ROUND / K.O. / PERFECT
 js/traps.js      every trap type           js/hud.js      health bars, timer, death combo
 js/stage.js      rules for one attempt     js/audio.js    Web Audio SFX + sequencer
 js/levels/       doors and stages          js/music.js    the four chiptune tracks
-js/scenes/       title, door select, play  tools/solve.js level checker (Node)
+js/scenes/       title, map, realm path,   tools/solve.js level checker (Node)
+                 shop, fight, play          tools/fightsim.js fight balance (Node)
+js/fight/        fighter, AI, roster        js/economy.js  shop items, upgrades, coins
 ```
+
+Fighters, the player included, are all built from one code-drawn skeleton. A *look* (outfit
+style and colours, hair, headgear, beard, skin) picks the materials, so every shop item and
+every opponent is a few lines of data: see `js/economy.js` and `js/fight/roster.js`.
+`node tools/fightsim.js 0.45 30 2` plays AI-vs-AI fights to check each opponent's win rate
+for a player of a given skill and upgrade level.
 
 All movement numbers are in `KF.PlayerTuning` at the top of `js/player.js`.
 
 ## Adding a stage
 
-There are five doors of five stages: Rooftop, Harbour, Neon Market, Temple Courtyard and Sky Train,
-each with its own arena art, music and new trap types. Stages live in `js/levels/world1.js`–
-`world5.js`. Each one is a tile grid plus a trap list:
+Each realm is five stages. Stages live in `js/levels/world1.js`–`world7.js` (one file per realm).
+Each one is a tile grid plus a trap list:
 
 ```js
 KF.addStage('rooftop', {
@@ -65,12 +95,13 @@ KF.addStage('rooftop', {
 });
 ```
 
-Map legend: `#` solid, `=` solid prop block (crate / AC unit / stall), `-` one-way platform,
+Map legend: `#` solid, `=` solid prop block (crate / AC unit / stall), `-` one-way platform, `~` ice,
 `^ v < >` spikes, `P` spawn, `D` exit door (its bottom tile), `U` upside-down exit hanging from a
 ceiling (its top tile). Falling below the map kills; the left and right edges are walls.
 
-To add a whole new door, add an entry to `KF.Doors` in `js/levels/doors.js` and a theme in
-`js/themes.js` (themes provide `build`, `background` and `tile`).
+To add a whole new realm, add an entry to `KF.Doors` in `js/levels/doors.js`, a theme in
+`js/themes.js` (themes provide `build`, `background` and `tile`), a music track in `js/music.js`
+and its four street fighters and boss in `js/fight/roster.js`.
 
 ## Traps
 
@@ -94,6 +125,7 @@ with `#` are taken over by the trap, so the trap looks exactly like the floor ar
 | `fakeFloor` | `at` (drawn like floor, not solid) | always |
 | `wind` | `zone`, `force` (px/s, + = right), `gust: [on, off]` | while inside and blowing |
 | `blink` | `at: [c, r, w]`, `on`, `off`, `offset` (seconds) | timer; flickers before vanishing |
+| `axe` | `at: [c, r]` pivot, `len` (tiles), `amp` (radians), `speed`, `offset` | always swinging |
 
 Fields every trap accepts:
 

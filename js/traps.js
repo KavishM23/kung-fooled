@@ -428,11 +428,30 @@
     tick() { this.solid.active = this.phase < (this.def.on || 1.4); }
   }
 
+  // Swinging axe on a chain. at: [c, r] = pivot tile, len (tiles), amp (radians), speed, offset.
+  // The blade is the only deadly part; the chain is harmless.
+  class Axe extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const [c, r] = def.at;
+      this.pivot = { x: c * T + 8, y: r * T + 8 };
+      this.len = (def.len || 4) * T;
+      this.period = (Math.PI * 2) / (def.speed || 2.2);
+      this.rect = { x: this.pivot.x - this.len, y: this.pivot.y, w: this.len * 2, h: this.len + 8 };
+    }
+    get angle() { return (this.def.amp || 1.1) * Math.sin((this.stage.t + (this.def.offset || 0)) * (this.def.speed || 2.2)); }
+    blade() {
+      const a = this.angle;
+      return { x: this.pivot.x + Math.sin(a) * this.len - 7, y: this.pivot.y + Math.cos(a) * this.len - 6, w: 14, h: 12 };
+    }
+    kills(p) { return U.overlap(p, this.blade()); }
+  }
+
   KF.Traps = {
     types: {
       collapse: Collapse, spikes: PopSpikes, crusher: Crusher, spring: Spring, shy: Shy,
       doorRun: DoorRun, fakeDoor: FakeDoor, gravity: GravityZone, reverse: ReverseZone,
-      hidden: HiddenBlock, taunt: Taunt, mover: Mover, fakeFloor: FakeFloor, wind: Wind, blink: Blink,
+      hidden: HiddenBlock, taunt: Taunt, mover: Mover, fakeFloor: FakeFloor, wind: Wind, blink: Blink, axe: Axe,
     },
     matchDeaths,
     build(stage) {

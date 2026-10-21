@@ -4,7 +4,7 @@
 (function (KF) {
   const GAME_KEYS = new Set([
     'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Space', 'KeyA', 'KeyD', 'KeyW', 'KeyS',
-    'KeyR', 'KeyM', 'KeyT', 'Escape', 'Enter', 'F1',
+    'KeyR', 'KeyM', 'KeyT', 'KeyJ', 'KeyK', 'KeyL', 'KeyZ', 'KeyX', 'KeyC', 'KeyF', 'Escape', 'Enter', 'F1',
   ]);
 
   class Input {

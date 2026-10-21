@@ -64,5 +64,42 @@
         { drum: true, seq: 'k h s h k k s h k h s h k k s s' },
       ],
     },
+    // Street fights: punchy and up-tempo.
+    fight: {
+      bpm: 150,
+      parts: [
+        { wave: 'triangle', vol: 0.34, seq: 'A1 A1 A2 A1 . A1 G2 A1 A1 A1 A2 A1 C2 . D2 E2 F1 F1 F2 F1 . F1 E2 F1 G1 G1 G2 G1 B1 . D2 E2' },
+        { wave: 'square', vol: 0.06, seq: 'E5 - - A4 C5 - E5 - D5 - C5 - A4 - - - E5 - - A4 C5 - G5 - F5 - E5 - D5 - - - F5 - - C5 E5 - A5 - G5 - F5 - E5 - D5 - G5 - - D5 G5 - B5 - A5 - G5 - E5 - - -' },
+        { drum: true, seq: 'k h s h k k s h k h s h k h s s' },
+      ],
+    },
+    // Bosses: heavier, minor, relentless.
+    boss: {
+      bpm: 138,
+      parts: [
+        { wave: 'sawtooth', vol: 0.12, seq: 'D2 D2 D3 D2 D2 D3 C3 D3 D2 D2 D3 D2 F2 E2 C2 A1 Bb1 Bb1 Bb2 Bb1 Bb1 Bb2 A2 Bb2 A1 A1 A2 A1 C#2 E2 A2 C#3' },
+        { wave: 'square', vol: 0.06, seq: 'D5 - - - A4 - D5 - F5 - E5 - D5 - C5 - D5 - - - A4 - F5 - G5 - A5 - G5 - F5 - Bb5 - - - A5 - G5 - F5 - - - E5 - - - A5 - - - G5 - E5 - C#5 - - - A4 - - -' },
+        { drum: true, seq: 'k k s h k k s h k k s h k s s s' },
+      ],
+    },
+    // Realm 6: spring valley, gentle and bright (D major pentatonic).
+    sakura: {
+      bpm: 104,
+      parts: [
+        { wave: 'triangle', vol: 0.32, seq: 'D2 . A2 . D3 . A2 . B1 . F#2 . B2 . F#2 . G1 . D2 . G2 . D2 . A1 . E2 . A2 . C#3 .' },
+        { wave: 'square', vol: 0.06, seq: 'F#5 - E5 - D5 - B4 - A4 - - - B4 - D5 - E5 - F#5 - A5 - F#5 - E5 - - - . . D5 - E5 - F#5 - E5 - D5 - B4 - A4 - B4 - D5 - - - E5 - - - . . . .' },
+        { wave: 'square', vol: 0.028, seq: 'A5 D6 F#5 A5 D6 F#5 A5 D6 B5 F#5 D6 B5 F#5 D6 B5 F#5' },
+        { drum: true, seq: 'k . h . s . h . k h . . s . h .' },
+      ],
+    },
+    // Realm 7: the frozen north, a stomping war march in E minor.
+    viking: {
+      bpm: 118,
+      parts: [
+        { wave: 'sawtooth', vol: 0.11, seq: 'E2 . E2 . E2 . G2 . D2 . D2 . D2 . F#2 . C2 . C2 . C2 . E2 . B1 . B1 . D2 . F#2 .' },
+        { wave: 'square', vol: 0.065, seq: 'E4 - - - G4 - B4 - A4 - G4 - F#4 - - - D4 - - - F#4 - A4 - G4 - F#4 - E4 - - - C5 - - - B4 - A4 - G4 - - - F#4 - - - B4 - - - A4 - G4 - F#4 - - - . . . .' },
+        { drum: true, seq: 'k . . . s . k . k . . . s . s s' },
+      ],
+    },
   };
 })(window.KF);

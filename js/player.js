@@ -73,6 +73,7 @@
       const skid = turning && this.grounded && Math.abs(this.vx) > 90;
       if (skid && !this.skidding) this.events.push({ type: 'skid' });
       this.skidding = skid;
+      if (this.grounded && world.slipperyUnder(this, g)) a *= dir === 0 ? 0.12 : 0.3; // ice
       this.vx = U.approach(this.vx, dir * P.runSpeed, a * dt);
 
       // Coyote time and jump buffering.

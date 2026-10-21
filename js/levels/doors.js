@@ -1,5 +1,5 @@
 'use strict';
-// The three doors (worlds). Stage files call KF.addStage(doorId, def) to fill them.
+// The realms (originally "doors"). Stage files call KF.addStage(realmId, def) to fill them.
 (function (KF) {
   KF.Doors = [
     { id: 'rooftop', name: 'ROOFTOP', sub: 'AT DUSK', theme: 'rooftop', music: 'rooftop', stages: [] },
@@ -7,6 +7,8 @@
     { id: 'neon', name: 'NEON', sub: 'NIGHT MARKET', theme: 'neon', music: 'neon', stages: [] },
     { id: 'temple', name: 'TEMPLE', sub: 'COURTYARD', theme: 'temple', music: 'shrine', stages: [] },
     { id: 'train', name: 'TRAIN', sub: 'SKY EXPRESS', theme: 'train', music: 'train', stages: [] },
+    { id: 'sakura', name: 'SAKURA', sub: 'SPRING VALLEY', theme: 'sakura', music: 'sakura', stages: [] },
+    { id: 'viking', name: 'VIKING', sub: 'FROZEN FJORD', theme: 'viking', music: 'viking', stages: [] },
   ];
   KF.Levels = KF.Levels || {};
 

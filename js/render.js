@@ -133,6 +133,16 @@
             for (let i = 0; i < s.w; i += 3) R(ctx, '#7cf0ff', x + i, y, 1, 1);
             ctx.globalAlpha = 1;
           }
+        } else if (tr instanceof types.axe) {
+          const pv = tr.pivot, b = tr.blade(), a = tr.angle;
+          const px = pv.x - cam.x, py = pv.y - cam.y;
+          for (let k = 0; k < tr.len; k += 4) R(ctx, k % 8 ? '#5a5e6a' : '#9aa0ae', Math.round(px + Math.sin(a) * k) - 1, Math.round(py + Math.cos(a) * k) - 1, 2, 2);
+          R(ctx, '#1a1020', px - 3, py - 3, 6, 6); R(ctx, '#7a7f8a', px - 2, py - 2, 4, 4);
+          const bx = Math.round(b.x - cam.x), by = Math.round(b.y - cam.y);
+          ctx.fillStyle = '#1a1020'; ctx.beginPath(); ctx.arc(bx + 7, by + 6, 8, 0, 7); ctx.fill();
+          ctx.fillStyle = '#d8e0ec'; ctx.beginPath(); ctx.arc(bx + 7, by + 6, 7, 0, 7); ctx.fill();
+          ctx.fillStyle = '#8a94a8'; ctx.beginPath(); ctx.arc(bx + 7, by + 6, 4, 0, 7); ctx.fill();
+          R(ctx, '#ff4a3a', bx + 6, by + 5, 3, 3);
         } else if (tr instanceof types.hidden) {
           if (!tr.fired) continue;
           for (let i = 0; i < tr.rect.w; i += T) theme.tile(ctx, tr.rect.x + i - cam.x, tr.rect.y - cam.y - Math.round(tr.popT * 4), 'alt', { t: true, b: true, l: i === 0, r: i + T >= tr.rect.w }, 0.5);

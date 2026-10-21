@@ -143,6 +143,13 @@
         case 'say': this.tone({ type: 'square', f0: 700, dur: 0.04, vol: 0.06 }); this.tone({ type: 'square', f0: 520, dur: 0.05, vol: 0.06, at: 0.05 }); break;
         case 'select': this.tone({ type: 'square', f0: 880, dur: 0.05, vol: 0.1 }); break;
         case 'confirm': this.tone({ type: 'square', f0: 660, dur: 0.06, vol: 0.12 }); this.tone({ type: 'square', f0: 1320, dur: 0.1, vol: 0.12, at: 0.06 }); break;
+        case 'punch': this.noise({ dur: 0.07, vol: 0.45, freq: 2500, f1: 600 }); this.tone({ type: 'square', f0: 220, f1: 90, dur: 0.07, vol: 0.18 }); break;
+        case 'heavy': this.noise({ dur: 0.14, vol: 0.6, freq: 1800, f1: 200 }); this.tone({ type: 'sine', f0: 160, f1: 45, dur: 0.18, vol: 0.55 }); break;
+        case 'block': this.tone({ type: 'square', f0: 1200, f1: 700, dur: 0.05, vol: 0.12 }); this.noise({ dur: 0.05, vol: 0.2, type: 'highpass', freq: 3000 }); break;
+        case 'wave': this.tone({ type: 'sawtooth', f0: 200, f1: 900, dur: 0.25, vol: 0.16 }); this.noise({ dur: 0.3, vol: 0.2, type: 'bandpass', freq: 1500, f1: 4000, q: 2 }); break;
+        case 'special': this.tone({ type: 'square', f0: 400, f1: 1200, dur: 0.12, vol: 0.1 }); break;
+        case 'lose': [392, 349, 311, 262].forEach((f, i) => this.tone({ type: 'triangle', f0: f, dur: 0.25, vol: 0.25, at: i * 0.18 })); break;
+        case 'buy': [784, 988, 1319].forEach((f, i) => this.tone({ type: 'square', f0: f, dur: 0.08, vol: 0.12, at: i * 0.06 })); break;
         case 'pause': this.tone({ type: 'triangle', f0: 440, f1: 220, dur: 0.12, vol: 0.2 }); break;
       }
     },

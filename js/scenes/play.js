@@ -180,28 +180,26 @@
       const p = this.stage.player;
       p.state = 'victory'; p.stateT = 0; p.vx = 0;
       this.trail = [];
-      if (!this.training) KF.Save.clearStage(this.door.id, this.stageIdx, this.deaths, this.door.stages.length);
+      this.coins = this.training ? 0 : KF.Save.completeNode(this.door.id, this.stageIdx * 2, { deaths: this.deaths });
     }
 
+    // After a stage: the realm's next street fighter, or its boss after stage 5.
     next() {
-      if (this.training) { this.engine.go(() => new KF.SelectScene(this.engine)); return; }
-      if (this.stageIdx + 1 < this.door.stages.length) {
-        const d = this.doorIdx, s = this.stageIdx + 1;
-        this.engine.go(() => new PlayScene(this.engine, { door: d, stage: s }));
-      } else {
-        this.engine.go(() => new KF.SelectScene(this.engine, { cleared: this.doorIdx }));
-      }
+      const e = this.engine, r = this.doorIdx, s = this.stageIdx;
+      if (this.training) { e.go(() => new KF.MapScene(e)); return; }
+      if (s === this.door.stages.length - 1) e.go(() => new KF.FightScene(e, { mode: 'boss', realm: r, node: 9, def: KF.Roster.bossDef(r) }));
+      else e.go(() => new KF.FightScene(e, { mode: 'street', realm: r, node: s * 2 + 1, def: KF.Roster.streetDef(r, s) }));
     }
 
     updatePause(input) {
-      const opts = ['RESUME', 'RESTART STAGE', 'QUIT TO DOORS'];
+      const opts = ['RESUME', 'RESTART STAGE', 'QUIT TO REALM'];
       if (input.wasPressed('ArrowUp', 'KeyW')) { this.pauseSel = (this.pauseSel + 2) % 3; A.sfx('select'); }
       if (input.wasPressed('ArrowDown', 'KeyS')) { this.pauseSel = (this.pauseSel + 1) % 3; A.sfx('select'); }
       if (input.wasPressed('Enter', 'Space')) {
         A.sfx('confirm');
         this.paused = false;
         if (this.pauseSel === 1) { this.deaths = 0; this.time = 0; this.memory = { seen: {} }; this.newAttempt(); this.setPhase('intro'); }
-        if (this.pauseSel === 2) this.engine.go(() => new KF.SelectScene(this.engine));
+        if (this.pauseSel === 2) { const r = this.doorIdx; this.engine.go(() => (this.training ? new KF.MapScene(this.engine) : new KF.RealmScene(this.engine, r))); }
       }
       void opts;
     }
@@ -286,16 +284,17 @@
         if (wt > 0.3) {
           const best = this.training ? null : KF.Save.door(this.door.id).best[this.stageIdx];
           F.draw(ctx, `TIME ${this.time.toFixed(1)}S    DEATHS ${this.deaths}` + (best !== undefined && best !== null ? `    BEST ${best}` : ''), VW / 2, 100, '#ffffff', 1, 'center', '#000');
+          if (this.coins) { KF.HUD.coin(ctx, VW / 2 - 30, 88 + 32, t); F.draw(ctx, `+${this.coins} COINS`, VW / 2 - 18, 121, '#ffd040', 1, 'left', '#000'); }
         }
         if (pt > 1.2 && Math.floor(t * 3) % 2) {
           const last = !this.training && this.stageIdx === this.door.stages.length - 1;
-          F.draw(ctx, last ? 'JUMP: DOOR CLEARED!' : 'JUMP: NEXT STAGE', VW / 2, 110, '#ffd040', 1, 'center', '#000');
+          F.draw(ctx, this.training ? 'JUMP: BACK TO MAP' : last ? 'JUMP: FACE THE BOSS!' : 'JUMP: A CHALLENGER APPROACHES', VW / 2, 108, '#ffd040', 1, 'center', '#000');
         }
       }
       if (this.paused) {
         ctx.fillStyle = 'rgba(8,4,16,0.7)'; ctx.fillRect(0, 0, VW, VH);
         BT.draw(ctx, 'PAUSED', VW / 2, 70, 4, 'steel');
-        ['RESUME', 'RESTART STAGE', 'QUIT TO DOORS'].forEach((o, i) => {
+        ['RESUME', 'RESTART STAGE', 'QUIT TO REALM'].forEach((o, i) => {
           const sel = i === this.pauseSel;
           F.draw(ctx, (sel ? '> ' : '  ') + o, VW / 2, 104 + i * 14, sel ? '#ffd040' : '#b8b0c8', 1, 'center', '#000');
         });

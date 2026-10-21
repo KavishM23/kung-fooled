@@ -20,6 +20,19 @@
 
   KF.HUD = {
     lag: 1,
+    // Spinning gold coin, 7x7.
+    coin(ctx, x, y, t) {
+      const w = [7, 5, 3, 1, 3, 5][Math.floor(t * 8) % 6], ox = Math.round(x + (7 - w) / 2);
+      R(ctx, '#1a1020', ox - 1, y - 1, w + 2, 9);
+      R(ctx, '#e0a020', ox, y, w, 7); R(ctx, '#fff080', ox, y, Math.max(1, w - 2), 2); R(ctx, '#a06010', ox, y + 6, w, 1);
+    },
+    // Coin total, right-aligned at (x, y).
+    coins(ctx, x, y, t) {
+      const text = String(KF.Save.data.coins), w = F.measure(text, 1);
+      R(ctx, 'rgba(8,4,16,0.7)', x - w - 16, y - 2, w + 18, 12);
+      this.coin(ctx, x - w - 12, y, t);
+      F.draw(ctx, text, x, y, '#ffd040', 1, 'right', '#000');
+    },
     draw(ctx, s, t) {
       const BW = 150, BH = 8, Y = 8;
       // Player bar (left, fills left to right by stage).
