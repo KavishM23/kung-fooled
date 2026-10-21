@@ -168,6 +168,30 @@
             R(ctx, '#ffffff', ex - 6, ey + 1, 2, 1); R(ctx, '#ffffff', ex + 4, ey + 1, 2, 1);
             R(ctx, '#1a1020', ex - 8, ey - 2, 5, 1); R(ctx, '#1a1020', ex + 3, ey - 2, 5, 1);
           }
+        } else if (tr instanceof types.movingSpikes) {
+          const x0 = tr.home.x - cam.x, y0 = tr.home.y - cam.y;
+          const x1 = x0 + tr.travel[0] * T, y1 = y0 + tr.travel[1] * T;
+          ctx.strokeStyle = 'rgba(230,235,238,0.45)'; ctx.lineWidth = 0.6;
+          ctx.setLineDash([2, 2]); ctx.beginPath(); ctx.moveTo(x0 + 8, y0 + 14); ctx.lineTo(x1 + 8, y1 + 14); ctx.stroke(); ctx.setLineDash([]);
+          for (let i = 0; i < tr.home.w; i += T) {
+            const x = Math.round(tr.x + i - cam.x), y = Math.round(tr.y - cam.y);
+            if (theme.spike) theme.spike(ctx, x, y, 'up');
+            else KF.blit(ctx, KF.Art.spikes.up, x, y);
+            R(ctx, '#444950', x + 2, y + 15, 12, 1);
+          }
+        } else if (tr instanceof types.pulseBeam) {
+          const b = tr.rect, x = b.x - cam.x, y = b.y - cam.y;
+          const color = theme.id.startsWith('oldtv') ? '#efe4c8' : theme.id.startsWith('comic') ? '#ffe66b' : '#fb4e78';
+          ctx.save();
+          ctx.globalAlpha = tr.active ? 0.2 : tr.warn ? 0.3 : 0.09;
+          R(ctx, color, x - 4, y, b.w + 8, b.h);
+          ctx.globalAlpha = tr.active ? 0.92 : tr.warn && Math.floor(t * 12) % 2 ? 0.6 : 0.2;
+          R(ctx, color, x, y, b.w, b.h);
+          R(ctx, '#ffffff', x + b.w / 2 - 0.35, y, 0.7, b.h);
+          ctx.globalAlpha = 1;
+          R(ctx, '#55565a', x - 2, y - 2, b.w + 4, 2);
+          R(ctx, '#55565a', x - 2, y + b.h, b.w + 4, 2);
+          ctx.restore();
         } else if (tr instanceof types.spikes) {
           if (!tr.fired) continue;
           const off = Math.round((1 - tr.raise) * 16);

@@ -7,7 +7,8 @@ exit door. The stage will betray you. Learn each trap by dying to it; respawn is
 places shown in that medium. The realms are ARCADE (full colour), RETRO (cinematic black and white),
 POCKET (four Game Boy greens), COMIC, AR GO (the world through your phone), 8-BIT, WOODBLOCK
 (Edo prints), VHS (home video), VAPORWAVE and CYBER. In Retro, you travel through a
-lamp-lit street, moonlit rooftops, a night train and a reflective canal.
+lamp-lit street, moonlit rooftops, a night train and a reflective canal. The Chaplin-style
+bowler-hatted player is deliberately chunky grayscale pixel art against those detailed backdrops.
 Each realm's style also brings its own rule, K.O. card and sounds.
 
 A realm runs level, level, street fight, level, level, boss. **Every realm and every node is
@@ -24,8 +25,10 @@ shatter into shards. The clean white atrium uses faceted figures, extruded geome
 perspective scenery while movement stays on a flat side-view plane. Press F or V to shoot
 forward, or aim and click; J, Z, K or X strike nearby enemies, and S or Down blocks.
 
-Arcade, Pocket and 8-Bit keep their pixel art. Retro, Comic, AR GO, Woodblock, VHS,
-Vaporwave and Cyber draw smooth characters and scenery in their own materials.
+Arcade, Pocket and 8-Bit keep their pixel art. Retro pairs a pixel character with detailed
+scenery. Comic, AR GO, Woodblock, VHS, Vaporwave and Cyber draw smooth characters and
+scenery in their own materials. Moving spike racks and timed
+beam gates now join the realm-specific hazards in Retro, Comic, 8-Bit and VHS.
 
 **Every world has its own K.O., start and win cards and sounds.** Some examples:
 - Retro shows silent-film intertitles with projector and piano sounds.

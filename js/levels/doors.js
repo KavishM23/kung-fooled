@@ -27,6 +27,22 @@
   // Names for places shown in any style; a style's own world (env_*) uses that world's name.
   const PLACES = { rooftop: 'ROOFTOPS', harbour: 'THE DOCKS', neon: 'NIGHT MARKET', temple: 'TEMPLE COURTYARD', train: 'SKY EXPRESS', sakura: 'SAKURA VALLEY', viking: 'THE FJORD' };
   const PLACE_MUSIC = { rooftop: 'rooftop', harbour: 'harbour', neon: 'neon', temple: 'shrine', train: 'train', sakura: 'sakura', viking: 'viking' };
+  // Realm-specific obstacles give the same platform layouts different rhythms and silhouettes.
+  const EXTRA_OBSTACLES = {
+    oldtv: [
+      [{ type: 'movingSpikes', at: [26, 10, 1], travel: [3, 0], period: 3.6 }],
+      [{ type: 'pulseBeam', at: [9, 4, 0.35, 7], on: 1.0, off: 1.7, offset: 0.3 }],
+    ],
+    comic: [
+      [{ type: 'movingSpikes', at: [30, 10, 1], travel: [3, 0], period: 3.1, offset: 0.7 }],
+    ],
+    eightbit: [
+      [], [], [{ type: 'pulseBeam', at: [31, 3, 0.35, 6], on: 1.1, off: 1.5, offset: 0.4 }],
+    ],
+    vhs: [
+      [], [], [], [{ type: 'movingSpikes', at: [28, 10, 1], travel: [3, 0], period: 3.4 }],
+    ],
+  };
   // A theme may carry its own `title` (the smooth realms' places do).
   KF.placeName = (env) => PLACES[env] || (KF.Themes && KF.Themes.has(env) && KF.Themes.get(env).title) ||
     ((KF.Rules && KF.Rules.all[String(env).replace('env_', '')]) || {}).name || String(env).replace(/^[a-z]+_/, '').toUpperCase();
@@ -53,6 +69,7 @@
       built[r.id] = src.map((def, j) => KF.util.deepFreeze(Object.assign({}, def, {
         realm: r.id, index: j, env: r.envs[j], theme: r.envs[j],
         labels: r.id === 'oldtv' ? [{ at: [5, 10], text: retroSigns[j] }] : def.labels,
+        traps: (def.traps || []).concat((EXTRA_OBSTACLES[r.id] || [])[j] || []),
         style: (r.styles && r.styles[j]) || r.style, music: PLACE_MUSIC[r.envs[j]] || r.music,
       })));
       KF.StylePlan[r.id] = built[r.id].map((d) => d.style);

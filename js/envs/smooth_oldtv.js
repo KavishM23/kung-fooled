@@ -4,6 +4,25 @@
 (function (KF) {
   const A = KF.SceneArt, U = KF.util, VW = KF.VIEW_W, VH = KF.VIEW_H;
   const G = A.gradient;
+  const chaplin = KF.Sprites.buildSet({
+    style: 'suit', top: 'charcoal', pants: 'black', shoes: 'black', wraps: 'ivory',
+    skin: 'pale', head: 'bowler', hat: 'charcoal', hair: 'short', hairColor: 'black',
+    moustache: true, build: 'slim', tie: true, prop: 'cane',
+  }, 1, ['idle', 'run', 'rise', 'fall', 'land', 'skid', 'victory', 'hurt']);
+  const pixels = new WeakMap();
+  function chaplinFrame(src) {
+    let out = pixels.get(src);
+    if (out) return out;
+    out = KF.makeCanvas(20, 20);
+    const c = out.getContext('2d'); c.imageSmoothingEnabled = true;
+    c.drawImage(src, 0, 0, 20, 20);
+    const im = c.getImageData(0, 0, 20, 20), d = im.data;
+    for (let i = 0; i < d.length; i += 4) {
+      const grey = Math.round(d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11);
+      d[i] = grey; d[i + 1] = grey; d[i + 2] = Math.round(grey * 0.97);
+    }
+    c.putImageData(im, 0, 0); pixels.set(src, out); return out;
+  }
   function windowPane(c, x, y, w, h, lit, rnd) {
     c.fillStyle = '#080b0e'; c.fillRect(x - 0.8, y - 0.8, w + 1.6, h + 1.6);
     c.fillStyle = lit ? G(c, x, y, x + w, y + h, ['#706454', '#ded0a3', '#675b46']) : '#151a1d'; c.fillRect(x, y, w, h);
@@ -153,6 +172,15 @@
     }
     c.fillStyle = 'rgba(0,0,0,0.3)'; if (e.l) c.fillRect(x, y, 0.7, 16); if (e.r) c.fillRect(x + 15.3, y, 0.7, 16);
   }
+  function silentSpike(c, x, y, dir) {
+    c.save(); c.translate(x + 8, y + 8);
+    c.rotate(({ up: 0, right: Math.PI / 2, down: Math.PI, left: -Math.PI / 2 })[dir]);
+    for (let i = -7; i < 8; i += 5) {
+      A.poly(c, [[i, 8], [i + 2.5, -6], [i + 5, 8]], '#555d5f');
+      A.poly(c, [[i + 2.5, -6], [i + 5, 8], [i + 2.5, 8]], '#e3e0d1');
+    }
+    c.restore();
+  }
   const places = [
     ['oldtv_studio', 'THE SILENT STREET', 'street'],
     ['oldtv_rooftop', 'MIDNIGHT ROOFTOPS', 'rooftop'],
@@ -160,7 +188,7 @@
     ['oldtv_harbour', 'THE LAMPLIT CANAL', 'canal'],
   ];
   for (const [id, title, mode] of places) KF.Themes.add(id, {
-    id, title, bg: '#11191f', sign: A.sign, spike: A.spike, door: A.door,
+    id, title, bg: '#11191f', sign: A.sign, spike: silentSpike, door: A.door,
     cube: { top: '#777b70', side: '#262f32', under: '#0d171b', edge: '#242f32' },
     build() {
       this.sky = bakeSky(1931); this.far = bakeCity(1932, 0, mode); this.mid = bakeCity(1933, 1, mode); this.near = bakeCity(1934, 2, mode);
@@ -194,12 +222,10 @@
     },
     tile(c, x, y, art, e, seed) { stoneTile(c, x, y, art, e, seed, mode); },
     drawPlayer(c, p, x, feet, state, opts = {}) {
-      const frame = KF.Sprites.pick(state, p.stateT);
+      const frame = KF.Sprites.pickIn(chaplin.frames, state, p.stateT);
       c.save(); c.translate(x, feet); c.scale(p.facing < 0 ? -1 : 1, p.gravDir < 0 ? -1 : 1);
-      KF.Vec.draw(c, frame.pose, { style: 'suit', top: 'charcoal', pants: 'black', shoes: 'black', wraps: 'ivory', skin: 'pale', head: 'bowler', hat: 'charcoal', hair: 'short', hairColor: 'black', moustache: true, build: 'slim', tie: true },
-        { vlook: 'cinematic', flash: opts.flash, noShadow: !p.grounded, scale: 0.94 });
-      // A slim cane and its curved handle reinforce the silent-film silhouette.
-      c.strokeStyle = '#a59c7f'; c.lineWidth = 0.65; c.beginPath(); c.moveTo(8, 0); c.lineTo(10, -15); c.quadraticCurveTo(11, -19, 8, -18); c.stroke();
+      c.imageSmoothingEnabled = false;
+      c.drawImage(chaplinFrame(opts.flash > 0.5 ? frame.flash : frame.img), -chaplin.AX, -chaplin.AY, chaplin.W, chaplin.H);
       c.restore(); return frame;
     },
   });

@@ -138,6 +138,54 @@
     }
   }
 
+  // A visible rack of spikes patrols between two positions. at: [c,r,w], travel: [dx,dy]
+  // in tiles, period: seconds for a full out-and-back trip. Its track is part of the tell.
+  class MovingSpikes extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      this.home = tileRect(def.at);
+      this.home.h = T;
+      this.travel = def.travel || [3, 0];
+      this.period = def.period || 3;
+      this.fired = true;
+      this.x = this.home.x;
+      this.y = this.home.y;
+      this.rect = {
+        x: Math.min(this.home.x, this.home.x + this.travel[0] * T),
+        y: Math.min(this.home.y, this.home.y + this.travel[1] * T),
+        w: this.home.w + Math.abs(this.travel[0] * T),
+        h: T + Math.abs(this.travel[1] * T),
+      };
+    }
+    tick() {
+      const phase = ((this.stage.t + (this.def.offset || 0)) % this.period) / this.period;
+      const k = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
+      this.x = this.home.x + this.travel[0] * T * k;
+      this.y = this.home.y + this.travel[1] * T * k;
+    }
+    kills(p) {
+      for (let i = 0; i < this.home.w; i += T) {
+        if (U.overlap(p, KF.spikeRect('up', this.x + i, this.y))) return true;
+      }
+      return false;
+    }
+  }
+
+  // A floor-to-ceiling energy gate with a readable off window. at: [c,r,w,h].
+  class PulseBeam extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      this.rect = tileRect(def.at);
+      this.on = def.on || 1;
+      this.period = this.on + (def.off || 1.4);
+      this.fired = true;
+    }
+    get phase() { return (this.stage.t + (this.def.offset || 0)) % this.period; }
+    get active() { return this.phase < this.on; }
+    get warn() { return !this.active && this.phase > this.period - 0.32; }
+    kills(p) { return this.active && U.overlap(p, this.rect); }
+  }
+
   // Block in the ceiling that drops. at: [c, r, w, h]. Default trigger: player passes underneath.
   class Crusher extends Trap {
     constructor(def, stage) {
@@ -449,7 +497,7 @@
 
   KF.Traps = {
     types: {
-      collapse: Collapse, spikes: PopSpikes, crusher: Crusher, spring: Spring, shy: Shy,
+      collapse: Collapse, spikes: PopSpikes, movingSpikes: MovingSpikes, pulseBeam: PulseBeam, crusher: Crusher, spring: Spring, shy: Shy,
       doorRun: DoorRun, fakeDoor: FakeDoor, gravity: GravityZone, reverse: ReverseZone,
       hidden: HiddenBlock, taunt: Taunt, mover: Mover, fakeFloor: FakeFloor, wind: Wind, blink: Blink, axe: Axe,
     },
