@@ -28,6 +28,22 @@
   // under the sea...), added with KF.addStage('tall_<realmId>', def) in js/levels/tall_<realmId>.js.
   // It may pick which of the realm's places it shows with `env`.
   const TALL_SLOT = 2;
+  // The hand-built vertical stages use doors placed on grounded points of a
+  // proven route. They keep their original geometry and trap choreography.
+  const CHECKPOINTS = {
+    'arcade-3': [[448,245],[483,373]],
+    'oldtv-3': [[333,293],[326,101]],
+    'pocket-3': [[274,133],[260,293]],
+    'comic-3': [[495,53],[496,389]],
+    'argo-3': [[477,309],[440,149]],
+    'eightbit-3': [[385,261],[780,395]],
+    'woodblock-3': [[172,101],[720,405]],
+    'vhs-3': [[407,181],[702,344]],
+    'vapor-3': [[237,101],[506,453]],
+    'cyber-1': [[316,149],[715,309]],
+    'cyber-2': [[350,165],[441,277]],
+    'cyber-3': [[204,85],[725,21]],
+  };
   REALMS.forEach((r) => { pool['tall_' + r.id] = []; });
 
   // Names for places shown in any style; a style's own world (env_*) uses that world's name.
@@ -79,7 +95,7 @@
   // telegraphed gates; later levels have shorter safe windows, and part three is tighter
   // than part two. Pick clear columns in the source map so gates never hide in scenery.
   function threeParts(def, level) {
-    if (def.noGates) return { cuts: null, traps: [] }; // hand-built tall levels: no auto gates or part counter
+    if (def.noGates) return { cuts: null, traps: [] }; // hand-built tall levels keep their own geometry
     let start = 2, finish = def.map[0].length - 3, lane = 10;
     def.map.forEach((row, r) => {
       const p = row.indexOf('P'), d = Math.max(row.indexOf('D'), row.indexOf('U'));
@@ -115,6 +131,81 @@
       gate(cuts[1] + 1, finish, (cuts[1] + finish) / 2, 3),
     ].filter(Boolean) };
   }
+  // Raise the source course by twelve tiles to make room for a real vertical
+  // climb above it. Every coordinate-bearing trap and label moves with the map.
+  function doorCourse(def, cuts, traps, labels) {
+    if (!cuts) return { map: def.map, traps, labels, depths: def.depths, combat: def.combat };
+    const rise = 12;
+    const width = Math.max(...def.map.map((row) => row.length));
+    const rows = Array.from({ length: rise }, () => Array(width).fill('.'))
+      .concat(def.map.map((row) => row.split('')));
+    for (const row of rows) while (row.length < width) row.push('.');
+    const stair = (c, r, w) => {
+      for (let x = c; x < c + w; x++) if (x > 0 && x < width - 1) {
+        // Cut a walkable stair through old ceilings where the new upper route
+        // crosses them. Two empty tiles above each tread give the player room.
+        rows[r][x] = '-';
+        for (let y = r - 2; y < r; y++) if ('#=~^v<>'.includes(rows[y][x])) rows[y][x] = '.';
+      }
+    };
+    const marker = (c, r, ch) => {
+      // Keep the approach around each doorway clear even where a source level has
+      // a ceiling or decorative block in the same place.
+      for (let y = r - 1; y <= r; y++) rows[y][c] = '.';
+      rows[r][c] = ch;
+      rows[r + 1][c] = '-';
+    };
+    const first = Math.round(cuts[0] / KF.TILE), second = Math.round(cuts[1] / KF.TILE);
+    let spawnRow = 10 + rise;
+    def.map.forEach((row, r) => { if (row.includes('P')) spawnRow = r + rise; });
+    for (let k = 0; k < 6; k++) stair(first - 6 + k, spawnRow - 2 - k * 2, 3);
+    marker(first, spawnRow - 13, 'A');
+    // A descending roofline connects the high doorway to the next climb even
+    // when the original floor underneath is a pit or a moving obstacle.
+    for (let x = first + 2; x < second - 1; x += 3) {
+      const progress = (x - first) / Math.max(1, second - first);
+      stair(x, spawnRow - 11 + Math.round(progress * 3), 3);
+    }
+    for (let k = 0; k < 3; k++) stair(second - 4 + k, spawnRow - 2 - k * 2, 3);
+    stair(second - 1, spawnRow - 7, 3);
+    // The descent into B needs a clear shaft. Source maps may have a solid
+    // ceiling directly above this otherwise reachable doorway.
+    for (let y = spawnRow - 11; y <= spawnRow - 8; y++)
+      for (let x = second - 2; x <= second + 1; x++)
+        if (rows[y] && x > 0 && x < width - 1) rows[y][x] = '.';
+    marker(second, spawnRow - 8, 'B');
+    let exit = width - 3;
+    def.map.forEach((row) => { const c = Math.max(row.indexOf('D'), row.indexOf('U')); if (c >= 0) exit = c; });
+    if (exit > second + 5) for (let x = second + 3, k = 0; x < exit - 2; x += 3, k++) {
+      const r = Math.min(spawnRow - 1, spawnRow - 5 + k * 2);
+      // Open the old roof over each descending tread; otherwise a player can
+      // walk above the entire descent while the exit lies under that roof.
+      for (let c = x; c < x + 3; c++) for (let y = spawnRow - 10; y < r; y++)
+        if (rows[y] && '#=~'.includes(rows[y][c])) rows[y][c] = '.';
+      stair(x, r, 3);
+    }
+    if (def.map.some((row) => row.includes('U'))) {
+      // A ceiling-hung exit needs the route to rise again after the descent.
+      stair(exit - 3, spawnRow - 5, 3);
+      stair(exit, spawnRow - 6, 3);
+    }
+    const shiftPoint = (p) => [p[0], p[1] + rise, ...p.slice(2)];
+    const movedTraps = traps.map((t) => {
+      const o = Object.assign({}, t);
+      if (t.at) o.at = shiftPoint(t.at);
+      if (t.zone) o.zone = shiftPoint(t.zone);
+      if (t.path && t.type === 'doorRun') o.path = t.path.map((stop) => Object.assign({}, stop, { to: shiftPoint(stop.to) }));
+      if (t.when && t.when.zone) o.when = Object.assign({}, t.when, { zone: shiftPoint(t.when.zone) });
+      return o;
+    });
+    return {
+      map: rows.map((row) => row.join('')),
+      traps: movedTraps,
+      labels: (labels || []).map((label) => Object.assign({}, label, { at: shiftPoint(label.at) })),
+      depths: (def.depths || []).map((d) => Object.assign({}, d, { r0: d.r0 + rise, r1: d.r1 === undefined ? undefined : d.r1 + rise })),
+      combat: def.combat && Object.assign({}, def.combat, { enemies: def.combat.enemies.map((e) => Object.assign({}, e, { at: shiftPoint(e.at) })) }),
+    };
+  }
   // A theme may carry its own `title` (the smooth realms' places do).
   KF.placeName = (env) => PLACES[env] || (KF.Themes && KF.Themes.has(env) && KF.Themes.get(env).title) ||
     ((KF.Rules && KF.Rules.all[String(env).replace('env_', '')]) || {}).name || String(env).replace(/^[a-z]+_/, '').toUpperCase();
@@ -145,11 +236,16 @@
         // Hand-built tall levels keep exactly their own traps and signs.
         const baseTraps = (def.traps || []).concat(def.noGates ? [] : (EXTRA_OBSTACLES[r.id] || [])[j] || []);
         const parts = threeParts(Object.assign({}, def, { traps: baseTraps }), j);
+        const labels = r.id === 'oldtv' && !def.noGates ? [{ at: [5, 10], text: retroSigns[j] }] : def.labels;
+        const course = doorCourse(def, parts.cuts, baseTraps.concat(parts.traps), labels);
         return KF.util.deepFreeze(Object.assign({}, def, {
           realm: r.id, index: j, env: (r.envs.includes(def.env) && def.env) || r.envs[j], theme: (r.envs.includes(def.env) && def.env) || r.envs[j],
-          labels: r.id === 'oldtv' && !def.noGates ? [{ at: [5, 10], text: retroSigns[j] }] : def.labels,
-          parts: parts.cuts,
-          traps: baseTraps.concat(parts.traps),
+          labels: course.labels,
+          map: course.map,
+          depths: course.depths,
+          combat: course.combat,
+          checkpoints: CHECKPOINTS[`${r.id}-${j + 1}`] || null,
+          traps: course.traps,
           style: (r.styles && r.styles[j]) || r.style, music: PLACE_MUSIC[r.envs[j]] || r.music,
         }));
       });

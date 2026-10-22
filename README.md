@@ -11,8 +11,9 @@ lamp-lit street, moonlit rooftops, a night train and a reflective canal. The Cha
 bowler-hatted player is deliberately chunky grayscale pixel art against those detailed backdrops.
 Each realm's style also brings its own rule, K.O. card and sounds.
 
-THE ASCENT is a separate, single long climb with a hammer-like staff, momentum, narrow shelves
-and large falls. Aim the staff with your mouse, hold click when its head touches stone to push,
+THE ASCENT is a separate continuous hammer climb designed for roughly five minutes, with a cauldron-bound
+climber, momentum, narrow shelves and large falls. Its pixel scenery layers a sunset, misty
+bridges and castle, and a cluttered rock face. Aim the hammer with your mouse and hold click when its head touches stone to push,
 and use A/D to steer. There are no checkpoints; reach the summit to clear the realm. Press R
 to restart or Esc to return to the realm map. You can open it directly with `index.html?stage=ascent`.
 
@@ -22,9 +23,11 @@ upgrades and special moves in the Dojo. Each realm's street fighter and boss sui
 Johnny TV and the bowler-hatted Bramble in Retro, Bug Kid and Grandma Hana in Pocket, and
 Volt and THE SYSTEM in Cyber. Every other fighter appears in the Street Arena.
 
-Each realm level is one continuous run of **three parts**. The HUD marks your current part
-and announces each transition. Part two adds a timed crossing, and part three has a tighter
-one; those timing windows also get harder from level 1 through level 4 in every realm.
+Each realm level is one continuous run through **three doors**. Reach the first elevated door,
+descend toward the second, then pass through the exit. The HUD advances only when you enter a
+door. Ordinary levels now climb above the old side-scrolling route; the hand-built tall levels
+place their doors along the vertical route. Timed crossings still appear where the terrain has
+room for a fair waiting place.
 
 **Cyber and SUPERHOT.** The last realm's places are a neon megacity, a hologram district and
 chrome Y2K. Its finale is a continuous side-on SUPERHOT tribute: move through the level,
@@ -154,6 +157,7 @@ js/levels/       doors and stages          js/music.js    the four chiptune trac
 js/scenes/       title, map, realm path,   tools/solve.js level checker (Node)
                  shop, fight, play          tools/fightsim.js fight balance (Node)
 tools/combatcheck.js integrated finale check
+tools/partcheck.js   three-door progression check    tools/climbcheck.js hammer climb check
 js/fight/        fighter, AI, roster        js/economy.js  shop items, upgrades, coins
 js/styles.js     per-stage visual styles   js/envs/       per-stage environments
 js/rules.js      world names + rules       js/present.js  per-world cards and sounds
@@ -207,7 +211,8 @@ KF.addStage('rooftop', {
 
 Map legend: `#` solid, `=` solid prop block (crate / AC unit / stall), `-` one-way platform, `~` ice,
 `^ v < >` spikes, `P` spawn, `D` exit door (its bottom tile), `U` upside-down exit hanging from a
-ceiling (its top tile). Falling below the map kills; the left and right edges are walls.
+ceiling (its top tile). The ordinary-level builder adds `A` and `B` as intermediate door markers
+and stair platforms above the source map. Falling below the map kills; the left and right edges are walls.
 
 To add a whole new realm, add an entry to `KF.Doors` in `js/levels/doors.js`, a theme in
 `js/themes.js` (themes provide `build`, `background` and `tile`), a music track in `js/music.js`
@@ -264,12 +269,14 @@ Hidden zones and hidden blocks stay revealed for the rest of the visit once they
 
 ```
 node tools/solve.js                 # every stage, every attempt variant
-node tools/solve.js harbour 3       # one stage
-VERBOSE=1 node tools/solve.js neon 2   # also print the winning input sequence
+node tools/solve.js arcade 3        # one stage
+VERBOSE=1 node tools/solve.js comic 2  # also print the winning input sequence
 MARGIN=1 node tools/solve.js        # human-precision check (see below)
+node tools/partcheck.js             # all three-door layouts and door order
+node tools/climbcheck.js            # hammer push, rock collision and summit
 ```
 
-The checker runs the real game logic headless and searches for inputs that reach the door,
+The checker runs the real game logic headless and searches for inputs that pass all three doors,
 separately for each `deaths` variant. Every stage that ships passes on every variant, which is
 the "no trap kills you with zero counterplay on the next attempt" rule made testable.
 

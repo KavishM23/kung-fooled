@@ -43,7 +43,12 @@ for (let i = 0; i < 22; i++) c.update(KF.STEP, empty);
 assert.equal(c.health, hp - 1, 'unblocked bullets should damage the player');
 for (const e of c.enemies) c.hurtEnemy(e, e.hp);
 assert(c.cleared);
-p.x = d.x + 3; p.y = 154; p.vx = p.vy = 0;
+for (const checkpoint of st.world.partDoors) {
+  p.x = checkpoint.x + 2; p.y = checkpoint.y + 5; p.vx = p.vy = 0;
+  st.step(0, empty);
+}
+assert.equal(st.part, 3, 'both intermediate doors must be passed');
+p.x = d.x + 3; p.y = d.y + 5; p.vx = p.vy = 0;
 st.step(KF.STEP, { ...empty, left: true, right: true });
 assert.equal(st.state, 'won', 'exit must open once the boss and sentinels are defeated');
 console.log('PASS SUPERHOT slowdown, exit gate, aiming, shatter, blocking, damage, boss clear');

@@ -477,7 +477,18 @@
     door(ctx, stage, cam, t, open = 0, theme = {}) {
       const d = stage.world.door;
       if (!d) return;
-      (theme.door || KF.Art.door)(ctx, d.x - cam.x, d.y - cam.y, { lantern: true, open, t, legs: d.moving ? d.runT : 0, flipped: d.flipped });
+      const art = theme.door || KF.Art.door;
+      stage.world.partDoors.forEach((partDoor, i) => {
+        if (!partDoor) return;
+        ctx.save();
+        ctx.globalAlpha = i < stage.part - 1 ? 0.35 : i === stage.part - 1 ? 1 : 0.55;
+        art(ctx, partDoor.x - cam.x, partDoor.y - cam.y, { lantern: true, open: i < stage.part - 1 ? 1 : 0, t });
+        ctx.restore();
+      });
+      ctx.save();
+      ctx.globalAlpha = stage.part === 3 ? 1 : 0.45;
+      art(ctx, d.x - cam.x, d.y - cam.y, { lantern: true, open, t, legs: d.moving ? d.runT : 0, flipped: d.flipped });
+      ctx.restore();
     },
 
     labels(ctx, def, theme, cam) {

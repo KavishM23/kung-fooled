@@ -110,7 +110,7 @@
       { type: 'fakeDoor', at: [40, 10], say: 'NOPE' },
       { type: 'gravity', zone: [14, 3, 2, 8], g: -1 },
       { type: 'reverse', zone: [23, 3, 6, 3] },
-      { type: 'doorRun', deaths: ['1+'], path: [{ to: [41, 3], near: 2.5, say: 'HEH' }] },
+      { type: 'doorRun', deaths: ['1+'], path: [{ to: [40, 3], near: 1.5, say: 'HEH' }] },
     ],
   });
 

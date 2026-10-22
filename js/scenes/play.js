@@ -449,8 +449,18 @@
         else KF.HUD.draw(ctx, {
           scene: this, worldName: this.run ? `RUN  ${this.worldName}` : this.worldName, remaining: st.remaining,
           time: this.run ? this.run.t : this.endless ? this.endless.timeLeft : this.time, deaths: this.run ? this.run.deaths : this.deaths, deathPulse: this.deathPulse,
-          part: this.def.parts ? st.part : null, reversed: p.reversed !== !!st.rule.reverse && this.phase === 'play', flipped: p.gravDir < 0,
+          part: st.world.partDoors[0] ? st.part : null, reversed: p.reversed !== !!st.rule.reverse && this.phase === 'play', flipped: p.gravDir < 0,
         }, t);
+      }
+      if (st.world.partDoors[0] && this.phase === 'play') {
+        const goal = st.world.partDoors[st.part - 1] || st.world.door;
+        const sx = goal.x + 8 - cam.x, sy = goal.y + 16 - cam.y;
+        if (sx < 18 || sx > VW - 18 || sy < 21 || sy > VH - 18) {
+          const arrow = sy < 21 ? '^' : sy > VH - 18 ? 'v' : sx < 18 ? '<' : '>';
+          const label = `DOOR ${st.part} ${arrow}`, lx = U.clamp(sx, 34, VW - 34), ly = U.clamp(sy, 23, VH - 16);
+          ctx.fillStyle = 'rgba(13,12,27,.82)'; ctx.fillRect(lx - 32, ly - 2, 64, 12);
+          F.draw(ctx, label, lx, ly, '#ffe190', 1, 'center', '#000');
+        }
       }
       if (st.combat && this.phase === 'play') KF.CombatRender.hud(ctx, st);
       this.renderOverlay(ctx, t);

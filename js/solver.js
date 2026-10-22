@@ -28,9 +28,10 @@
   for (const dir of [1, 0, -1]) for (const jump of [1, 0]) ACTIONS.push({ dir, jump });
 
   function key(st, held) {
-    const p = st.player, d = st.world.door;
+    const p = st.player, d = st.world.partDoors[st.part - 1] || st.world.door;
     let k = `${Math.round(p.x / 2)},${Math.round(p.y / 2)},${Math.round(p.vx / 30)},${Math.round(p.vy / 50)},${p.grounded | 0},${p.gravDir},${p.launchT > 0 ? 1 : 0},${held | 0}${p.jumping | 0}${p.coyoteT > 0 ? 1 : 0}`;
-    k += `|${d ? Math.round(d.x / 4) + ',' + Math.round(d.y / 4) : ''}`;
+    k += `|${st.part}|${d ? Math.round(d.x / 4) + ',' + Math.round(d.y / 4) : ''}`;
+    if (st.part < 3 && st.world.door) k += `|${Math.round(st.world.door.x / 4)},${Math.round(st.world.door.y / 4)}`;
     for (const tr of st.traps) k += tr.fired ? '1' : tr.pending >= 0 ? 'p' : '0';
     for (const tr of st.traps) {
       if (tr.def.type === 'lookSaw') k += `s${Math.round(tr.x / 4)}`;
@@ -43,12 +44,47 @@
     for (const s of st.world.dynamicSolids) k += `,${Math.round(s.x / 4)}:${Math.round(s.y / 4)}:${s.active === false ? 0 : 1}`;
     if (st.def.traps && st.def.traps.some((t) => t.when && t.when.time !== undefined)) k += '|' + Math.floor(st.t / 0.25);
     for (const tr of st.traps) if (tr.period) k += '|' + Math.floor(((st.t + (tr.def.offset || 0)) % tr.period) / 0.1);
+    if (st.combat) {
+      k += '|' + [st.combat.health, st.combat.ammo, Math.round(st.combat.reload * 5), ...st.combat.enemies.map((e) => e.hp)].join(',');
+      for (const b of st.combat.bullets) k += ';' + [Math.round(b.x / 8), Math.round(b.y / 8), b.enemy | 0].join(',');
+    }
     return k;
   }
+  const fields = new Map();
+  function routeEstimate(st) {
+    if (!st.def.noGates || !st.world.door) return null;
+    let byPart = fields.get(st.def);
+    if (!byPart) { byPart = new Map(); fields.set(st.def, byPart); }
+    let field = byPart.get(st.part);
+    if (!field) {
+      const W = st.world.cols, H = st.world.rows, dist = new Float32Array(W * H).fill(1e9);
+      const open = (c, r) => c >= 0 && r >= 0 && c < W && r < H && !'#=~'.includes((st.def.map[r] || '')[c] || '.');
+      const d = st.world.partDoors[st.part - 1] || st.world.door, q = [];
+      const dc = Math.floor((d.x + 8) / 16), dr = Math.floor((d.y + 16) / 16);
+      for (const [c, r] of [[dc, dr], [dc, dr - 1], [dc, dr + 1]])
+        if (open(c, r)) { dist[r * W + c] = 0; q.push([c, r]); }
+      for (let i = 0; i < q.length; i++) {
+        const [c, r] = q[i], base = dist[r * W + c];
+        for (const [nc, nr] of [[c + 1, r], [c - 1, r], [c, r + 1], [c, r - 1]]) {
+          if (!open(nc, nr) || dist[nr * W + nc] <= base + 1) continue;
+          dist[nr * W + nc] = base + 1; q.push([nc, nr]);
+        }
+      }
+      field = { dist, W, H }; byPart.set(st.part, field);
+    }
+    const p = st.player;
+    const c = Math.max(0, Math.min(field.W - 1, Math.floor(p.centerX / 16)));
+    const r = Math.max(0, Math.min(field.H - 1, Math.floor((p.y + p.h / 2) / 16)));
+    const v = field.dist[r * field.W + c];
+    return v >= 1e9 ? null : v * 16;
+  }
   function heuristic(st) {
-    const p = st.player, d = st.world.door;
+    const p = st.player, d = st.world.partDoors[st.part - 1] || st.world.door;
     if (!d) return 1e9;
+    const viaRoute = routeEstimate(st);
+    if (viaRoute !== null) return viaRoute / 120;
     let dist = Math.hypot(d.x + 8 - p.centerX, d.y + 16 - (p.y + p.h / 2));
+    if (st.part < 3) return dist / 120;
     for (const tr of st.traps) {
       if (!(tr instanceof KF.Traps.types.doorRun)) continue;
       const path = tr.def.path || [];
@@ -75,7 +111,7 @@
     // A generator: each next() expands up to `slice` search nodes and yields progress (0..1);
     // its return value is { ok, time, expanded }. opts: { decide, budget, weight, slice, tmax }.
     *search(def, deaths, opts = {}) {
-      const DECIDE = opts.decide || 6, budget = opts.budget || 250000, WEIGHT = opts.weight || 2.5, slice = opts.slice || 1e9, tmax = opts.tmax || 60;
+      const DECIDE = opts.decide || (def.noGates ? 12 : 6), budget = opts.budget || 250000, WEIGHT = opts.weight || 2.5, slice = opts.slice || 1e9, tmax = opts.tmax || 60;
       const start = new KF.Stage(def, deaths);
       const open = new Heap(), seen = new Set([key(start, false)]);
       open.push({ st: start, held: false, g: 0, f: heuristic(start), seq: null });
@@ -89,6 +125,14 @@
           const input = { left: a.dir < 0, right: a.dir > 0, jumpHeld: !!a.jump, jumpPressed: false };
           for (let i = 0; i < DECIDE && st.state === 'play'; i++) {
             input.jumpPressed = i === 0 && a.jump && !node.held;
+            if (st.combat) {
+              input.shoot = true; input.melee = true;
+              const p = st.player;
+              const visible = st.combat.enemies.filter((e) => e.hp > 0 &&
+                !st.combat.wallBetween(p.centerX, p.y + 8, e.x + e.w / 2, e.y + e.h / 2));
+              const target = visible.sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
+              if (target) { input.aimX = target.x + target.w / 2; input.aimY = target.y + target.h / 2; }
+            }
             st.step(KF.STEP, input);
             st.events.length = 0;
           }
@@ -100,7 +144,8 @@
           seen.add(k);
           const g = node.g + DECIDE * KF.STEP;
           const fired = st.traps.reduce((n, tr) => n + (tr.fired ? 1 : 0), 0);
-          open.push({ st, held: !!a.jump, g, f: g + heuristic(st) * WEIGHT - fired * 1.5, seq });
+          const combatProgress = st.combat ? st.combat.enemies.reduce((n, e) => n + (e.maxHp - e.hp), 0) : 0;
+          open.push({ st, held: !!a.jump, g, f: g + heuristic(st) * WEIGHT - fired * 1.5 - (st.part - 1) * 100 - combatProgress * 15, seq });
         }
       }
       return { ok: false, expanded };

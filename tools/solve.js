@@ -48,14 +48,15 @@ class Heap {
   }
 }
 
-const DECIDE = Number(process.env.DECIDE) || (MARGIN ? 12 : 6); // physics steps per decision (50 ms, or 100 ms in margin mode)
+const DECIDE = Number(process.env.DECIDE) || (MARGIN ? 12 : 6); // physics steps per decision (usually 50 ms; 100 ms for tall stages and margin mode)
 const ACTIONS = [];
 for (const dir of [1, 0, -1]) for (const jump of [1, 0]) ACTIONS.push({ dir, jump });
 
 function key(st, held) {
-  const p = st.player, d = st.world.door;
+  const p = st.player, d = st.world.partDoors[st.part - 1] || st.world.door;
   let k = `${Math.round(p.x / 2)},${Math.round(p.y / 2)},${Math.round(p.vx / 30)},${Math.round(p.vy / 50)},${p.grounded | 0},${p.gravDir},${p.launchT > 0 ? 1 : 0},${held | 0}${p.jumping | 0}${p.coyoteT > 0 ? 1 : 0}`;
-  k += `|${d ? Math.round(d.x / 4) + ',' + Math.round(d.y / 4) : ''}`;
+  k += `|${st.part}|${d ? Math.round(d.x / 4) + ',' + Math.round(d.y / 4) : ''}`;
+  if (st.part < 3 && st.world.door) k += `|${Math.round(st.world.door.x / 4)},${Math.round(st.world.door.y / 4)}`;
   for (const tr of st.traps) k += tr.fired ? '1' : tr.pending >= 0 ? 'p' : '0';
   for (const tr of st.traps) {
     if (tr.def.type === 'lookSaw') k += `s${Math.round(tr.x / 4)}`;
@@ -83,10 +84,12 @@ function key(st, held) {
 const fields = new Map();
 function pathField(st) {
   const def = st.def;
-  if (fields.has(def)) return fields.get(def);
+  let byPart = fields.get(def);
+  if (!byPart) { byPart = new Map(); fields.set(def, byPart); }
+  if (byPart.has(st.part)) return byPart.get(st.part);
   const W = st.world.cols, H = st.world.rows, dist = new Float32Array(W * H).fill(1e9);
   const open = (c, r) => c >= 0 && r >= 0 && c < W && r < H && !'#=~'.includes((def.map[r] || '')[c] || '.');
-  const d = st.world.door, q = [];
+  const d = st.world.partDoors[st.part - 1] || st.world.door, q = [];
   const dc = Math.floor((d.x + 8) / 16), dr = Math.floor((d.y + 16) / 16);
   for (const [c, r] of [[dc, dr], [dc, dr - 1], [dc, dr + 1]]) if (open(c, r)) { dist[r * W + c] = 0; q.push([c, r]); }
   for (let i = 0; i < q.length; i++) {
@@ -97,7 +100,7 @@ function pathField(st) {
     }
   }
   const f = { dist, W, H };
-  fields.set(def, f);
+  byPart.set(st.part, f);
   return f;
 }
 function routeEstimate(st) {
@@ -108,11 +111,12 @@ function routeEstimate(st) {
   return v >= 1e9 ? null : v * 16;
 }
 function heuristic(st) {
-  const p = st.player, d = st.world.door;
+  const p = st.player, d = st.world.partDoors[st.part - 1] || st.world.door;
   if (!d) return 1e9;
   const viaRoute = routeEstimate(st);
   if (viaRoute !== null) return viaRoute / 120;
   let dist = Math.hypot(d.x + 8 - p.centerX, d.y + 16 - (p.y + p.h / 2));
+  if (st.part < 3) return dist / 120;
   for (const tr of st.traps) {
     if (!(tr instanceof KF.Traps.types.doorRun)) continue;
     const path = tr.def.path || [];
@@ -133,31 +137,41 @@ function solve(def, deaths, budget = Number(process.env.BUDGET || 250000)) {
   const seen = new Set([key(start, false)]);
   open.push({ st: start, held: false, g: 0, f: heuristic(start), seq: null });
   let expanded = 0, best = 0;
+  const decide = def.noGates && !MARGIN ? 12 : DECIDE;
   while (open.size && expanded < budget) {
     const node = open.pop();
     expanded++;
     for (const a of ACTIONS) {
       const st = clone(node.st, new Map());
       const input = { left: a.dir < 0, right: a.dir > 0, jumpHeld: !!a.jump, jumpPressed: false };
-      for (let i = 0; i < DECIDE && st.state === 'play'; i++) {
+      for (let i = 0; i < decide && st.state === 'play'; i++) {
         input.jumpPressed = i === 0 && a.jump && !node.held;
-        if (st.combat) { input.shoot = true; input.melee = true; }
+        if (st.combat) {
+          input.shoot = true; input.melee = true;
+          const p = st.player;
+          const visible = st.combat.enemies.filter((e) => e.hp > 0 &&
+            !st.combat.wallBetween(p.centerX, p.y + 8, e.x + e.w / 2, e.y + e.h / 2));
+          const target = visible.sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
+          if (target) { input.aimX = target.x + target.w / 2; input.aimY = target.y + target.h / 2; }
+        }
         st.step(KF.STEP, input);
         st.events.length = 0;
       }
       const seq = { a, prev: node.seq };
-      if (st.state === 'won') return { ok: true, time: (node.g + DECIDE * KF.STEP), expanded, seq };
+      if (st.state === 'won') return { ok: true, time: (node.g + decide * KF.STEP), expanded, seq };
+      if (process.env.DEBUG && st.part > (solve.maxPart || 1)) { solve.maxPart = st.part; console.log('  passed part', st.part - 1, 'at', st.player.x.toFixed(0), st.player.y.toFixed(0), 't', st.t.toFixed(2)); }
       if (process.env.DEBUG && st.state === 'dead' && st.player.centerX > best) { best = st.player.centerX; console.log('  died at', best.toFixed(0), st.player.y.toFixed(0), st.cause, st.t.toFixed(2)); }
       if (process.env.DEBUG && st.state === 'play' && st.player.centerX > (solve.far || 0)) { solve.far = st.player.centerX; if (Math.floor(solve.far / 16) !== Math.floor((solve.farP || 0) / 16)) { solve.farP = solve.far; console.log('  reached col', (solve.far / 16).toFixed(1), 'y', st.player.y.toFixed(0), 't', st.t.toFixed(2), 'door', st.world.door.x / 16); } }
       if (st.state !== 'play' || st.t > 60) continue;
       const k = key(st, a.jump);
       if (seen.has(k)) continue;
       seen.add(k);
-      const g = node.g + DECIDE * KF.STEP;
+      const g = node.g + decide * KF.STEP;
       // Firing a trap and surviving is progress in this game (blocks revealed, doors scared off),
       // so such states get a small bonus.
       const fired = st.traps.reduce((n, tr) => n + (tr.fired ? 1 : 0), 0);
-      open.push({ st, held: !!a.jump, g, f: g + heuristic(st) * WEIGHT - fired * 1.5, seq });
+      const combatProgress = st.combat ? st.combat.enemies.reduce((n, e) => n + (e.maxHp - e.hp), 0) : 0;
+      open.push({ st, held: !!a.jump, g, f: g + heuristic(st) * WEIGHT - fired * 1.5 - (st.part - 1) * 100 - combatProgress * 15, seq });
     }
   }
   return { ok: false, expanded };
@@ -187,13 +201,14 @@ function describe(seq) {
 
 const [onlyDoor, onlyStage] = process.argv.slice(2);
 let failures = 0;
-const dump = {}; // DUMP=file.json writes every solution as [dir, jump] per 50ms, for replays
+const dump = {}; // DUMP=file.json writes every solution as [dir, jump] per decision, for replays
 for (const door of KF.Doors) {
   if (door.single) continue; // custom continuous hammer climb has its own movement model
   if (onlyDoor && door.id !== onlyDoor) continue;
   door.stages.forEach((def, i) => {
     if (onlyStage && Number(onlyStage) !== i + 1) return;
     for (const d of variants(def)) {
+      if (process.env.DEATHS !== undefined && d !== Number(process.env.DEATHS)) continue;
       const t0 = Date.now();
       const r = solve(def, d);
       const label = `${door.id} ${i + 1} "${def.name}" deaths=${d}${MARGIN ? ' [margin]' : ''}`;

@@ -102,10 +102,6 @@
       p.inWater = this.traps.some((tr) => tr.wets && tr.wets(p));
       for (const tr of this.traps) tr.prePlayer(p);
       p.update(dt, input, w);
-      if (this.def.parts) {
-        const part = 1 + this.def.parts.filter((x) => p.centerX >= x).length;
-        if (part > this.part) { this.part = part; this.emit('part', { part }); }
-      }
       for (const tr of this.traps) tr.afterPlayer(p);
       for (const e of p.events) this.emit(e.type, { ...e, x: p.centerX, y: p.gravDir > 0 ? p.y + p.h : p.y, g: p.gravDir });
       p.events.length = 0;
@@ -118,17 +114,30 @@
       if (this.combat) this.combat.update(dt, input);
       if (this.state !== 'play') return;
       const d = w.door;
+      const partDoor = w.partDoors[this.part - 1];
+      if (partDoor && U.overlap(p, { x: partDoor.x - 12, y: partDoor.y - 10, w: partDoor.w + 24, h: partDoor.h + 20 })) {
+        if (!this.def.noGates) {
+          // Entering a doorway settles the player onto its shelf. This makes the
+          // next climb or descent start at the door instead of mid-fall.
+          p.x = partDoor.x + (partDoor.w - p.w) / 2;
+          p.y = partDoor.y + partDoor.h - p.h;
+          p.prevX = p.x; p.prevY = p.y;
+          p.vx = p.vy = 0; p.grounded = true;
+        }
+        this.part++;
+        this.emit('part', { part: this.part, x: p.centerX, y: p.y });
+      }
       // A running door can't be caught mid-sprint; it has to stop first.
-      if (d && !d.moving && (!this.combat || this.combat.cleared) && U.overlap(p, { x: d.x + 3, y: d.y + (d.flipped ? 0 : 4), w: d.w - 6, h: d.h - 4 })) this.win();
+      if ((this.part === 3 || !w.partDoors[0]) && d && !d.moving && (!this.combat || this.combat.cleared) && U.overlap(p, { x: d.x + 3, y: d.y + (d.flipped ? 0 : 4), w: d.w - 6, h: d.h - 4 })) this.win();
     }
 
     // 1 = the full distance from spawn to the door remains, 0 = at the door. The HUD's "enemy" bar.
     get remaining() {
-      const d = this.world.door;
+      const d = this.world.partDoors[this.part - 1] || this.world.door;
       if (!d) return 1;
-      const sx = this.world.spawn.x;
-      const total = Math.max(32, Math.abs(this.doorStart.x + 8 - sx));
-      return U.clamp(Math.abs(d.x + 8 - this.player.centerX) / total, 0, 1);
+      const start = this.part > 1 ? this.world.partDoors[this.part - 2] : this.world.spawn;
+      const total = Math.max(32, Math.hypot(d.x + 8 - start.x, d.y + 16 - start.y));
+      return U.clamp(Math.hypot(d.x + 8 - this.player.centerX, d.y + 16 - (this.player.y + this.player.h / 2)) / total, 0, 1);
     }
   }
   KF.Stage = Stage;
