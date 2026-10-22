@@ -99,6 +99,7 @@
       p.reversed = this.traps.some((tr) => tr.reverses && tr.reverses(p)) !== !!this.rule.reverse;
       p.windX = this.rule.wind || 0;
       for (const tr of this.traps) if (tr.push) p.windX += tr.push(p);
+      p.inWater = this.traps.some((tr) => tr.wets && tr.wets(p));
       for (const tr of this.traps) tr.prePlayer(p);
       p.update(dt, input, w);
       if (this.def.parts) {

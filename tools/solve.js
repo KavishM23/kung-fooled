@@ -61,6 +61,10 @@ function key(st, held) {
     if (tr.def.type === 'lookSaw') k += `s${Math.round(tr.x / 4)}`;
     if (tr.def.type === 'lureFloor') k += `l${tr.mode[0]}${Math.round(Math.max(0, tr.timer) * 5)}`;
   }
+  for (const tr of st.traps) if (tr.col !== undefined && tr.col !== null) { // ambush flames: timing only matters until they burn out
+    const live = tr.t < tr.warnT + (tr.def.burn ?? 0.9);
+    k += `|f${tr.col}:${live ? Math.floor(tr.t / 0.05) : 'x'}`;
+  }
   for (const s of st.world.dynamicSolids) k += `,${Math.round(s.x / 4)}:${Math.round(s.y / 4)}:${s.active === false ? 0 : 1}`;
   if (st.def.traps && st.def.traps.some((t) => t.when && t.when.time !== undefined)) k += '|' + Math.floor(st.t / 0.25);
   for (const tr of st.traps) if (tr.period) k += '|' + Math.floor(((st.t + (tr.def.offset || 0)) % tr.period) / 0.1);
@@ -73,9 +77,41 @@ function key(st, held) {
 
 // Estimated seconds to the exit. A door that still has legs to run counts its whole remaining
 // route, so scaring it away is not punished (otherwise the search avoids triggering it at all).
+// Tall hand-built levels (def.noGates) double back: down a tower's floors, out through a basin.
+// For those the estimate is the length of the open-tile path to the door (a flood fill over the
+// map, ignoring jump limits), so heading "away" from the door along the real route isn't punished.
+const fields = new Map();
+function pathField(st) {
+  const def = st.def;
+  if (fields.has(def)) return fields.get(def);
+  const W = st.world.cols, H = st.world.rows, dist = new Float32Array(W * H).fill(1e9);
+  const open = (c, r) => c >= 0 && r >= 0 && c < W && r < H && !'#=~'.includes((def.map[r] || '')[c] || '.');
+  const d = st.world.door, q = [];
+  const dc = Math.floor((d.x + 8) / 16), dr = Math.floor((d.y + 16) / 16);
+  for (const [c, r] of [[dc, dr], [dc, dr - 1], [dc, dr + 1]]) if (open(c, r)) { dist[r * W + c] = 0; q.push([c, r]); }
+  for (let i = 0; i < q.length; i++) {
+    const [c, r] = q[i], base = dist[r * W + c];
+    for (const [nc, nr] of [[c + 1, r], [c - 1, r], [c, r + 1], [c, r - 1]]) {
+      if (!open(nc, nr) || dist[nr * W + nc] <= base + 1) continue;
+      dist[nr * W + nc] = base + 1; q.push([nc, nr]);
+    }
+  }
+  const f = { dist, W, H };
+  fields.set(def, f);
+  return f;
+}
+function routeEstimate(st) {
+  if (!st.def.noGates || !st.world.door) return null;
+  const f = pathField(st), p = st.player;
+  const c = Math.max(0, Math.min(f.W - 1, Math.floor(p.centerX / 16))), r = Math.max(0, Math.min(f.H - 1, Math.floor((p.y + p.h / 2) / 16)));
+  const v = f.dist[r * f.W + c];
+  return v >= 1e9 ? null : v * 16;
+}
 function heuristic(st) {
   const p = st.player, d = st.world.door;
   if (!d) return 1e9;
+  const viaRoute = routeEstimate(st);
+  if (viaRoute !== null) return viaRoute / 120;
   let dist = Math.hypot(d.x + 8 - p.centerX, d.y + 16 - (p.y + p.h / 2));
   for (const tr of st.traps) {
     if (!(tr instanceof KF.Traps.types.doorRun)) continue;

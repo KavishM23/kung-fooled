@@ -236,6 +236,17 @@ with `#` are taken over by the trap, so the trap looks exactly like the floor ar
 | `wind` | `zone`, `force` (px/s, + = right), `gust: [on, off]` | while inside and blowing |
 | `blink` | `at: [c, r, w]`, `on`, `off`, `offset` (seconds) | timer; flickers before vanishing |
 | `axe` | `at: [c, r]` pivot, `len` (tiles), `amp` (radians), `speed`, `offset` | always swinging |
+| `lunger` | `at`, `speed`, `hop`, `range` | player within `range` tiles; the block leaps at you, then falls |
+| `ambushFlame` | `at: [c0, floorRow, width]`, `warn`, `burn`, `h` | airborne nearby; predicts your landing column, a vent glows, then a flame column erupts |
+| `water` | `at` | always on; you sink slowly, and jump swims upward |
+
+The cyber realm's first three levels use these in the style of Trap Adventure 2. Its opener
+has three stair blocks: the third one sprouts spikes, then on later attempts leaps at you, and
+the start area closes in. These levels are also tall. They go under a tower into a flooded
+undercity, down a building floor by floor, and to the sea floor. Level-wide options for that:
+`depths: [{ r0, r1, c0, c1, kind }]` draws underground, interior or sea backdrops below the
+skyline. `camera: 'flip'` switches to whole-screen flips. `noGates: true` turns off the automatic
+part gates.
 
 Fields every trap accepts:
 
@@ -265,6 +276,10 @@ the "no trap kills you with zero counterplay on the next attempt" rule made test
 `MARGIN=1` makes it stricter: inputs may only change every 100 ms and the jump is 5% weaker. A
 stage that still passes has slack in every gap and timing window, so it isn't pixel-perfect. Every
 shipped stage passes both checks.
+
+For tall levels (`noGates`), the checker estimates the remaining distance as the length of
+the open-tile path to the door rather than a straight line, so routes that double back down
+floors or through a basin are searched efficiently.
 
 The chunks that build Endless Dojo rooms and Daily Trolls have their own checker:
 

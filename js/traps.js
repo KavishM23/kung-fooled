@@ -602,6 +602,68 @@
     kills(p) { return U.overlap(p, this.body); }
   }
 
+  // ---- Trap Adventure 2-style surprises, and water ----
+
+  // A block that leaps at you. Like a crusher it takes over its tiles, but when it fires it hops
+  // toward the player (vx toward you, an upward kick) and falls where it lands; deadly while it
+  // flies. at: [c, r, w, h], speed: sideways px/s, hop: upward px/s.
+  class Lunger extends Crusher {
+    defaultCondition() { return this.distanceTo(this.player) < T * (this.def.range || 3); }
+    onFire() {
+      const p = this.player, b = this.body;
+      this.vx = Math.sign(p.centerX - (b.x + b.w / 2)) * (this.def.speed || 150) || this.def.speed || 150;
+      this.vy = -(this.def.hop || 330);
+      this.falling = true;
+      this.stage.emit('whoosh', center(b));
+    }
+    tick(dt) {
+      if (this.falling && this.vx) {
+        const before = this.body.x;
+        if (KF.Physics.moveX(this.body, this.stage.world, this.vx * dt)) this.vx = 0;
+        this.body.dx = this.body.x - before;
+      }
+      super.tick(dt);
+      if (this.landed) this.vx = 0;
+    }
+  }
+
+  // Predicts where you'll land and puts a flame there. When it fires (e.g. you jump past x), it
+  // runs your current arc forward to the floor row and marks the landing column with a glowing
+  // vent; after `warn` s a flame column erupts there for `burn` s. at: [c0, floorRow, width]
+  // limits where it can appear. Fair: the vent shows first and you can still steer in the air.
+  class AmbushFlame extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const [c, r, w = 8] = def.at;
+      this.rect = tileRect([c, r - (def.h || 3), w, def.h || 3]);
+      this.floorY = r * T; this.c0 = c; this.c1 = c + w - 1;
+      this.col = null; this.t = 0;
+    }
+    defaultCondition() { return !this.player.grounded && this.distanceTo(this.player) < T * 6; }
+    onFire() {
+      const p = this.player, P = p.T, g = P.gravity * P.fallMul;
+      let x = p.centerX, y = p.y + p.h, vx = p.vx, vy = p.vy;
+      for (let i = 0; i < 240 && y < this.floorY; i++) { // 2 s of flight at 120 Hz
+        vy = Math.min(vy + (vy > 0 ? g : P.gravity) / 120, P.maxFall);
+        x += vx / 120; y += vy / 120;
+      }
+      this.col = U.clamp(Math.floor(x / T), this.c0, this.c1);
+      this.t = 0;
+      this.stage.emit('rumble', { x: this.col * T + 8, y: this.floorY });
+    }
+    tick(dt) { if (this.fired) this.t += dt; }
+    get warnT() { return this.def.warn ?? 0.32; }
+    get burning() { return this.fired && this.t >= this.warnT && this.t < this.warnT + (this.def.burn ?? 0.9); }
+    flameRect() { const h = (this.def.h || 3) * T; return { x: this.col * T + 2, y: this.floorY - h, w: T - 4, h }; }
+    kills(p) { return this.burning && U.overlap(p, this.flameRect()); }
+  }
+
+  // Water. at: [c, r, w, h]. Inside it you sink slowly and can swim up with jump.
+  class Water extends Trap {
+    constructor(def, stage) { super(def, stage); this.rect = tileRect(def.at); this.fired = true; }
+    wets(p) { return U.overlap(p, { x: this.rect.x, y: this.rect.y + 4, w: this.rect.w, h: this.rect.h - 4 }); }
+  }
+
   KF.Traps = {
     types: {
       collapse: Collapse, spikes: PopSpikes, movingSpikes: MovingSpikes, pulseBeam: PulseBeam,
@@ -609,6 +671,7 @@
       doorRun: DoorRun, fakeDoor: FakeDoor, gravity: GravityZone, reverse: ReverseZone,
       hidden: HiddenBlock, taunt: Taunt, mover: Mover, fakeFloor: FakeFloor, lureFloor: LureFloor,
       wind: Wind, blink: Blink, axe: Axe, swingHammer: SwingHammer, lookSaw: LookSaw,
+      lunger: Lunger, ambushFlame: AmbushFlame, water: Water,
     },
     matchDeaths,
     build(stage) {

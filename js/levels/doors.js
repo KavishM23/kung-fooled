@@ -68,14 +68,13 @@
       [{ type: 'conveyor', at: [3, 10, 4], speed: 75 }],
       [{ type: 'lookSaw', at: [23, 10], range: 3, speed: 60 }],
     ],
-    cyber: [
-      [], [], [{ type: 'lureFloor', at: [31, 11, 2, 3], delay: 0.46 }],
-    ],
+    cyber: [], // the cyber levels carry their own Trap Adventure 2-style traps
   };
   // Every level is one continuous three-part run. The second and third stretches gain
   // telegraphed gates; later levels have shorter safe windows, and part three is tighter
   // than part two. Pick clear columns in the source map so gates never hide in scenery.
   function threeParts(def, level) {
+    if (def.noGates) return { cuts: null, traps: [] }; // hand-built tall levels: no auto gates or part counter
     let start = 2, finish = def.map[0].length - 3, lane = 10;
     def.map.forEach((row, r) => {
       const p = row.indexOf('P'), d = Math.max(row.indexOf('D'), row.indexOf('U'));

@@ -22,6 +22,9 @@
     cornerNudge: 4,
     landTime: 0.12,
     launchControl: 0.35, // air control kept while flying off a spring
+    swimVel: 205,        // a stroke upward in water (jump again to keep rising)
+    swimGravity: 0.3,    // water: gravity multiplier
+    swimMaxFall: 80,     // water: slow sinking
   };
 
   class Player {
@@ -77,13 +80,15 @@
       if (skid && !this.skidding) this.events.push({ type: 'skid' });
       this.skidding = skid;
       if (this.grounded && (this.iceAll || world.slipperyUnder(this, g))) a *= dir === 0 ? 0.12 : 0.3; // ice
-      this.vx = U.approach(this.vx, dir * P.runSpeed, a * dt);
+      // Water (see the `water` trap): slower, floaty, and you can stroke upward at any time.
+      const swim = !!this.inWater;
+      this.vx = U.approach(this.vx, dir * P.runSpeed * (swim ? 0.72 : 1), a * dt * (swim ? 0.6 : 1));
 
       // Coyote time and jump buffering.
       this.coyoteT = this.grounded ? P.coyote : this.coyoteT - dt;
       this.bufferT = input.jumpPressed ? P.buffer : this.bufferT - dt;
-      if (this.bufferT > 0 && this.coyoteT > 0) {
-        this.vy = -P.jumpVel * g;
+      if (this.bufferT > 0 && (this.coyoteT > 0 || swim)) {
+        this.vy = -(swim ? P.swimVel : P.jumpVel) * g;
         this.jumping = true;
         this.grounded = false;
         this.coyoteT = 0; this.bufferT = 0;
@@ -101,8 +106,9 @@
       let gm = 1;
       if (this.vy * g > 0) gm = P.fallMul;
       else if (input.jumpHeld && Math.abs(this.vy) < P.apexThreshold) gm = P.apexMul;
-      this.vy += P.gravity * gm * g * dt;
-      if (this.vy * g > P.maxFall) this.vy = P.maxFall * g;
+      this.vy += P.gravity * gm * g * dt * (swim ? P.swimGravity : 1);
+      const maxFall = swim ? P.swimMaxFall : P.maxFall;
+      if (this.vy * g > maxFall) this.vy = maxFall * g;
 
       // Move and collide.
       const wasGrounded = this.grounded;

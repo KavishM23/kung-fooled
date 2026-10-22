@@ -337,7 +337,83 @@
         } else if (tr instanceof types.hidden) {
           if (!tr.fired) { if (stage.rule && stage.rule.reveal) dashed(ctx, tr.rect.x - cam.x, tr.rect.y - cam.y, tr.rect.w, tr.rect.h, '#ffffff', t); continue; }
           for (let i = 0; i < tr.rect.w; i += T) theme.tile(ctx, tr.rect.x + i - cam.x, tr.rect.y - cam.y - Math.round(tr.popT * 4), 'alt', { t: true, b: true, l: i === 0, r: i + T >= tr.rect.w }, 0.5);
+        } else if (tr instanceof types.ambushFlame && tr.fired && tr.col !== null) {
+          const x = tr.col * T - cam.x, fy = tr.floorY - cam.y;
+          if (tr.t < tr.warnT) { // the vent glows where it thinks you'll land
+            ctx.globalAlpha = 0.5 + 0.5 * (Math.floor(t * 24) % 2); R(ctx, '#ff7a20', x + 2, fy - 3, T - 4, 3); ctx.globalAlpha = 1;
+            R(ctx, '#2a1408', x + 1, fy - 1, T - 2, 1);
+          } else if (tr.burning) {
+            const f = tr.flameRect(), h = f.h * Math.min(1, (tr.t - tr.warnT) / 0.08);
+            const g = ctx.createLinearGradient(0, fy - h, 0, fy);
+            g.addColorStop(0, 'rgba(255,240,140,0)'); g.addColorStop(0.35, '#ffd040'); g.addColorStop(1, '#ff4a10');
+            ctx.fillStyle = g;
+            for (let k = 0; k < 3; k++) {
+              const wob = Math.sin(t * 30 + k * 2) * 2;
+              ctx.beginPath(); ctx.moveTo(x + 2 + k * 4, fy); ctx.quadraticCurveTo(x + 4 + k * 4 + wob, fy - h * 0.6, x + 6 + k * 3 + wob, fy - h * (0.75 + 0.25 * ((k + 1) % 2)));
+              ctx.quadraticCurveTo(x + 8 + k * 4 - wob, fy - h * 0.4, x + 10 + k * 3, fy); ctx.closePath(); ctx.fill();
+            }
+          }
         }
+      }
+    },
+
+    // Water, drawn over the world (and you): a tinted body, a moving surface line, bubbles.
+    water(ctx, stage, cam, t) {
+      for (const tr of stage.traps) {
+        if (!(tr instanceof KF.Traps.types.water)) continue;
+        const r = tr.rect, x = r.x - cam.x, y = r.y - cam.y;
+        if (x > KF.VIEW_W || x + r.w < 0 || y > KF.VIEW_H || y + r.h < 0) continue;
+        const g = ctx.createLinearGradient(0, y, 0, y + r.h);
+        g.addColorStop(0, 'rgba(60,170,230,0.30)'); g.addColorStop(1, 'rgba(10,40,110,0.55)');
+        ctx.fillStyle = g; ctx.fillRect(x, y + 3, r.w, r.h - 3);
+        ctx.strokeStyle = 'rgba(200,240,255,0.85)'; ctx.lineWidth = 1; ctx.beginPath();
+        for (let i = 0; i <= r.w; i += 4) { const yy = y + 3 + Math.sin(t * 3 + (r.x + i) * 0.15) * 1.2; i ? ctx.lineTo(x + i, yy) : ctx.moveTo(x + i, yy); }
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(220,250,255,0.6)';
+        for (let k = 0; k < r.w / 24; k++) { // bubbles drift up
+          const bx = x + ((k * 53) % r.w), by = y + r.h - ((t * 18 + k * 37) % (r.h - 6));
+          ctx.beginPath(); ctx.arc(bx + Math.sin(t * 2 + k) * 2, by, 1 + (k % 2), 0, 7); ctx.fill();
+        }
+      }
+    },
+
+    // Backdrops for the parts of a level below or inside things, in world space, drawn over the
+    // sky so going down feels like going somewhere. def.depths: [{ r0, r1, c0, c1, kind }],
+    // kind: 'underground' | 'interior' | 'sea'.
+    depths(ctx, stage, cam, t) {
+      for (const d of stage.def.depths || []) {
+        const x0 = (d.c0 || 0) * T - cam.x, x1 = (d.c1 !== undefined ? d.c1 * T : stage.world.pixelW) - cam.x;
+        const y0 = d.r0 * T - cam.y, y1 = (d.r1 !== undefined ? d.r1 * T : stage.world.pixelH) - cam.y;
+        if (x1 < 0 || x0 > KF.VIEW_W || y1 < 0 || y0 > KF.VIEW_H) continue;
+        const w = x1 - x0, h = y1 - y0;
+        ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();
+        if (d.kind === 'sea') {
+          const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, '#0e4a78'); g.addColorStop(1, '#020c22');
+          ctx.fillStyle = g; ctx.fillRect(x0, y0, w, h);
+          ctx.globalAlpha = 0.12; ctx.fillStyle = '#bfefff';
+          for (let k = 0; k < 6; k++) { const rx = x0 + ((k * 97 - cam.x * 0.3) % (w + 60) + w + 60) % (w + 60) - 30; ctx.beginPath(); ctx.moveTo(rx, y0); ctx.lineTo(rx + 14, y0); ctx.lineTo(rx + 40, y1); ctx.lineTo(rx + 20, y1); ctx.fill(); }
+          ctx.globalAlpha = 0.5; ctx.fillStyle = '#04182e';
+          for (let k = 0; k < w / 22; k++) { const sx = x0 + k * 22 + ((k * 7) % 9), sh = 18 + (k * 13) % 26; ctx.beginPath(); ctx.moveTo(sx, y1); ctx.quadraticCurveTo(sx + 6 + Math.sin(t * 1.5 + k) * 4, y1 - sh / 2, sx + 2, y1 - sh); ctx.lineTo(sx + 5, y1); ctx.fill(); }
+          ctx.globalAlpha = 1;
+        } else if (d.kind === 'interior') {
+          ctx.fillStyle = '#1a1630'; ctx.fillRect(x0, y0, w, h);
+          ctx.fillStyle = '#231e3e';
+          for (let px = x0 - ((cam.x * 0.5) % 48) - 48; px < x1; px += 48) ctx.fillRect(px + 4, y0, 40, h);
+          for (let py = y0 + 18; py < y1; py += 48) { // lit office windows / ceiling strips
+            ctx.fillStyle = 'rgba(120,240,255,0.18)'; ctx.fillRect(x0, py, w, 2);
+            ctx.fillStyle = 'rgba(255,90,200,0.10)'; ctx.fillRect(x0, py + 24, w, 10);
+          }
+        } else { // underground: rock, pipes and the odd service light
+          const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, '#18121c'); g.addColorStop(1, '#07050a');
+          ctx.fillStyle = g; ctx.fillRect(x0, y0, w, h);
+          ctx.strokeStyle = 'rgba(90,70,110,0.6)'; ctx.lineWidth = 3;
+          for (let py = y0 + 24; py < y1; py += 52) { ctx.beginPath(); ctx.moveTo(x0, py); ctx.lineTo(x1, py); ctx.stroke(); }
+          for (let px = x0 + 30 - ((cam.x * 0.6) % 120); px < x1; px += 120) {
+            ctx.fillStyle = Math.floor(t * 2 + px) % 7 ? 'rgba(255,170,60,0.55)' : 'rgba(255,170,60,0.15)';
+            ctx.beginPath(); ctx.arc(px, y0 + 10, 2.5, 0, 7); ctx.fill();
+          }
+        }
+        ctx.restore();
       }
     },
 

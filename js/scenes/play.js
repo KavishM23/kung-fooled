@@ -71,12 +71,19 @@
       c.prevX = c.x; c.prevY = c.y;
       const look = U.clamp(p.vx * 0.25, -32, 32);
       let tx = U.clamp(p.centerX - VW / 2 + look, 0, Math.max(0, w.pixelW - VW));
-      if (this.rule.camera === 'panels') { // comic panels: jump half a screen at a time
+      const mode = this.def.camera || this.rule.camera;
+      if (mode === 'flip') { // flip-screen, like Trap Adventure 2: whole screens, both ways
+        tx = U.clamp(Math.floor(p.centerX / VW) * VW, 0, Math.max(0, w.pixelW - VW));
+        const ty = U.clamp(Math.floor((p.y + p.h / 2) / VH) * VH, 0, Math.max(0, w.pixelH - VH));
+        c.x = tx; c.y = ty; return;
+      }
+      if (mode === 'panels') { // comic panels: jump half a screen at a time
         const half = VW / 2;
         tx = U.clamp(Math.floor(p.centerX / half) * half - VW / 4, 0, Math.max(0, w.pixelW - VW));
         if (k < 1) k = Math.min(1, k * 4);
       }
-      const ty = U.clamp(p.y + p.h / 2 - VH * 0.55, 0, Math.max(0, w.pixelH - VH));
+      // Look down when falling (tall levels go underground, into buildings, under the sea).
+      const ty = U.clamp(p.y + p.h / 2 - VH * 0.55 + U.clamp(p.vy * 0.12, -16, 40), 0, Math.max(0, w.pixelH - VH));
       c.x += (tx - c.x) * k;
       c.y += (ty - c.y) * k;
     }
@@ -364,6 +371,7 @@
       if (style.clearBg) w.clearRect(0, 0, VW, VH); // AR: the camera feed shows through
       else { w.fillStyle = this.theme.bg; w.fillRect(0, 0, VW, VH); }
       if (!style.clearBg || this.theme.id === 'env_' + style.id) this.theme.background(w, cam, t, this.mood);
+      KF.Render.depths(w, st, cam, t);
       KF.Render.zones(w, st, this.theme, cam, t);
       KF.Render.labels(w, this.def, this.theme, cam);
       if (style.extrude) KF.Render.extrude(w, st, this.theme, cam);
@@ -405,6 +413,7 @@
       } else if (this.phase !== 'crash' && this.phase !== 'replay') {
         KF.Render.player(w, p, pos, cam, { trail: this.trail, flash: Math.max(glow, this.spawnFlash * 0.8), state: this.phase === 'win' ? 'victory' : null, theme: this.theme });
       }
+      KF.Render.water(w, st, cam, t);
       this.fx.render(w, cam);
       if (this.fx.flash > 0) { w.globalAlpha = this.fx.flash * 0.5; w.fillStyle = '#ffffff'; w.fillRect(0, 0, VW, VH); w.globalAlpha = 1; }
 
