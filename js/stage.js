@@ -17,6 +17,7 @@
       this.player = new KF.Player(sp.x, sp.y, KF.Rules ? KF.Rules.tuning(this.rule) : KF.PlayerTuning);
       this.player.iceAll = !!this.rule.ice;
       this.t = 0;
+      this.part = 1;
       this.state = 'play'; // play | dead | won
       this.cause = null;
       this.firedIds = {};
@@ -100,6 +101,10 @@
       for (const tr of this.traps) if (tr.push) p.windX += tr.push(p);
       for (const tr of this.traps) tr.prePlayer(p);
       p.update(dt, input, w);
+      if (this.def.parts) {
+        const part = 1 + this.def.parts.filter((x) => p.centerX >= x).length;
+        if (part > this.part) { this.part = part; this.emit('part', { part }); }
+      }
       for (const tr of this.traps) tr.afterPlayer(p);
       for (const e of p.events) this.emit(e.type, { ...e, x: p.centerX, y: p.gravDir > 0 ? p.y + p.h : p.y, g: p.gravDir });
       p.events.length = 0;

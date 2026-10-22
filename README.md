@@ -17,6 +17,10 @@ upgrades and special moves in the Dojo. Each realm's street fighter and boss sui
 Johnny TV and the bowler-hatted Bramble in Retro, Bug Kid and Grandma Hana in Pocket, and
 Volt and THE SYSTEM in Cyber. Every other fighter appears in the Street Arena.
 
+Each realm level is one continuous run of **three parts**. The HUD marks your current part
+and announces each transition. Part two adds a timed crossing, and part three has a tighter
+one; those timing windows also get harder from level 1 through level 4 in every realm.
+
 **Cyber and SUPERHOT.** The last realm's places are a neon megacity, a hologram district and
 chrome Y2K. Its finale is a continuous side-on SUPERHOT tribute: move through the level,
 aim and shoot red crystal sentinels, dodge or block their bullets, and defeat THE SYSTEM

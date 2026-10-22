@@ -100,6 +100,11 @@
       R(ctx, 'rgba(255,255,255,0.10)', 0, H, VW, 1);
       this.lag = this.lag > s.remaining ? Math.max(s.remaining, this.lag - 0.006) : s.remaining;
       R(ctx, '#ffd040', 0, H, Math.round(VW * (1 - s.remaining)), 1);
+      if (s.part) {
+        R(ctx, '#f2ebd8', Math.round(VW / 3), H, 1, 2);
+        R(ctx, '#f2ebd8', Math.round(VW * 2 / 3), H, 1, 2);
+        F.draw(ctx, `P${s.part}/3`, VW - 53, 3, '#ffd040', 1, 'right', '#000');
+      }
       F.draw(ctx, s.worldName, 6, 3, '#ffffff', 1, 'left', '#000');
       const secs = Math.floor(s.time);
       F.draw(ctx, `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`, VW / 2, 3, '#c8c0d8', 1, 'center', '#000');
