@@ -42,7 +42,7 @@
       '##############################################',
     ],
     labels: [{ at: [5, 28], text: 'GO UP' }],
-    depths: [{ r0: 0, c0: 0, c1: 46, kind: 'underground' }],
+    depths: [{ r0: 0, c0: 0, c1: 46, kind: 'cave' }],
     traps: [
       { type: 'collapse', at: [29, 21, 3, 1], delay: 0.45, deaths: [0, '2+'], say: 'LOW BATTERY' },
       { type: 'lunger', at: [40, 18, 1, 1], when: { near: 2.2 }, speed: 90, hop: 160, deaths: ['1+'], say: 'WILD LANTERN' },

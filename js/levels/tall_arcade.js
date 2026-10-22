@@ -41,7 +41,7 @@
       '######################################################',
     ],
     labels: [{ at: [7, 10], text: 'EXIT >>>' }],
-    depths: [{ r0: 13, kind: 'underground' }, { r0: 25, r1: 29, c0: 14, c1: 31, kind: 'sea' }],
+    depths: [{ r0: 13, kind: 'catacomb' }, { r0: 25, r1: 29, c0: 14, c1: 31, kind: 'sea' }],
     traps: [
       { type: 'fakeDoor', at: [50, 10], say: 'NOPE' },
       { type: 'crusher', at: [20, 13, 2, 1], when: { x: 18.6 }, say: 'LOOSE SLAB' },

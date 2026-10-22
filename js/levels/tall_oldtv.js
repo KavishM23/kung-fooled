@@ -40,7 +40,7 @@
       '################################################',
     ],
     labels: [{ at: [7, 25], text: 'QUIET ON SET' }],
-    depths: [{ r0: 0, kind: 'interior' }],
+    depths: [{ r0: 0, kind: 'backstage' }],
     traps: [
       { type: 'fakeFloor', at: [4, 26, 3, 1], deaths: [0], say: 'TRAPDOOR' },
       { type: 'lunger', at: [9, 22, 1, 1], when: { near: 2 }, speed: 110, hop: 220, deaths: ['1+'], say: 'SANDBAG' },

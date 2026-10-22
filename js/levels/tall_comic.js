@@ -38,7 +38,7 @@
       '################################################',
     ],
     labels: [{ at: [8, 4], text: 'JUMP!' }],
-    depths: [{ r0: 22, c0: 0, c1: 48, kind: 'underground' }],
+    depths: [{ r0: 22, c0: 0, c1: 48, kind: 'subway' }],
     traps: [
       { type: 'lunger', at: [36, 13, 1, 1], when: { near: 2.5 }, speed: 120, hop: 120, deaths: ['1+'], say: 'AIR CON' },
       { type: 'ambushFlame', at: [43, 22, 5], when: { x: 36.5, airborne: true }, warn: 0.45, burn: 0.7, say: 'KA-BOOM' },

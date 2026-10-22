@@ -44,7 +44,7 @@
       '########################################',
     ],
     labels: [{ at: [5, 4], text: 'MIND YOUR HEAD' }],
-    depths: [{ r0: 5, kind: 'underground' }, { r0: 23, r1: 28, c0: 13, c1: 30, kind: 'sea' }],
+    depths: [{ r0: 5, kind: 'mine' }, { r0: 23, r1: 28, c0: 13, c1: 30, kind: 'sea' }],
     traps: [
       { type: 'collapse', at: [8, 10, 3, 2], deaths: ['1+'], delay: 0.4, say: 'CAVE-IN' },
       { type: 'lunger', at: [16, 9, 1, 1], when: { near: 2 }, speed: 90, hop: 200, deaths: [0, '2+'], say: 'ROCKFALL' },

@@ -379,7 +379,7 @@
 
     // Backdrops for the parts of a level below or inside things, in world space, drawn over the
     // sky so going down feels like going somewhere. def.depths: [{ r0, r1, c0, c1, kind }],
-    // kind: 'underground' | 'interior' | 'sea'.
+    // kind: 'underground' | 'interior' | 'sea' | 'catacomb' | 'mine' | 'subway' | 'cave' | 'backstage'.
     depths(ctx, stage, cam, t) {
       for (const d of stage.def.depths || []) {
         const x0 = (d.c0 || 0) * T - cam.x, x1 = (d.c1 !== undefined ? d.c1 * T : stage.world.pixelW) - cam.x;
@@ -403,6 +403,63 @@
             ctx.fillStyle = 'rgba(120,240,255,0.18)'; ctx.fillRect(x0, py, w, 2);
             ctx.fillStyle = 'rgba(255,90,200,0.10)'; ctx.fillRect(x0, py + 24, w, 10);
           }
+        } else if (d.kind === 'catacomb') { // stone blocks, skull niches, torches
+          ctx.fillStyle = '#231c18'; ctx.fillRect(x0, y0, w, h);
+          const ox = -((cam.x * 0.6) % 32);
+          for (let py = y0 - ((cam.y * 0.6) % 16), k = 0; py < y1; py += 16, k++) for (let px = x0 + ox - 32 + (k % 2) * 16; px < x1; px += 32) {
+            ctx.fillStyle = (Math.floor(px * 7 + py * 3) & 3) ? '#3a2f28' : '#33291f'; ctx.fillRect(px + 1, py + 1, 30, 14);
+          }
+          for (let px = x0 + 40 - ((cam.x * 0.6) % 128); px < x1; px += 128) {
+            ctx.fillStyle = '#120d0a'; ctx.fillRect(px, y0 + 30, 22, 16);
+            ctx.fillStyle = '#d8ccb0'; ctx.beginPath(); ctx.arc(px + 11, y0 + 38, 5, 0, 7); ctx.fill();
+            ctx.fillStyle = '#120d0a'; ctx.fillRect(px + 8, y0 + 36, 2, 2); ctx.fillRect(px + 12, y0 + 36, 2, 2);
+            const fl = 0.6 + 0.4 * Math.sin(t * 9 + px);
+            ctx.fillStyle = `rgba(255,150,60,${0.18 * fl})`; ctx.beginPath(); ctx.arc(px + 64, y0 + 30, 20, 0, 7); ctx.fill();
+            ctx.fillStyle = '#ffb040'; ctx.fillRect(px + 62, y0 + 24 - fl * 3, 4, 6 + fl * 3); ctx.fillStyle = '#5a4030'; ctx.fillRect(px + 63, y0 + 30, 2, 8);
+          }
+        } else if (d.kind === 'mine') { // rock, timber frames, lanterns, a rail
+          const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, '#2c1e14'); g.addColorStop(1, '#120b07');
+          ctx.fillStyle = g; ctx.fillRect(x0, y0, w, h);
+          ctx.fillStyle = 'rgba(80,58,40,0.5)';
+          for (let k = 0; k < w * h / 1800; k++) { const rx = x0 + ((k * 97 - cam.x * 0.5) % w + w) % w, ry = y0 + ((k * 61) % h); ctx.fillRect(rx, ry, 6 + (k % 3) * 3, 3); }
+          for (let px = x0 + 20 - ((cam.x * 0.7) % 96); px < x1; px += 96) for (let py = y0 + 8 - ((cam.y * 0.7) % 64); py < y1; py += 64) {
+            ctx.fillStyle = '#5a3a1e'; ctx.fillRect(px, py, 5, 50); ctx.fillRect(px + 40, py, 5, 50); ctx.fillRect(px - 4, py, 53, 6);
+            ctx.fillStyle = '#7a5230'; ctx.fillRect(px, py, 2, 50); ctx.fillRect(px - 4, py, 53, 2);
+            ctx.fillStyle = 'rgba(255,190,90,0.22)'; ctx.beginPath(); ctx.arc(px + 22, py + 14, 12, 0, 7); ctx.fill();
+            ctx.fillStyle = '#ffd070'; ctx.fillRect(px + 20, py + 10, 4, 6);
+          }
+        } else if (d.kind === 'subway') { // tiled walls, a colour band, posters, strip lights
+          ctx.fillStyle = '#d8dccc'; ctx.fillRect(x0, y0, w, h);
+          ctx.fillStyle = 'rgba(60,70,60,0.18)';
+          for (let px = x0 - ((cam.x * 0.8) % 8); px < x1; px += 8) ctx.fillRect(px, y0, 1, h);
+          for (let py = y0; py < y1; py += 6) ctx.fillRect(x0, py, w, 1);
+          ctx.fillStyle = '#c83a2a'; ctx.fillRect(x0, y0 + h * 0.45, w, 6);
+          for (let px = x0 + 30 - ((cam.x * 0.8) % 140); px < x1; px += 140) {
+            ctx.fillStyle = '#1a1a22'; ctx.fillRect(px - 1, y0 + h * 0.15 - 1, 32, 42);
+            ctx.fillStyle = ['#ffd040', '#40a0e0', '#e04880'][Math.abs(Math.floor(px / 140)) % 3]; ctx.fillRect(px, y0 + h * 0.15, 30, 40);
+          }
+          ctx.fillStyle = 'rgba(255,255,230,0.9)'; for (let px = x0 + 10 - ((cam.x * 0.8) % 64); px < x1; px += 64) ctx.fillRect(px, y0 + 2, 28, 2);
+        } else if (d.kind === 'cave') { // rock, stalactites, glowing crystals
+          const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, '#1e2230'); g.addColorStop(1, '#0a0c14');
+          ctx.fillStyle = g; ctx.fillRect(x0, y0, w, h);
+          ctx.fillStyle = '#2c3244';
+          for (let px = x0 - ((cam.x * 0.5) % 24); px < x1; px += 24) { const sh = 10 + (Math.abs(Math.floor(px)) * 7) % 18; ctx.beginPath(); ctx.moveTo(px, y0); ctx.lineTo(px + 12, y0); ctx.lineTo(px + 6, y0 + sh); ctx.fill(); }
+          for (let px = x0 + 50 - ((cam.x * 0.6) % 110); px < x1; px += 110) for (let py = y0 + 60; py < y1; py += 90) {
+            const glow = 0.5 + 0.5 * Math.sin(t * 2 + px * 0.1);
+            ctx.fillStyle = `rgba(120,220,255,${0.12 + 0.1 * glow})`; ctx.beginPath(); ctx.arc(px, py, 14, 0, 7); ctx.fill();
+            ctx.fillStyle = '#9af0ff'; ctx.beginPath(); ctx.moveTo(px - 4, py + 6); ctx.lineTo(px, py - 8); ctx.lineTo(px + 4, py + 6); ctx.fill();
+          }
+        } else if (d.kind === 'backstage') { // greys only: brick, ropes, sandbags, a work light
+          ctx.fillStyle = '#2a2a2a'; ctx.fillRect(x0, y0, w, h);
+          for (let py = y0 - ((cam.y * 0.6) % 12), k = 0; py < y1; py += 12, k++) for (let px = x0 - ((cam.x * 0.6) % 24) - 24 + (k % 2) * 12; px < x1; px += 24) {
+            ctx.fillStyle = (Math.floor(px + py) & 2) ? '#363636' : '#313131'; ctx.fillRect(px + 1, py + 1, 22, 10);
+          }
+          ctx.strokeStyle = '#8a8a8a'; ctx.lineWidth = 1;
+          for (let px = x0 + 24 - ((cam.x * 0.7) % 72); px < x1; px += 72) {
+            ctx.beginPath(); ctx.moveTo(px, y0); ctx.lineTo(px, y0 + 70 + (Math.abs(Math.floor(px)) % 40)); ctx.stroke();
+            ctx.fillStyle = '#5a5a5a'; ctx.fillRect(px - 5, y0 + 70 + (Math.abs(Math.floor(px)) % 40), 10, 12);
+          }
+          ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.beginPath(); ctx.moveTo(x0 + w * 0.6, y0); ctx.lineTo(x0 + w * 0.5, y1); ctx.lineTo(x0 + w * 0.8, y1); ctx.fill();
         } else { // underground: rock, pipes and the odd service light
           const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, '#18121c'); g.addColorStop(1, '#07050a');
           ctx.fillStyle = g; ctx.fillRect(x0, y0, w, h);

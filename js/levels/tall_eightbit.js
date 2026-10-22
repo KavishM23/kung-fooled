@@ -40,7 +40,7 @@
       '####################################################',
     ],
     labels: [{ at: [6, 5], text: 'MINE' }],
-    depths: [{ r0: 6, c0: 0, c1: 52, kind: 'underground' }],
+    depths: [{ r0: 6, c0: 0, c1: 52, kind: 'mine' }],
     traps: [
       { type: 'collapse', at: [26, 18, 3, 1], delay: 0.3, deaths: [0, '2+'], say: 'ROTTEN' },
       { type: 'lunger', at: [34, 17, 1, 1], when: { near: 2.2 }, speed: 100, hop: 180, deaths: ['1+'], say: 'ROCK ON' },
