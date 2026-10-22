@@ -24,6 +24,11 @@
   const BUCKETS = ['rooftop', 'harbour', 'neon', 'temple', 'train', 'sakura', 'viking', 'cyber'];
   const pool = {};
   BUCKETS.forEach((b) => { pool[b] = []; });
+  // Each realm's third level can be a hand-built tall level (down underground, into a building,
+  // under the sea...), added with KF.addStage('tall_<realmId>', def) in js/levels/tall_<realmId>.js.
+  // It may pick which of the realm's places it shows with `env`.
+  const TALL_SLOT = 2;
+  REALMS.forEach((r) => { pool['tall_' + r.id] = []; });
 
   // Names for places shown in any style; a style's own world (env_*) uses that world's name.
   const PLACES = { rooftop: 'ROOFTOPS', harbour: 'THE DOCKS', neon: 'NIGHT MARKET', temple: 'TEMPLE COURTYARD', train: 'SKY EXPRESS', sakura: 'SAKURA VALLEY', viking: 'THE FJORD' };
@@ -89,13 +94,17 @@
       const options = [];
       for (let c = Math.max(start + 3, lo); c < Math.min(finish - 2, hi); c++) {
         const clear = [lane - 2, lane - 1, lane].every((r) => def.map[r] && def.map[r][c] === '.');
+        // Gates stand on floor, so you can stop and wait for them (never mid-jump over a pit).
+        const floored = def.map[lane + 1] && '#=~'.includes(def.map[lane + 1][c]);
+        if (!floored) continue;
+        // ...with room either side, so you never have to jump an obstacle through the beam.
+        const roomy = [c - 1, c + 1].every((x) => [lane - 1, lane].every((r) => def.map[r] && def.map[r][x] === '.') &&
+          '#=~'.includes((def.map[lane + 1] || '')[x] || '.'));
+        if (!roomy) continue;
         if (!clear || used.some(([a, b]) => c >= a - 1 && c <= b + 1)) continue;
         options.push(c);
       }
-      // The gate still gets a lane if this stretch has an existing obstacle nearby.
-      if (!options.length) for (let c = Math.max(start + 3, lo); c < Math.min(finish - 2, hi); c++)
-        if ([lane - 2, lane - 1, lane].every((r) => def.map[r] && def.map[r][c] === '.')) options.push(c);
-      if (!options.length) return null;
+      if (!options.length) return null; // no fair place to wait in this stretch: no gate
       const c = options.reduce((best, x) => Math.abs(x - target) < Math.abs(best - target) ? x : best);
       const on = 0.55 + level * 0.11 + (part === 3 ? 0.24 : 0);
       const off = 2.1 - level * 0.15 - (part === 3 ? 0.24 : 0);
@@ -129,12 +138,14 @@
     REALMS.forEach((r, k) => {
       if (r.single) { built[r.id] = [{ realm: r.id, name: r.name, single: true }]; KF.StylePlan[r.id] = [r.style]; return; }
       const src = r.id === 'cyber' ? cyber : order.slice(4 * k, 4 * k + 4);
+      const tall = pool['tall_' + r.id] && pool['tall_' + r.id][0];
+      if (tall && src.length > TALL_SLOT) src[TALL_SLOT] = tall;
       const retroSigns = ['CHAPLIN ST.', 'ABOVE THE CITY', 'NIGHT EXPRESS', 'CANAL WALK'];
       built[r.id] = src.map((def, j) => {
         const baseTraps = (def.traps || []).concat((EXTRA_OBSTACLES[r.id] || [])[j] || []);
         const parts = threeParts(Object.assign({}, def, { traps: baseTraps }), j);
         return KF.util.deepFreeze(Object.assign({}, def, {
-          realm: r.id, index: j, env: r.envs[j], theme: r.envs[j],
+          realm: r.id, index: j, env: (r.envs.includes(def.env) && def.env) || r.envs[j], theme: (r.envs.includes(def.env) && def.env) || r.envs[j],
           labels: r.id === 'oldtv' ? [{ at: [5, 10], text: retroSigns[j] }] : def.labels,
           parts: parts.cuts,
           traps: baseTraps.concat(parts.traps),

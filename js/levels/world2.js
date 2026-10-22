@@ -141,7 +141,7 @@
 
     labels: [{ at: [40, 10], text: 'FINALLY' }],
     traps: [
-      { type: 'collapse', at: [7, 11, 3, 3], deaths: [1] },
+      { type: 'collapse', at: [7, 11, 3, 3], deaths: [1], delay: 0.55 }, // drops just behind you as you run for the gap
       { type: 'crusher', at: [20, 5, 2, 2], when: { x: 18.6 } },
       { type: 'spring', at: [24, 10], power: 600, vx: 230 },
       { type: 'shy', at: [30, 8, 2], path: [[3, 0]], near: 2, deaths: ['1+'] },

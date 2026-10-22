@@ -15,7 +15,7 @@ sandbox.window = sandbox;
 vm.createContext(sandbox);
 for (const f of SIM_FILES) vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f), 'utf8'), sandbox, { filename: f });
 for (const f of fs.readdirSync(path.join(ROOT, 'js/levels')).sort()) {
-  if (/^world\d+\.js$/.test(f)) vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/levels', f), 'utf8'), sandbox, { filename: f });
+  if (/^(world\d+|tall_[a-z]+)\.js$/.test(f)) vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/levels', f), 'utf8'), sandbox, { filename: f });
 }
 const KF = sandbox.KF;
 
