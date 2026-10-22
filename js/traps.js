@@ -484,6 +484,37 @@
     onFire() { this.seen = true; this.stage.memory.seen[this.key] = true; this.stage.emit('poof', center(this.rect)); }
   }
 
+  // A real floor that starts to give way when approached. It reforms after a short
+  // absence, baiting a rushed step or a return trip. at: [c,r,w,h] over solid tiles.
+  class LureFloor extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      this.rect = tileRect(def.at);
+      this.tiles = stage.claimTiles(def.at);
+      this.solid = { ...this.rect, active: true };
+      stage.world.dynamicSolids.push(this.solid);
+      this.mode = 'ready';
+      this.timer = 0;
+    }
+    update(dt) {
+      if (this.mode === 'ready' && this.distanceTo(this.player) < (this.def.near || 2.8) * T) {
+        this.mode = 'warning'; this.timer = this.def.delay ?? 0.55;
+        this.stage.emit('rumble', center(this.rect));
+      } else if (this.mode === 'warning') {
+        this.timer -= dt;
+        if (this.timer <= 0) {
+          this.mode = 'gone'; this.solid.active = false; this.timer = this.def.reform || 1.5;
+          this.stage.emit('crumble', { x: this.rect.x + this.rect.w / 2, y: this.rect.y, w: this.rect.w });
+        }
+      } else if (this.mode === 'gone') {
+        this.timer -= dt;
+        if (this.timer <= 0 && !U.overlap(this.player, this.rect)) {
+          this.mode = 'ready'; this.solid.active = true;
+        }
+      }
+    }
+  }
+
   // Wind that pushes you sideways while you're inside. zone, force (px/s, + = right),
   // gust: [onSeconds, offSeconds] to blow in bursts (streaks show when it's blowing).
   class Wind extends Trap {
@@ -536,12 +567,48 @@
     kills(p) { return U.overlap(p, this.blade()); }
   }
 
+  // A heavier pendulum uses the axe's readable arc but a broad, spiked head.
+  class SwingHammer extends Axe {
+    blade() {
+      const a = this.angle;
+      return { x: this.pivot.x + Math.sin(a) * this.len - 9, y: this.pivot.y + Math.cos(a) * this.len - 9, w: 18, h: 18 };
+    }
+  }
+
+  // The saw only creeps toward you while you face away from it. Looking back freezes it.
+  // at: [c,r] is its left/top tile, range: maximum travel from home, in tiles.
+  class LookSaw extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const [c, r] = def.at;
+      this.home = c * T;
+      this.x = this.home;
+      this.y = r * T + 3;
+      this.rect = { x: this.home - (def.range || 3) * T, y: this.y, w: ((def.range || 3) * 2 + 1) * T, h: 12 };
+      this.fired = true;
+    }
+    get body() { return { x: this.x + 2, y: this.y, w: 12, h: 12 }; }
+    get awake() {
+      const p = this.player;
+      return Math.abs(p.centerX - this.x - 8) < (this.def.sight || 6) * T &&
+        p.facing * (this.x + 8 - p.centerX) < 0;
+    }
+    tick(dt) {
+      if (!this.awake) return;
+      const p = this.player, range = (this.def.range || 3) * T;
+      const target = U.clamp(p.centerX - 8, this.home - range, this.home + range);
+      this.x = U.approach(this.x, target, (this.def.speed || 55) * dt);
+    }
+    kills(p) { return U.overlap(p, this.body); }
+  }
+
   KF.Traps = {
     types: {
       collapse: Collapse, spikes: PopSpikes, movingSpikes: MovingSpikes, pulseBeam: PulseBeam,
       conveyor: Conveyor, dartLauncher: DartLauncher, crusher: Crusher, spring: Spring, shy: Shy,
       doorRun: DoorRun, fakeDoor: FakeDoor, gravity: GravityZone, reverse: ReverseZone,
-      hidden: HiddenBlock, taunt: Taunt, mover: Mover, fakeFloor: FakeFloor, wind: Wind, blink: Blink, axe: Axe,
+      hidden: HiddenBlock, taunt: Taunt, mover: Mover, fakeFloor: FakeFloor, lureFloor: LureFloor,
+      wind: Wind, blink: Blink, axe: Axe, swingHammer: SwingHammer, lookSaw: LookSaw,
     },
     matchDeaths,
     build(stage) {

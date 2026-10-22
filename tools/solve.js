@@ -57,6 +57,10 @@ function key(st, held) {
   let k = `${Math.round(p.x / 2)},${Math.round(p.y / 2)},${Math.round(p.vx / 30)},${Math.round(p.vy / 50)},${p.grounded | 0},${p.gravDir},${p.launchT > 0 ? 1 : 0},${held | 0}${p.jumping | 0}${p.coyoteT > 0 ? 1 : 0}`;
   k += `|${d ? Math.round(d.x / 4) + ',' + Math.round(d.y / 4) : ''}`;
   for (const tr of st.traps) k += tr.fired ? '1' : tr.pending >= 0 ? 'p' : '0';
+  for (const tr of st.traps) {
+    if (tr.def.type === 'lookSaw') k += `s${Math.round(tr.x / 4)}`;
+    if (tr.def.type === 'lureFloor') k += `l${tr.mode[0]}${Math.round(Math.max(0, tr.timer) * 5)}`;
+  }
   for (const s of st.world.dynamicSolids) k += `,${Math.round(s.x / 4)}:${Math.round(s.y / 4)}:${s.active === false ? 0 : 1}`;
   if (st.def.traps && st.def.traps.some((t) => t.when && t.when.time !== undefined)) k += '|' + Math.floor(st.t / 0.25);
   for (const tr of st.traps) if (tr.period) k += '|' + Math.floor(((st.t + (tr.def.offset || 0)) % tr.period) / 0.1);
@@ -149,6 +153,7 @@ const [onlyDoor, onlyStage] = process.argv.slice(2);
 let failures = 0;
 const dump = {}; // DUMP=file.json writes every solution as [dir, jump] per 50ms, for replays
 for (const door of KF.Doors) {
+  if (door.single) continue; // custom continuous hammer climb has its own movement model
   if (onlyDoor && door.id !== onlyDoor) continue;
   door.stages.forEach((def, i) => {
     if (onlyStage && Number(onlyStage) !== i + 1) return;

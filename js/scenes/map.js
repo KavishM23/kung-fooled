@@ -27,7 +27,7 @@
       if (inp.confirm || click === 'enter' || this.enter) {
         this.enter = false;
         A.sfx('confirm'); e.lastRealm = this.sel;
-        const r = this.sel; e.go(() => new KF.RealmScene(e, r));
+        const r = this.sel; e.go(() => KF.Doors[r].single ? new KF.ClimbScene(e) : new KF.RealmScene(e, r));
       }
       if (inp.wasPressed('KeyC') || click === 'shop') { A.sfx('confirm'); e.go(() => new KF.ShopScene(e)); }
       if (inp.wasPressed('KeyF') || click === 'arena') { A.sfx('confirm'); e.go(() => new KF.FightScene(e, { mode: 'arena', realm: 0, streak: 0, def: KF.Roster.arenaDef(0) })); }
@@ -63,7 +63,7 @@
       R('rgba(10,7,20,0.9)', x + 5, y + 59, 160, 12);
       F.draw(ctx, d.name, VW / 2, y + 61, '#fff', 1, 'center', '#000');
       F.draw(ctx, d.sub, VW / 2, y + 76, '#a9dfff', 1, 'center');
-      for (let k = 0; k < KF.Path.count; k++) {
+      for (let k = 0; k < (d.single ? 1 : KF.Path.count); k++) {
         const kind = KF.Path.kinds[k], px = x + 42 + k * 15;
         R('#090815', px, y + 90, 9, 8);
         R(save.won[k] ? kind === 'boss' ? '#ff5040' : kind === 'street' ? '#7cf0ff' : '#ffd040' : '#443b55', px + 1, y + 91, 7, 6);
@@ -73,8 +73,8 @@
         R('rgba(38,27,10,0.94)', 105, 155, 174, 10);
         F.draw(ctx, 'REALM CLEARED!  + REWARDS', VW / 2, 157, '#ffe07c', 1, 'center');
       } else F.draw(ctx, `${this.sel + 1} / ${KF.Doors.length}   LEFT / RIGHT TO BROWSE`, VW / 2, 157, '#958ba7', 1, 'center');
-      F.draw(ctx, `BOSS: ${KF.Roster.R[d.id].boss.name}`, VW / 2, 170, '#ffb0a0', 1, 'center');
-      F.draw(ctx, `ARENA BEST STREAK ${KF.Save.data.arena.best}`, VW / 2, 181, '#8f85a1', 1, 'center');
+      F.draw(ctx, d.single ? 'NO CHECKPOINTS - CLIMB OR FALL' : `BOSS: ${KF.Roster.R[d.id].boss.name}`, VW / 2, 170, '#ffb0a0', 1, 'center');
+      F.draw(ctx, d.single ? 'MOUSE AIM + HOLD CLICK TO PUSH' : `ARENA BEST STREAK ${KF.Save.data.arena.best}`, VW / 2, 181, '#8f85a1', 1, 'center');
       KF.UI.buttonBar(ctx, this, [['enter', 'ENTER REALM'], ['shop', 'SHOP (C)'], ['arena', 'ARENA (F)'], ['modes', 'MODES (Q)'], ['back', 'BACK']]);
     }
   }

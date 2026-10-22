@@ -11,6 +11,7 @@
     if (looks) return looks;
     looks = [];
     for (const door of KF.Doors) {
+      if (door.single || !door.envs) continue; // the hammer climb has no ordinary places
       const rule = (KF.Rules && KF.Rules.all[door.style]) || {};
       if (HARD_RULES.some((k) => rule[k])) continue;
       door.envs.forEach((env) => looks.push({ style: door.style, env, realm: door.id, music: door.music }));

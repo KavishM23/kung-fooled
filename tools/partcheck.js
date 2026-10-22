@@ -10,6 +10,7 @@ for (const file of ['core.js', 'physics.js', 'world.js', 'player.js', 'traps.js'
 for (const file of fs.readdirSync(path.join(root, 'js/levels')).filter((f) => /^world\d+\.js$/.test(f)).sort())
   vm.runInContext(fs.readFileSync(path.join(root, 'js/levels', file), 'utf8'), sb, { filename: file });
 for (const door of sb.KF.Doors) {
+  if (door.single) { assert.equal(door.stages.length, 1, 'the ascent is one continuous level'); continue; }
   assert.equal(door.stages.length, 4, `${door.id} should have four levels`);
   let last = 0;
   door.stages.forEach((def, level) => {

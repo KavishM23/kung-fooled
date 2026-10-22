@@ -3,13 +3,18 @@
 A troll platformer dressed as a late-90s arcade fighter. Run from the left of each stage to the
 exit door. The stage will betray you. Learn each trap by dying to it; respawn is instant.
 
-**Ten realms, ten styles.** Each realm is one visual medium, and its four levels are different
+**Ten style realms plus THE ASCENT.** The style realms each have four levels in a different
 places shown in that medium. The realms are ARCADE (full colour), RETRO (cinematic black and white),
 POCKET (four Game Boy greens), COMIC, AR GO (the world through your phone), 8-BIT, WOODBLOCK
 (Edo prints), VHS (home video), VAPORWAVE and CYBER. In Retro, you travel through a
 lamp-lit street, moonlit rooftops, a night train and a reflective canal. The Chaplin-style
 bowler-hatted player is deliberately chunky grayscale pixel art against those detailed backdrops.
 Each realm's style also brings its own rule, K.O. card and sounds.
+
+THE ASCENT is a separate, single long climb with a hammer-like staff, momentum, narrow shelves
+and large falls. Aim the staff with your mouse, hold click when its head touches stone to push,
+and use A/D to steer. There are no checkpoints; reach the summit to clear the realm. Press R
+to restart or Esc to return to the realm map. You can open it directly with `index.html?stage=ascent`.
 
 A realm runs level, level, street fight, level, level, boss. **Every realm and every node is
 open from the start.** Clearing them tracks progress and pays coins, which buy outfits, headgear, hair, fist wraps, stat
@@ -34,6 +39,8 @@ scenery. Comic, AR GO, Woodblock, VHS, Vaporwave and Cyber draw smooth character
 scenery in their own materials. Realm hazards include patrolling spike racks, timed beam
 gates, moving conveyor floors and dart launchers. The belts change your ground speed;
 the launchers show their firing lane so you can time a crossing.
+Later stages also use swinging hammers, floors that crack and vanish when approached, and
+saws that creep toward you while you face away. The floors reform after you move clear.
 
 **Every world has its own K.O., start and win cards and sounds.** Some examples:
 - Retro shows silent-film intertitles with projector and piano sounds.

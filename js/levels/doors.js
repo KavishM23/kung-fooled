@@ -19,6 +19,7 @@
     { id: 'vhs', name: 'VHS', sub: 'HOME VIDEO 1996', style: 'vhs', theme: 'vhs_backyard', music: 'rooftop', envs: ['vhs_backyard', 'vhs_rooftop', 'vhs_mall', 'vhs_train'] },
     { id: 'vapor', name: 'VAPORWAVE', sub: 'SLOWED + REVERB', style: 'vaporwave', theme: 'vapor_plaza', music: 'neon', envs: ['vapor_plaza', 'vapor_neon', 'vapor_harbour', 'vapor_train'] },
     { id: 'cyber', name: 'CYBER', sub: 'NEON TO SUPERHOT', style: 'cyberpunk', theme: 'cyber_megacity', music: 'cyber', styles: ['cyberpunk', 'hologram', 'chrome', 'superhot'], envs: ['cyber_megacity', 'cyber_hologram', 'cyber_chrome', 'superhot_atrium'] },
+    { id: 'ascent', name: 'THE ASCENT', sub: 'ONE LONG HAMMER CLIMB', style: 'hd', theme: 'viking', music: 'viking', single: true },
   ];
   const BUCKETS = ['rooftop', 'harbour', 'neon', 'temple', 'train', 'sakura', 'viking', 'cyber'];
   const pool = {};
@@ -31,33 +32,44 @@
   const EXTRA_OBSTACLES = {
     arcade: [
       [{ type: 'conveyor', at: [4, 10, 6], speed: 80 }],
+      [{ type: 'lureFloor', at: [24, 11, 2, 3], delay: 0.5 }],
     ],
     oldtv: [
       [{ type: 'movingSpikes', at: [26, 10, 1], travel: [3, 0], period: 3.6 }],
       [{ type: 'pulseBeam', at: [9, 4, 0.35, 7], on: 1.0, off: 1.7, offset: 0.3 }],
+      [{ type: 'swingHammer', at: [8, 4], len: 5.5, amp: 0.95, speed: 2.1 }],
     ],
     pocket: [
       [{ type: 'conveyor', at: [3, 10, 6], speed: -85 }],
+      [], [{ type: 'lureFloor', at: [12, 11, 2, 3], delay: 0.48 }],
     ],
     comic: [
       [{ type: 'movingSpikes', at: [30, 10, 1], travel: [3, 0], period: 3.1, offset: 0.7 }],
-      [{ type: 'dartLauncher', at: [12, 9], dir: 'left', range: 8, period: 2.2, offset: 1.0 }],
+      [{ type: 'dartLauncher', at: [12, 9], dir: 'left', range: 8, period: 2.2, offset: 1.0 },
+        { type: 'lookSaw', at: [26, 10], range: 3, speed: 55 }],
     ],
     argo: [
       [{ type: 'conveyor', at: [3, 10, 7], speed: -75 }],
+      [{ type: 'swingHammer', at: [9, 4], len: 5.5, amp: 0.9, speed: 2.2 }],
     ],
     eightbit: [
-      [], [], [{ type: 'pulseBeam', at: [31, 3, 0.35, 6], on: 1.1, off: 1.5, offset: 0.4 }],
+      [], [{ type: 'lookSaw', at: [30, 8], range: 2, speed: 48 }],
+      [{ type: 'pulseBeam', at: [31, 3, 0.35, 6], on: 1.1, off: 1.5, offset: 0.4 }],
     ],
     woodblock: [
       [], [{ type: 'conveyor', at: [4, 10, 7], speed: 75 }],
     ],
     vhs: [
       [{ type: 'dartLauncher', at: [18, 9], dir: 'left', range: 10, period: 2.5, offset: 1.2 }],
-      [], [], [{ type: 'movingSpikes', at: [28, 10, 1], travel: [3, 0], period: 3.4 }],
+      [{ type: 'lureFloor', at: [36, 11, 2, 3], delay: 0.54 }],
+      [], [{ type: 'movingSpikes', at: [28, 10, 1], travel: [3, 0], period: 3.4 }],
     ],
     vapor: [
       [{ type: 'conveyor', at: [3, 10, 4], speed: 75 }],
+      [{ type: 'lookSaw', at: [23, 10], range: 3, speed: 60 }],
+    ],
+    cyber: [
+      [], [], [{ type: 'lureFloor', at: [31, 11, 2, 3], delay: 0.46 }],
     ],
   };
   // Every level is one continuous three-part run. The second and third stretches gain
@@ -116,6 +128,7 @@
     if (cy[2]) order.push(cy[2]); // the low-poly VR stage joins the main run
     const cyber = [cy[0], cy[1], cy[3], cy[4]].filter(Boolean);
     REALMS.forEach((r, k) => {
+      if (r.single) { built[r.id] = [{ realm: r.id, name: r.name, single: true }]; KF.StylePlan[r.id] = [r.style]; return; }
       const src = r.id === 'cyber' ? cyber : order.slice(4 * k, 4 * k + 4);
       const retroSigns = ['CHAPLIN ST.', 'ABOVE THE CITY', 'NIGHT EXPRESS', 'CANAL WALK'];
       built[r.id] = src.map((def, j) => {

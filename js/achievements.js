@@ -64,10 +64,10 @@
           break;
         case 'bossWin': {
           if (data.roundsLost === 0) this.unlock('untouchable');
-          const cleared = KF.Doors.filter((door) => KF.Save.realm(door.id).cleared).length;
+          const realms = KF.Doors.filter((door) => !door.single), cleared = realms.filter((door) => KF.Save.realm(door.id).cleared).length;
           if (cleared >= 1) this.unlock('realm1');
-          if (cleared >= KF.Doors.length) this.unlock('allrealms');
-          if (data.realm === KF.Doors.length - 1 && KF.Economy.UPGRADES.every((u) => !KF.Economy.level(u.id))) this.unlock('naked');
+          if (cleared >= realms.length) this.unlock('allrealms');
+          if (KF.Doors[data.realm] === realms[realms.length - 1] && KF.Economy.UPGRADES.every((u) => !KF.Economy.level(u.id))) this.unlock('naked');
           break;
         }
         case 'arena': if (data.streak >= 5) this.unlock('streak5'); break;
