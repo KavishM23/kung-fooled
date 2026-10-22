@@ -153,6 +153,7 @@ const [onlyDoor, onlyStage] = process.argv.slice(2);
 let failures = 0;
 const dump = {}; // DUMP=file.json writes every solution as [dir, jump] per 50ms, for replays
 for (const door of KF.Doors) {
+  if (door.single) continue; // custom continuous hammer climb has its own movement model
   if (onlyDoor && door.id !== onlyDoor) continue;
   door.stages.forEach((def, i) => {
     if (onlyStage && Number(onlyStage) !== i + 1) return;

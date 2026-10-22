@@ -43,7 +43,7 @@ assert(!launcher.kills({ x: 0, y: 0, w: 8, h: 8 }), 'the dart must not damage at
 launcher.stage.t += launcher.range / launcher.speed + 0.1;
 assert.equal(launcher.dart, null, 'the dart must stop after its stated range');
 const lure = new KF.Stage(arcade.stages[1]).traps.find((t) => t.def.type === 'lureFloor');
-for (const door of KF.Doors) for (const def of door.stages) for (const trap of def.traps.filter((t) => t.type === 'lureFloor')) {
+for (const door of KF.Doors) for (const def of door.stages) for (const trap of (def.traps || []).filter((t) => t.type === 'lureFloor')) {
   const floor = new KF.Stage(def).traps.find((t) => t.def === trap);
   assert(floor.tiles.every(([, , id]) => id === 1), 'lure floors must replace solid ground tiles');
 }
