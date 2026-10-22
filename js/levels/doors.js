@@ -142,11 +142,12 @@
       if (tall && src.length > TALL_SLOT) src[TALL_SLOT] = tall;
       const retroSigns = ['CHAPLIN ST.', 'ABOVE THE CITY', 'NIGHT EXPRESS', 'CANAL WALK'];
       built[r.id] = src.map((def, j) => {
-        const baseTraps = (def.traps || []).concat((EXTRA_OBSTACLES[r.id] || [])[j] || []);
+        // Hand-built tall levels keep exactly their own traps and signs.
+        const baseTraps = (def.traps || []).concat(def.noGates ? [] : (EXTRA_OBSTACLES[r.id] || [])[j] || []);
         const parts = threeParts(Object.assign({}, def, { traps: baseTraps }), j);
         return KF.util.deepFreeze(Object.assign({}, def, {
           realm: r.id, index: j, env: (r.envs.includes(def.env) && def.env) || r.envs[j], theme: (r.envs.includes(def.env) && def.env) || r.envs[j],
-          labels: r.id === 'oldtv' ? [{ at: [5, 10], text: retroSigns[j] }] : def.labels,
+          labels: r.id === 'oldtv' && !def.noGates ? [{ at: [5, 10], text: retroSigns[j] }] : def.labels,
           parts: parts.cuts,
           traps: baseTraps.concat(parts.traps),
           style: (r.styles && r.styles[j]) || r.style, music: PLACE_MUSIC[r.envs[j]] || r.music,
