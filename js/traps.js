@@ -447,13 +447,128 @@
     kills(p) { return U.overlap(p, this.blade()); }
   }
 
+  // ---------- SUPERHOT actors: red crystal enemies and guns ----------
+  // Enemies live in the level like traps. at: [c, r] = the tile they stand in (feet on row r + 1).
+  //   kind  'brawler' walks up and swings (long wind-up, so you can see it coming)
+  //         'shooter' keeps still and fires slow bullets at you
+  //         'boss'    THE SYSTEM: walks, swings and shoots; the exit stays locked until he breaks
+  //   range [c0, c1]  columns it may walk between     hp  hits it takes (punch 1, bullet 2)
+  //   sight tiles at which it notices you (default 9)  cool  first shot / swing delay
+  // One hit from a swing or a bullet kills you. You punch (1 damage, knockback) and, holding a
+  // gun, shoot (2 damage); an empty gun is thrown (1 damage).
+  const ENEMY = {
+    brawler: { w: 10, h: 22, hp: 2, speed: 52, windup: 0.55, reach: 20 },
+    shooter: { w: 10, h: 22, hp: 1, speed: 0, fireEvery: 2.1, bullet: 140 },
+    boss: { w: 14, h: 30, hp: 12, speed: 58, windup: 0.5, reach: 24, fireEvery: 1.7, bullet: 150 },
+  };
+  class Enemy extends Trap {
+    constructor(def, stage, index) {
+      super(def, stage);
+      const [c, r] = def.at, k = (this.kind = def.kind || 'brawler'), base = ENEMY[k];
+      this.cfg = base; this.boss = k === 'boss';
+      this.w = base.w; this.h = base.h;
+      this.x = c * T + T / 2 - this.w / 2; this.y = (r + 1) * T - this.h;
+      this.hp = this.maxHp = def.hp ?? base.hp;
+      const rg = def.range || [c, c];
+      this.minX = rg[0] * T; this.maxX = (rg[1] + 1) * T - this.w;
+      this.facing = -1; this.vx = 0;
+      this.state = 'idle'; this.stateT = 0; this.stun = 0;
+      this.cool = def.cool ?? (base.fireEvery ? 1.2 : 0.4);
+      this.alive = true; this.aware = false;
+      this.bullets = [];
+      this.fired = true; // always active
+      this.name = this.boss ? (def.name || 'THE SYSTEM') : null;
+    }
+    bounds() { return { x: this.x, y: this.y, w: this.w, h: this.h }; }
+    get centerX() { return this.x + this.w / 2; }
+    hurt(dmg, dir, stage) {
+      if (!this.alive) return false;
+      this.hp -= dmg; this.stun = this.boss ? 0.28 : 0.4; this.state = 'stagger'; this.stateT = 0;
+      this.vx = dir * (this.boss ? 110 : 150);
+      stage.emit('punch', { x: this.centerX, y: this.y + 8 });
+      if (this.hp <= 0) {
+        this.alive = false;
+        stage.emit('shatter', { x: this.centerX, y: this.y + this.h / 2, boss: this.boss, w: this.w, h: this.h, dir });
+      }
+      return true;
+    }
+    tick(dt) {
+      const p = this.player, st = this.stage, cfg = this.cfg;
+      for (const b of this.bullets) {
+        b.x += b.vx * dt; b.y += b.vy * dt; b.t += dt;
+        if (st.world.overlapsSolid(b.x - 1, b.y - 1, 2, 2, null) || b.t > 6) b.dead = true;
+      }
+      this.bullets = this.bullets.filter((b) => !b.dead);
+      if (!this.alive) return;
+      this.stateT += dt;
+      const dx = p.centerX - this.centerX, dy = (p.y + p.h / 2) - (this.y + this.h / 2);
+      if (!this.aware && Math.abs(dx) < (this.def.sight ?? 9) * T && Math.abs(dy) < 3 * T) this.aware = true;
+      if (this.stun > 0) {
+        this.stun -= dt;
+        this.x = U.clamp(this.x + this.vx * dt, this.minX - T, this.maxX + T);
+        this.vx *= Math.pow(0.02, dt);
+        if (this.stun <= 0) { this.state = 'idle'; this.stateT = 0; }
+        return;
+      }
+      if (!this.aware || p.dead) return;
+      if (this.state !== 'windup' && this.state !== 'strike') this.facing = dx < 0 ? -1 : 1;
+      this.cool -= dt;
+      // Swinging (brawlers and the boss).
+      if (cfg.windup) {
+        if (this.state === 'windup' && this.stateT >= cfg.windup) { this.state = 'strike'; this.stateT = 0; st.emit('whoosh', {}); }
+        else if (this.state === 'strike' && this.stateT >= 0.16) { this.state = 'recover'; this.stateT = 0; }
+        else if (this.state === 'recover' && this.stateT >= 0.45) { this.state = 'idle'; this.stateT = 0; this.cool = 0.3; }
+        if (this.state === 'windup' || this.state === 'strike' || this.state === 'recover') return;
+        if (Math.abs(dx) < cfg.reach && Math.abs(dy) < 20 && this.cool <= 0) { this.state = 'windup'; this.stateT = 0; return; }
+      }
+      // Shooting (shooters, and the boss when you keep your distance).
+      if (cfg.fireEvery && this.cool <= 0 && (!cfg.windup || Math.abs(dx) > 48)) {
+        const hx = this.centerX + this.facing * 8, hy = this.y + 8, tx = p.centerX - hx, ty = p.y + p.h * 0.4 - hy, d = Math.hypot(tx, ty) || 1;
+        this.bullets.push({ x: hx, y: hy, vx: (tx / d) * cfg.bullet, vy: (ty / d) * cfg.bullet, t: 0 });
+        this.cool = cfg.fireEvery; this.state = 'shoot'; this.stateT = 0;
+        st.emit('enemyShot', { x: hx, y: hy });
+        if (!cfg.windup) return;
+      }
+      // Walking toward you.
+      if (cfg.speed && Math.abs(dx) > cfg.reach * 0.7) {
+        this.x = U.clamp(this.x + Math.sign(dx) * cfg.speed * dt, this.minX, this.maxX);
+        this.state = 'walk';
+      } else if (this.state === 'walk') this.state = 'idle';
+    }
+    // The swing's reach, in front of the enemy, while it lands.
+    strikeBox() { return { x: this.facing > 0 ? this.x + this.w : this.x - this.cfg.reach, y: this.y, w: this.cfg.reach, h: this.h }; }
+    kills(p) {
+      for (const b of this.bullets) if (!b.dead && U.overlap(p, { x: b.x - 2, y: b.y - 2, w: 4, h: 4 })) return true;
+      if (!this.alive) return false;
+      if (this.state === 'strike' && U.overlap(p, this.strikeBox())) return true;
+      return false;
+    }
+  }
+
+  // A gun lying on the floor. Walk over it to pick it up. at: [c, r], ammo (default 4).
+  class GunPickup extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const [c, r] = def.at;
+      this.rect = { x: c * T + 2, y: r * T + 8, w: 12, h: 8 };
+      this.taken = false; this.fired = true;
+    }
+    afterPlayer(p) {
+      if (this.taken || this.stage.gun || !U.overlap(p, this.rect)) return;
+      this.taken = true;
+      this.stage.gun = { ammo: this.def.ammo ?? 4 };
+      this.stage.emit('pickup', { x: this.rect.x + 6, y: this.rect.y });
+    }
+  }
+
   KF.Traps = {
     types: {
       collapse: Collapse, spikes: PopSpikes, crusher: Crusher, spring: Spring, shy: Shy,
       doorRun: DoorRun, fakeDoor: FakeDoor, gravity: GravityZone, reverse: ReverseZone,
       hidden: HiddenBlock, taunt: Taunt, mover: Mover, fakeFloor: FakeFloor, wind: Wind, blink: Blink, axe: Axe,
+      enemy: Enemy, gun: GunPickup,
     },
-    matchDeaths,
+    matchDeaths, ENEMY,
     build(stage) {
       const out = [];
       for (const def of stage.def.traps || []) {

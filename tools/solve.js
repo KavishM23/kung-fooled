@@ -51,6 +51,10 @@ class Heap {
 const DECIDE = Number(process.env.DECIDE) || (MARGIN ? 12 : 6); // physics steps per decision (50 ms, or 100 ms in margin mode)
 const ACTIONS = [];
 for (const dir of [1, 0, -1]) for (const jump of [1, 0]) ACTIONS.push({ dir, jump });
+// Levels with enemies (SUPERHOT) also let the search punch and shoot (straight ahead).
+const FIGHT_ACTIONS = ACTIONS.concat([
+  { dir: 1, jump: 0, punch: 1 }, { dir: -1, jump: 0, punch: 1 }, { dir: 0, jump: 0, punch: 1 }, { dir: 0, jump: 0, shoot: 1 },
+]);
 
 function key(st, held) {
   const p = st.player, d = st.world.door;
@@ -60,6 +64,14 @@ function key(st, held) {
   for (const s of st.world.dynamicSolids) k += `,${Math.round(s.x / 4)}:${Math.round(s.y / 4)}:${s.active === false ? 0 : 1}`;
   if (st.def.traps && st.def.traps.some((t) => t.when && t.when.time !== undefined)) k += '|' + Math.floor(st.t / 0.25);
   for (const tr of st.traps) if (tr.period) k += '|' + Math.floor(((st.t + (tr.def.offset || 0)) % tr.period) / 0.1);
+  if (st.enemies && st.enemies.length) { // fights: who is alive, where, doing what; bullets; your gun
+    for (const e of st.enemies) {
+      k += `|${e.alive ? e.hp : 'x'}`;
+      if (e.alive) k += `,${Math.round(e.x / 4)},${e.state[0]}${Math.floor(e.stateT / 0.1)},${e.stun > 0 ? 1 : 0},${e.aware ? 1 : 0},${Math.max(0, Math.ceil(e.cool / 0.2))}`;
+      for (const b of e.bullets) k += `;${Math.round(b.x / 6)},${Math.round(b.y / 6)}`;
+    }
+    k += `|g${st.gun ? st.gun.ammo : '-'}|${st.shots.length}|${st.attackCool > 0 ? 1 : 0}`;
+  }
   return k;
 }
 
@@ -79,6 +91,11 @@ function heuristic(st) {
       dist += Math.hypot(nx - px, ny - py); px = nx; py = ny;
     }
   }
+  // THE SYSTEM locks the exit: go to him first, and every hit he still needs costs time.
+  if (st.locked) {
+    const b = st.boss;
+    dist = Math.abs(b.centerX - p.centerX) + Math.abs(d.x - b.centerX) + b.hp * 40;
+  }
   return dist / 120;
 }
 
@@ -92,11 +109,12 @@ function solve(def, deaths, budget = Number(process.env.BUDGET || 250000)) {
   while (open.size && expanded < budget) {
     const node = open.pop();
     expanded++;
-    for (const a of ACTIONS) {
+    for (const a of (node.st.enemies && node.st.enemies.length ? FIGHT_ACTIONS : ACTIONS)) {
       const st = clone(node.st, new Map());
-      const input = { left: a.dir < 0, right: a.dir > 0, jumpHeld: !!a.jump, jumpPressed: false };
+      const input = { left: a.dir < 0, right: a.dir > 0, jumpHeld: !!a.jump, jumpPressed: false, punch: false, shoot: false };
       for (let i = 0; i < DECIDE && st.state === 'play'; i++) {
         input.jumpPressed = i === 0 && a.jump && !node.held;
+        input.punch = i === 0 && !!a.punch; input.shoot = i === 0 && !!a.shoot;
         st.step(KF.STEP, input);
         st.events.length = 0;
       }
@@ -111,7 +129,7 @@ function solve(def, deaths, budget = Number(process.env.BUDGET || 250000)) {
       const g = node.g + DECIDE * KF.STEP;
       // Firing a trap and surviving is progress in this game (blocks revealed, doors scared off),
       // so such states get a small bonus.
-      const fired = st.traps.reduce((n, tr) => n + (tr.fired ? 1 : 0), 0);
+      const fired = st.traps.reduce((n, tr) => n + (tr.fired ? 1 : 0), 0) + (st.enemies || []).reduce((n, e) => n + (e.alive ? 0 : 2), 0);
       open.push({ st, held: !!a.jump, g, f: g + heuristic(st) * WEIGHT - fired * 1.5, seq });
     }
   }
@@ -133,7 +151,7 @@ function describe(seq) {
   steps.reverse();
   const out = [];
   for (const s of steps) {
-    const tag = (s.dir > 0 ? 'R' : s.dir < 0 ? 'L' : '_') + (s.jump ? 'J' : '');
+    const tag = (s.dir > 0 ? 'R' : s.dir < 0 ? 'L' : '_') + (s.jump ? 'J' : '') + (s.punch ? 'P' : '') + (s.shoot ? 'S' : '');
     if (out.length && out[out.length - 1].tag === tag) out[out.length - 1].n++;
     else out.push({ tag, n: 1 });
   }

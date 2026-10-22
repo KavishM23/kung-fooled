@@ -29,6 +29,8 @@
       this.paused = false; this.pauseSel = 0;
       this.deathPulse = 0;
       this.banner = null;
+      this.fights = (this.def.traps || []).some((t) => t.type === 'enemy'); // SUPERHOT: fights in the level
+      if (this.fights) this.cursor = 'crosshair';
       this.newAttempt();
       this.setPhase(this.style.crashIntro ? 'crash' : 'intro');
       A.music(this.def.music || this.door.music);
@@ -43,6 +45,7 @@
       this.layer = KF.Render.bakeStage(this.stage.world, this.theme, this.style.smooth ? this.engine.scale : KF.RES);
       this.trail = []; this.trailT = 0;
       this.hist = [];
+      this.shards = []; this.chantAt = -1;
       this.ko = null;
       this.spawnFlash = 1;
       this.wasReversed = false;
@@ -94,6 +97,16 @@
           case 'bonk': A.sfx('bonk'); fx.tick(e.x, e.y + 8); break;
           case 'poof': A.sfx('whoosh'); fx.dust(e.x, e.y, 8); break;
           case 'say': A.sfx('say'); fx.say(e.text, e.x, e.y); break;
+          case 'shatter':
+            this.shatter(e); fx.shake(e.boss ? 10 : 4, e.boss ? 0.6 : 0.2);
+            if (A.fx) A.fx('deathShatter'); else A.sfx('crumble');
+            if (e.boss) { this.chantAt = this.time; fx.flash = 1; }
+            break;
+          case 'gunshot': A.sfx('heavy'); fx.shake(2, 0.06); break;
+          case 'enemyShot': A.sfx('punch', { speed: 2 }); break;
+          case 'pickup': A.sfx('select'); fx.tick(e.x, e.y); break;
+          case 'throw': case 'swing': A.sfx('whoosh'); break;
+          case 'clink': A.sfx('block'); fx.spark(e.x, e.y, 0.5); break;
           case 'win': if (KF.Present.has(this.style.id, 'win')) KF.Present.sfx(this.style.id, 'win', { perfect: this.deaths === 0 }); else A.sfx('win'); fx.confetti(e.x, e.y); this.mood.cheer = 1.6; break;
         }
       }
@@ -144,12 +157,13 @@
           break;
         case 'play':
           this.time += dt;
-          this.stage.step(dt, input);
+          this.stage.step(dt, this.fights ? this.fightInput(input) : input);
           // Stand still too long and the narrator gets bored.
           if (p.reversed && !this.wasReversed) A.sfx('reverse');
           this.wasReversed = p.reversed;
           this.handleEvents();
           this.updateTrail(dt);
+          if (this.fights) this.updateShards(dt * (this.stage.timeK ?? 1));
           if (this.rule.rewind) { // the tape keeps the last second and a bit, for the rewind on death
             this.hist.push({ x: p.x, y: p.y, state: p.state, stateT: p.stateT, facing: p.facing, flip: p.gravDir < 0 });
             if (this.hist.length > 150) this.hist.shift();
@@ -177,6 +191,7 @@
           break;
         case 'win':
           p.stateT += dt;
+          if (this.fights) this.updateShards(dt);
           this.stage.step(dt, { left: false, right: false, jumpHeld: false, jumpPressed: false });
           if (this.cue('banner', 0.45)) { if (!KF.Present.has(this.style.id, 'win')) A.sfx(this.deaths === 0 ? 'perfect' : 'confirm'); this.fx.shake(4, 0.2); }
           if (this.phaseT > 1.2 && (input.jumpPressed || input.wasPressed('Enter', 'Space') || this.tap)) this.next();
@@ -184,6 +199,41 @@
           break;
       }
       this.updateCamera(1 - Math.pow(0.0008, dt));
+    }
+
+    // In levels with enemies: J / Z / K / X punch, F / V shoot straight ahead, a left click shoots
+    // at the cursor when you hold a gun (punches otherwise), right click punches.
+    fightInput(input) {
+      const c = this.cam, gun = !!this.stage.gun, m = input.mouse;
+      const shootKey = input.wasPressed('KeyF', 'KeyV'), clickShot = this.tap && gun;
+      return {
+        left: input.left, right: input.right, jumpHeld: input.jumpHeld, jumpPressed: input.jumpPressed,
+        punch: input.wasPressed('KeyJ', 'KeyZ', 'KeyK', 'KeyX') || input.rclicked || (this.tap && !gun),
+        shoot: shootKey || clickShot,
+        aim: clickShot && m.seen ? { x: m.x + c.x, y: m.y + c.y } : null,
+      };
+    }
+
+    // Red glass shards from a broken enemy. They fall in the world's own (slowed) time.
+    shatter(e) {
+      const n = e.boss ? 60 : 26, rnd = U.rng((e.x * 7 + e.y * 13) | 0);
+      for (let i = 0; i < n; i++) {
+        const a = rnd() * Math.PI * 2, v = 40 + rnd() * (e.boss ? 260 : 170), sz = 1.5 + rnd() * (e.boss ? 5 : 3.5);
+        this.shards.push({
+          x: e.x + (rnd() - 0.5) * e.w, y: e.y + (rnd() - 0.5) * e.h, vx: Math.cos(a) * v + e.dir * 60, vy: Math.sin(a) * v - 90,
+          rot: rnd() * 6, vr: (rnd() - 0.5) * 14, life: 2.5 + rnd() * 1.5,
+          pts: [[0, -sz], [sz * 0.9, sz * 0.7], [-sz * 0.8, sz * 0.6]], col: ['#ff2a1a', '#d01008', '#ff6a50', '#a00806', '#ffb0a0'][Math.floor(rnd() * 5)],
+        });
+      }
+    }
+    updateShards(dt) {
+      const floor = this.stage.world.pixelH;
+      for (const p of this.shards) {
+        p.vy += 520 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.rot += p.vr * dt; p.life -= dt;
+        if (this.stage.world.overlapsSolid(p.x, p.y, 1, 1, null)) { p.y -= p.vy * dt; p.vy *= -0.3; p.vx *= 0.6; p.vr *= 0.5; }
+        if (p.y > floor + 20) p.life = 0;
+      }
+      this.shards = this.shards.filter((p) => p.life > 0);
     }
 
     updateTrail(dt) {
@@ -203,19 +253,20 @@
       const p = this.stage.player;
       p.state = 'victory'; p.stateT = 0; p.vx = 0;
       this.trail = [];
-      this.coins = this.training ? 0 : KF.Save.completeNode(this.door.id, KF.Path.nodeOfStage(this.stageIdx), { deaths: this.deaths });
+      this.coins = this.training ? 0 : KF.Save.completeNode(this.door.id, KF.Path.of(this.door).nodeOfStage(this.stageIdx), { deaths: this.deaths });
     }
 
-    // After a stage: the realm's next street fighter, or its boss after stage 5.
+    // After a level: whatever comes next on the realm's path (another level, a street fight, the
+    // boss), or back to the map when the path is done.
     next() {
       const e = this.engine, r = this.doorIdx, s = this.stageIdx;
       if (this.training) { e.go(() => new KF.MapScene(e)); return; }
-      const style = this.style.id;
-      const env = this.def.env;
-      // Path: level, level, street fight, level, level, boss.
-      if (s === this.door.stages.length - 1) e.go(() => new KF.FightScene(e, { mode: 'boss', realm: r, node: KF.Path.boss, def: KF.Roster.bossDef(r), style, env }));
-      else if (s === 1) e.go(() => new KF.FightScene(e, { mode: 'street', realm: r, node: KF.Path.street, def: KF.Roster.streetDef(r, 0), style, env }));
-      else e.go(() => new KF.PlayScene(e, { door: r, stage: s + 1 }));
+      const style = this.style.id, env = this.def.env, path = KF.Path.of(this.door);
+      const n = path.nodeOfStage(s) + 1, kind = path.kinds[n];
+      if (kind === 'boss') e.go(() => new KF.FightScene(e, { mode: 'boss', realm: r, node: n, def: KF.Roster.bossDef(r), style, env }));
+      else if (kind === 'street') e.go(() => new KF.FightScene(e, { mode: 'street', realm: r, node: n, def: KF.Roster.streetDef(r, 0), style, env }));
+      else if (kind === 'level') e.go(() => new KF.PlayScene(e, { door: r, stage: path.stageOfNode(n) }));
+      else e.go(() => new KF.MapScene(e, { cleared: r }));
     }
 
     updatePause(input) {
@@ -256,6 +307,7 @@
       if (sight) w.restore();
       const doorOpen = this.phase === 'win' ? Math.min(1, this.phaseT * 4) : 0;
       KF.Render.door(w, st, cam, t, doorOpen, this.theme);
+      if (this.fights) this.renderFight(w, cam, t, false);
 
       const glow = style.playerGlow || 0;
       if (this.phase === 'ko' && this.rule.rewind && this.hist.length) {
@@ -277,6 +329,7 @@
       } else if (this.phase !== 'crash') {
         KF.Render.player(w, p, pos, cam, { trail: this.trail, flash: Math.max(glow, this.spawnFlash * 0.8), state: this.phase === 'win' ? 'victory' : null, theme: this.theme });
       }
+      if (this.fights) this.renderFight(w, cam, t, true);
       this.fx.render(w, cam);
       if (this.fx.flash > 0) { w.globalAlpha = this.fx.flash * 0.5; w.fillStyle = '#ffffff'; w.fillRect(0, 0, VW, VH); w.globalAlpha = 1; }
 
@@ -311,7 +364,94 @@
         scene: this, worldName: this.worldName, remaining: st.remaining, time: this.time, deaths: this.deaths, deathPulse: this.deathPulse,
         reversed: p.reversed !== !!st.rule.reverse && this.phase === 'play', flipped: p.gravDir < 0,
       }, t);
+      if (this.fights && this.phase !== 'crash') this.renderFightHUD(ctx, t);
       this.renderOverlay(ctx, t);
+    }
+
+    // SUPERHOT actors. Pass 1 (behind you): guns on the floor, enemies, the lock on the exit.
+    // Pass 2 (in front): bullets with their trails, your gun and punch, flying shards.
+    renderFight(ctx, cam, t, front) {
+      const st = this.stage, p = st.player, R = (c, x, y, w, h) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); };
+      const gunShape = (x, y, d, col = '#121216') => { // a little obsidian pistol, barrel toward d
+        R(col, d > 0 ? x : x - 9, y, 9, 3); R(col, d > 0 ? x : x - 3, y + 3, 3, 4); R('#4a4a58', d > 0 ? x + 1 : x - 8, y, 6, 1);
+      };
+      if (!front) {
+        for (const tr of st.traps) {
+          if (tr instanceof KF.Traps.types.gun && !tr.taken) {
+            const bob = Math.sin(t * 3 + tr.rect.x) * 1.5;
+            ctx.fillStyle = 'rgba(0,0,0,0.15)'; ctx.beginPath(); ctx.ellipse(tr.rect.x + 6 - cam.x, tr.rect.y + 8 - cam.y, 7, 1.5, 0, 0, 7); ctx.fill();
+            gunShape(Math.round(tr.rect.x + 1 - cam.x), Math.round(tr.rect.y - 2 + bob - cam.y), 1);
+          }
+        }
+        for (const e of st.enemies) if (e.alive) this.drawEnemy(ctx, e, cam, t);
+        if (st.locked && st.world.door) { // red bars across the exit until THE SYSTEM breaks
+          const d = st.world.door, x = d.x - cam.x, y = d.y - cam.y;
+          for (let i = 0; i < 4; i++) R('#d01008', x - 2, y + 4 + i * 7, d.w + 4, 2);
+        }
+        return;
+      }
+      const trail = (b, len, col, w) => {
+        const sp = Math.hypot(b.vx, b.vy) || 1, l = Math.min(len, b.t * sp);
+        ctx.strokeStyle = col; ctx.lineWidth = w; ctx.beginPath();
+        ctx.moveTo(b.x - cam.x, b.y - cam.y); ctx.lineTo(b.x - cam.x - (b.vx / sp) * l, b.y - cam.y - (b.vy / sp) * l); ctx.stroke();
+      };
+      for (const e of st.enemies) for (const b of e.bullets) {
+        trail(b, 46, 'rgba(230,20,10,0.55)', 1.5);
+        ctx.fillStyle = '#121216'; ctx.beginPath(); ctx.arc(b.x - cam.x, b.y - cam.y, 2, 0, 7); ctx.fill();
+      }
+      for (const b of st.shots) {
+        if (b.kind === 'gun') {
+          ctx.save(); ctx.translate(b.x - cam.x, b.y - cam.y); ctx.rotate(b.t * 18); gunShape(-4, -2, 1); ctx.restore();
+        } else { trail(b, 60, 'rgba(40,40,48,0.4)', 1.2); ctx.fillStyle = '#121216'; ctx.beginPath(); ctx.arc(b.x - cam.x, b.y - cam.y, 1.6, 0, 7); ctx.fill(); }
+      }
+      if (!p.dead && this.phase === 'play' || this.phase === 'win') {
+        const fx = p.centerX - cam.x + p.facing * 9, fy = p.y - cam.y + 6;
+        if (st.gun) gunShape(Math.round(fx), Math.round(fy), p.facing);
+        if (p.punchT > 0) { // the punch: a quick white arc in front of you
+          const k = 1 - p.punchT / 0.16;
+          ctx.strokeStyle = `rgba(255,255,255,${0.9 - k * 0.7})`; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(p.centerX - cam.x, p.y + 9 - cam.y, 14 + k * 8, p.facing > 0 ? -0.7 : Math.PI - 0.7, p.facing > 0 ? 0.7 : Math.PI + 0.7); ctx.stroke();
+        }
+      }
+      for (const s of this.shards) {
+        ctx.save(); ctx.translate(s.x - cam.x, s.y - cam.y); ctx.rotate(s.rot); ctx.globalAlpha = Math.min(1, s.life);
+        ctx.fillStyle = s.col; ctx.beginPath(); ctx.moveTo(s.pts[0][0], s.pts[0][1]); ctx.lineTo(s.pts[1][0], s.pts[1][1]); ctx.lineTo(s.pts[2][0], s.pts[2][1]); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+    }
+
+    // A red crystal enemy, drawn in the smooth low-poly look when available (js/vector.js),
+    // otherwise as the pixel crystal sprite.
+    drawEnemy(ctx, e, cam, t) {
+      const P = KF.Sprites.POSES, ph = Math.floor((t + e.x * 0.01) * 6);
+      let name = 'idle';
+      if (e.state === 'walk') name = 'walk';
+      else if (e.state === 'windup') name = 'windup';
+      else if (e.state === 'strike') name = e.boss ? 'cross' : 'jab';
+      else if (e.state === 'stagger') name = 'stagger';
+      else if (e.kind === 'shooter' && e.aware) name = 'jab'; // arm out, aiming
+      const list = P[name] || P.idle, pose = list[ph % list.length];
+      if (!e.look) {
+        const cast = KF.Roster && KF.Roster.ALL && KF.Roster.ALL.find((f) => f.name === (e.boss ? 'THE SYSTEM' : 'NO ONE'));
+        e.look = Object.assign({}, cast ? cast.look : {}, { material: 'crystal' });
+      }
+      const scale = e.boss ? 1.35 : 1, x = Math.round(e.centerX - cam.x), y = Math.round(e.y + e.h - cam.y);
+      const flash = e.stun > 0 ? Math.min(1, e.stun * 3) * 0.6 : 0;
+      ctx.save(); ctx.translate(x, y); ctx.scale(e.facing, 1);
+      if (KF.Vec && KF.Vec.draw) KF.Vec.draw(ctx, pose, e.look, { vlook: 'lowpoly', crystal: true, scale, flash, t });
+      else {
+        e.set = e.set || KF.Sprites.buildSet(e.look, scale, [name, 'idle', 'walk', 'windup', 'jab', 'cross', 'stagger']);
+        const fr = (e.set.frames[name] || e.set.frames.idle)[ph % (e.set.frames[name] || e.set.frames.idle).length];
+        KF.Sprites.blit(ctx, fr, e.set);
+      }
+      ctx.restore();
+      if (e.kind !== 'brawler' && e.aware && !e.boss) { // shooters hold a gun
+        ctx.fillStyle = '#121216'; ctx.fillRect(x + e.facing * 7 - (e.facing < 0 ? 8 : 0), y - 16, 8, 3);
+      }
+      if (e.state === 'windup') { // a warning glint before the swing lands
+        ctx.fillStyle = `rgba(255,255,255,${0.4 + 0.4 * Math.sin(t * 40)})`;
+        ctx.beginPath(); ctx.arc(x + e.facing * 10, y - e.h + 6, 2.5, 0, 7); ctx.fill();
+      }
     }
 
     // The world's K.O. card, start text and win text (js/present.js). They are drawn into the world
@@ -327,6 +467,26 @@
         ctx.restore();
       }
       if (this.phase === 'win' && this.phaseT > 0.45) P.win(ctx, id, this.phaseT - 0.45, { perfect: this.deaths === 0, deaths: this.deaths });
+    }
+
+    // Under the top strip: rounds in your gun, and THE SYSTEM's health once he has seen you.
+    renderFightHUD(ctx, t) {
+      const st = this.stage, R = (c, x, y, w, h) => { ctx.fillStyle = c; ctx.fillRect(x, y, w, h); };
+      if (st.gun) {
+        for (let i = 0; i < Math.max(st.gun.ammo, 1); i++) R(i < st.gun.ammo ? '#121216' : 'rgba(18,18,22,0.3)', 6 + i * 5, 18, 3, 7);
+        F.draw(ctx, st.gun.ammo ? '' : 'EMPTY: CLICK TO THROW', 6, 18, '#d01008', 1, 'left');
+      }
+      const b = st.boss;
+      if (b && b.alive && b.aware) {
+        const W = 150, x = VW / 2 - W / 2, y = 19;
+        R('rgba(8,4,16,0.75)', x - 2, y - 2, W + 4, 9);
+        R('#d01008', x, y, Math.round(W * b.hp / b.maxHp), 5);
+        F.draw(ctx, b.name, VW / 2, y + 8, '#d01008', 1, 'center', '#000');
+      }
+      if (this.chantAt >= 0) { // SUPER. HOT. SUPER. HOT.
+        const ct = this.time - this.chantAt + (this.phase === 'win' ? this.phaseT : 0), k = Math.floor(ct / 0.42);
+        if (ct > 0.3 && k < 6) KF.BigText.draw(ctx, k % 2 ? 'HOT' : 'SUPER', VW / 2, 80, KF.BigText.fit ? KF.BigText.fit('SUPER', VW - 40, 7) : 6, KF.BigText.STYLES.superhot ? 'superhot' : 'steel');
+      }
     }
 
     renderOverlay(ctx, t) {
@@ -368,8 +528,9 @@
           if (this.coins) { KF.HUD.coin(ctx, VW / 2 - 30, 162, t); F.draw(ctx, `+${this.coins} COINS`, VW / 2 - 18, 163, '#ffd040', 1, 'left', '#000'); }
         }
         if (pt > 1.2 && Math.floor(t * 3) % 2) {
-          const last = !this.training && this.stageIdx === this.door.stages.length - 1;
-          F.draw(ctx, this.training ? 'JUMP: BACK TO MAP' : last ? 'JUMP: FACE THE BOSS!' : this.stageIdx === 1 ? 'JUMP: A CHALLENGER APPROACHES' : 'JUMP: NEXT LEVEL', VW / 2, 175, '#ffd040', 1, 'center', '#000');
+          const path = KF.Path.of(this.door), nk = this.training ? null : path.kinds[path.nodeOfStage(this.stageIdx) + 1];
+          const msg = this.training ? 'JUMP: BACK TO MAP' : nk === 'boss' ? 'JUMP: FACE THE BOSS!' : nk === 'street' ? 'JUMP: A CHALLENGER APPROACHES' : nk === 'level' ? 'JUMP: NEXT LEVEL' : 'JUMP: REALM CLEARED!';
+          F.draw(ctx, msg, VW / 2, 175, '#ffd040', 1, 'center', '#000');
         }
       }
       if (this.paused) {

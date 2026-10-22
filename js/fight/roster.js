@@ -88,7 +88,8 @@
     arcade: ['MIRA', 'THE LANDLORD'], oldtv: ['JOHNNY TV', 'BRAMBLE'], pocket: ['BUG KID', 'GRANDMA HANA'],
     comic: ['THE GREAT ZORBO', 'CAPTAIN KAPOW'], argo: ['LIKEZ', 'HOLO IDOL'], eightbit: ['DUSTY', 'BLACK BART'],
     woodblock: ['OLD BRUSH', 'HANAKO OF THE STORM'], vhs: ['DAICHI', 'THE DETECTIVE'], vapor: ['AESTHETIC', 'NEON EMPRESS'],
-    cyber: ['VOLT', 'THE SYSTEM'],
+    cyber: ['VOLT', 'CHROME COURIER'],
+    superhot: ['NETRUNNER', 'THE SYSTEM'], // fought inside the SUPERHOT levels, not in fight scenes
   };
   const REALM = {};
   for (const id in CAST) REALM[id] = { fighters: [byName(CAST[id][0])], boss: byName(CAST[id][1]) };

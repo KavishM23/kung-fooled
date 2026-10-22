@@ -14,24 +14,25 @@
       this.door = KF.Doors[realmIdx];
       this.theme = KF.Themes.get(this.door.theme);
       this.save = KF.Save.realm(this.door.id);
-      this.sel = Math.min(KF.Path.count - 1, this.save.node);
+      this.path = KF.Path.of(this.door);
+      this.sel = Math.min(this.path.count - 1, this.save.node);
       this.scroll = this.sel;
       this.t = 0;
       A.music(this.door.music);
     }
-    // Nodes along the path (KF.Path): level, level, street fight, level, level, boss.
+    // Nodes along the realm's path (this.path.of): by default level, level, street fight, level, level, boss.
     node(i) {
-      const roster = KF.Roster.R[this.door.id], kind = KF.Path.kinds[i];
+      const roster = KF.Roster.R[this.door.id], kind = this.path.kinds[i];
       if (kind === 'boss') return { kind, name: roster.boss.name, label: 'BOSS', look: roster.boss.look };
       if (kind === 'street') { const f = roster.fighters[0]; return { kind, name: f.name, label: 'STREET FIGHT', look: f.look }; }
-      const s = KF.Path.stageOfNode(i), def = this.door.stages[s], rule = KF.Rules.get(def), style = KF.Styles.forStage(this.door.id, s, def);
+      const s = this.path.stageOfNode(i), def = this.door.stages[s], rule = KF.Rules.get(def), style = KF.Styles.forStage(this.door.id, s, def);
       return { kind, stage: s, name: KF.placeName(def.env), rule: rule.rule, label: `LEVEL ${s + 1}`, style, def };
     }
     // The style a fight at node i uses: the one of the level just before it.
-    fightOpts(i) { const def = this.door.stages[KF.Path.stageOfNode(i - 1)]; return { style: def.style, env: def.env }; }
+    fightOpts(i) { const def = this.door.stages[this.path.stageOfNode(i - 1)]; return { style: def.style, env: def.env }; }
     update(dt) {
       this.t += dt;
-      const inp = this.engine.input, e = this.engine, max = KF.Path.count - 1; // every node is open
+      const inp = this.engine.input, e = this.engine, max = this.path.count - 1; // every node is open
       if (inp.wasPressed('ArrowLeft', 'KeyA')) { this.sel = Math.max(0, this.sel - 1); A.sfx('select'); }
       if (inp.wasPressed('ArrowRight', 'KeyD')) { if (this.sel < max) { this.sel++; A.sfx('select'); } else A.sfx('bonk'); }
       this.scroll += (this.sel - this.scroll) * Math.min(1, dt * 10);
@@ -42,8 +43,8 @@
       if (inp.wasPressed('KeyC') || click === 'shop') e.go(() => new KF.ShopScene(e, { back: this.r }));
       if (go) {
         A.sfx('confirm');
-        const i = this.sel, r = this.r, kind = KF.Path.kinds[i];
-        if (kind === 'level') e.go(() => new KF.PlayScene(e, { door: r, stage: KF.Path.stageOfNode(i) }));
+        const i = this.sel, r = this.r, kind = this.path.kinds[i];
+        if (kind === 'level') e.go(() => new KF.PlayScene(e, { door: r, stage: this.path.stageOfNode(i) }));
         else if (kind === 'boss') e.go(() => new KF.FightScene(e, { mode: 'boss', realm: r, node: i, def: KF.Roster.bossDef(r), ...this.fightOpts(i) }));
         else e.go(() => new KF.FightScene(e, { mode: 'street', realm: r, node: i, def: KF.Roster.streetDef(r, 0), ...this.fightOpts(i) }));
       }
@@ -77,14 +78,14 @@
       this.theme.background(ctx, { x: t * 10, y: 0 }, this.engine.time, { cheer: 0.25 });
       R(ctx, 'rgba(10,6,20,0.55)', 0, 0, VW, KF.VIEW_H);
       KF.UI.header(ctx, this.door.name, this.door.sub, t);
-      for (let i = 0; i < KF.Path.count; i++) {
+      for (let i = 0; i < this.path.count; i++) {
         const cx = VW / 2 + (i - this.scroll) * GAP;
         if (cx > -CW && cx < VW + CW) this.card(ctx, i, cx, t);
       }
       // Progress: ten pips, levels square, fights round.
-      const N = KF.Path.count, px0 = VW / 2 - (N - 1) * 12;
+      const N = this.path.count, px0 = VW / 2 - (N - 1) * 12;
       for (let i = 0; i < N; i++) {
-        const x = px0 + i * 24, y = 150, n = KF.Path.kinds[i], on = this.save.won[i], here = i === this.sel;
+        const x = px0 + i * 24, y = 150, n = this.path.kinds[i], on = this.save.won[i], here = i === this.sel;
         if (i < N - 1) R(ctx, i < this.save.node ? '#ffd040' : '#3a3050', x + 3, y + 2, 21, 1);
         R(ctx, here ? '#ffffff' : '#0a0610', x - 3, y - 2, 9, 9);
         R(ctx, on ? (n === 'boss' ? '#ff5040' : n === 'street' ? '#7cd8ff' : '#ffd040') : i <= this.save.node ? '#6a6080' : '#2a2238', x - 2, y - 1, 7, 7);

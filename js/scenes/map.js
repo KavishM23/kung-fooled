@@ -53,8 +53,9 @@
         F.draw(ctx, d.name, cx, y + 73, '#ffffff', 1, 'center', '#000');
         F.draw(ctx, d.sub, cx, y + 82, '#9ad8ff', 1, 'center', '#000');
         // progress pips: level, level, fight, level, level, boss
-        for (let k = 0; k < KF.Path.count; k++) {
-          const done = save.won[k], px = x + 16 + k * 13, kind = KF.Path.kinds[k];
+        const path = KF.Path.of(d), step = Math.min(13, 78 / Math.max(1, path.count - 1)), px0 = x + 52 - ((path.count - 1) * step) / 2 - 3;
+        for (let k = 0; k < path.count; k++) {
+          const done = save.won[k], px = Math.round(px0 + k * step), kind = path.kinds[k];
           R('#0a0610', px, y + 94, 7, 7);
           R(done ? (kind === 'boss' ? '#ff5040' : kind === 'street' ? '#7cf0ff' : '#ffd040') : '#2a2238', px + 1, y + 95, 5, 5);
         }

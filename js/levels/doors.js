@@ -18,8 +18,12 @@
     { id: 'vhs', name: 'VHS', sub: 'HOME VIDEO 1996', style: 'vhs', theme: 'vhs_backyard', music: 'rooftop', envs: ['vhs_backyard', 'vhs_rooftop', 'vhs_mall', 'vhs_train'] },
     { id: 'vapor', name: 'VAPORWAVE', sub: 'SLOWED + REVERB', style: 'vaporwave', theme: 'vapor_plaza', music: 'neon', envs: ['vapor_plaza', 'vapor_neon', 'vapor_harbour', 'vapor_train'] },
     { id: 'cyber', name: 'CYBER', sub: 'NEO-TOKYO 2099', style: 'cyberpunk', theme: 'cyber_megacity', music: 'cyber', envs: ['cyber_megacity', 'cyber_hologram', 'cyber_chrome', 'cyber_datacore'] },
+    // SUPERHOT: the fights happen inside the levels (red crystal enemies, guns, THE SYSTEM at the
+    // end of level 4), so its path is just four levels.
+    { id: 'superhot', name: 'SUPERHOT', sub: 'THINK. THEN MOVE', style: 'superhot', theme: 'superhot_office', music: 'cyber', bucket: 'superhot',
+      envs: ['superhot_office', 'superhot_subway', 'superhot_rooftop', 'superhot_core'], path: ['level', 'level', 'level', 'level'] },
   ];
-  const BUCKETS = ['rooftop', 'harbour', 'neon', 'temple', 'train', 'sakura', 'viking', 'cyber'];
+  const BUCKETS = ['rooftop', 'harbour', 'neon', 'temple', 'train', 'sakura', 'viking', 'cyber', 'superhot'];
   const pool = {};
   BUCKETS.forEach((b) => { pool[b] = []; });
 
@@ -30,24 +34,37 @@
   KF.placeName = (env) => PLACES[env] || (KF.Themes && KF.Themes.has(env) && KF.Themes.get(env).title) ||
     ((KF.Rules && KF.Rules.all[String(env).replace('env_', '')]) || {}).name || String(env).replace(/^[a-z]+_/, '').toUpperCase();
 
-  // The six nodes of a realm's path.
-  KF.Path = {
-    kinds: ['level', 'level', 'street', 'level', 'level', 'boss'],
-    count: 6, street: 2, boss: 5,
-    nodeOfStage: (s) => [0, 1, 3, 4][s],
-    stageOfNode: (n) => ({ 0: 0, 1: 1, 3: 2, 4: 3 })[n],
-  };
+  // A realm's path: the default is level, level, street fight, level, level, boss; a realm may give
+  // its own (door.path). KF.Path.of(door) has the helpers for one realm; KF.Path itself is the
+  // default path, kept for callers that don't pass a realm.
+  function makePath(kinds) {
+    const levels = [];
+    kinds.forEach((k, i) => { if (k === 'level') levels.push(i); });
+    return {
+      kinds, count: kinds.length, street: kinds.indexOf('street'), boss: kinds.indexOf('boss'),
+      nodeOfStage: (s) => levels[s],
+      stageOfNode: (n) => { const i = levels.indexOf(n); return i < 0 ? undefined : i; },
+    };
+  }
+  const DEFAULT_PATH = makePath(['level', 'level', 'street', 'level', 'level', 'boss']);
+  const paths = {};
+  KF.Path = Object.assign({}, DEFAULT_PATH, {
+    of(door) {
+      if (!door || !door.path) return DEFAULT_PATH;
+      return paths[door.id] || (paths[door.id] = makePath(door.path));
+    },
+  });
 
   let built = null;
   function build() {
     if (built) return built;
     built = {};
     const cy = pool.cyber, order = [];
-    for (const b of BUCKETS) if (b !== 'cyber') order.push(...pool[b]);
+    for (const b of BUCKETS) if (b !== 'cyber' && b !== 'superhot') order.push(...pool[b]);
     if (cy[2]) order.push(cy[2]); // the low-poly VR stage joins the main run
     const cyber = [cy[0], cy[1], cy[3], cy[4]].filter(Boolean);
     REALMS.forEach((r, k) => {
-      const src = r.id === 'cyber' ? cyber : order.slice(4 * k, 4 * k + 4);
+      const src = r.bucket ? pool[r.bucket] : r.id === 'cyber' ? cyber : order.slice(4 * k, 4 * k + 4);
       built[r.id] = src.map((def, j) => KF.util.deepFreeze(Object.assign({}, def, {
         realm: r.id, index: j, env: r.envs[j], theme: r.envs[j],
         style: (r.styles && r.styles[j]) || r.style, music: PLACE_MUSIC[r.envs[j]] || r.music,

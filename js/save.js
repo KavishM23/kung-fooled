@@ -42,12 +42,14 @@
       r.won[node] = true;
       r.node = Math.max(r.node, node + 1);
       let coins;
-      const kind = KF.Path.kinds[node], isStage = kind === 'level', isBoss = kind === 'boss';
+      const path = KF.Path.of(KF.Doors[realmIdx]), kind = path.kinds[node];
+      const isStage = kind === 'level', isBoss = kind === 'boss', last = node === path.count - 1;
       if (isStage) {
         coins = first ? 20 : 5;
         if (extra.deaths === 0) coins += first ? 10 : 2;
-        const s = KF.Path.stageOfNode(node);
+        const s = path.stageOfNode(node);
         if (r.best[s] === undefined || extra.deaths < r.best[s]) r.best[s] = extra.deaths;
+        if (last) { coins += first ? 100 + 20 * realmIdx : 15; r.cleared = true; } // a realm that ends on a level (SUPERHOT)
       } else if (isBoss) {
         coins = first ? 100 + 20 * realmIdx : 20;
         r.cleared = true;

@@ -22,6 +22,11 @@
       this.firedIds = {};
       this.claimed = [];
       this.traps = KF.Traps.build(this);
+      // SUPERHOT fights inside the level: enemies, your gun, your shots.
+      this.enemies = this.traps.filter((tr) => tr instanceof KF.Traps.types.enemy);
+      this.boss = this.enemies.find((e) => e.boss) || null;
+      this.gun = null; this.shots = [];
+      this.attackCool = 0; this.burst = 0; this.timeK = 1;
       const d = this.world.door;
       this.doorStart = d ? { x: d.x, y: d.y } : null;
     }
@@ -69,8 +74,11 @@
       const p = this.player, w = this.world;
       dt *= this.rule.timeScale || 1;
       // SUPERHOT: with no input the whole world (you included) crawls; any input runs it at speed.
+      // A punch or a shot keeps time moving for a moment, so the blow lands.
       if (this.rule.superhot) {
-        this.timeK = input.left || input.right || input.jumpHeld || input.jumpPressed ? 1 : 0.06;
+        if (input.punch || input.shoot) this.burst = 0.22;
+        this.timeK = input.left || input.right || input.jumpHeld || input.jumpPressed || this.burst > 0 ? 1 : 0.06;
+        this.burst -= dt;
         dt *= this.timeK;
       }
       if (this.state !== 'play') { p.prevX = p.x; p.prevY = p.y; return; }
@@ -99,6 +107,7 @@
       for (const tr of this.traps) tr.afterPlayer(p);
       for (const e of p.events) this.emit(e.type, { ...e, x: p.centerX, y: p.gravDir > 0 ? p.y + p.h : p.y, g: p.gravDir });
       p.events.length = 0;
+      if (this.enemies.length) this.fight(dt, input);
       if (this.checkKills()) return;
 
       if (w.spikeHit(p)) return this.kill('spikes');
@@ -107,7 +116,49 @@
 
       const d = w.door;
       // A running door can't be caught mid-sprint; it has to stop first.
-      if (d && !d.moving && U.overlap(p, { x: d.x + 3, y: d.y + (d.flipped ? 0 : 4), w: d.w - 6, h: d.h - 4 })) this.win();
+      if (d && !d.moving && !this.locked && U.overlap(p, { x: d.x + 3, y: d.y + (d.flipped ? 0 : 4), w: d.w - 6, h: d.h - 4 })) this.win();
+    }
+
+    // While THE SYSTEM stands, the exit is locked.
+    get locked() { return !!(this.boss && this.boss.alive); }
+
+    // Your punches and shots against the level's enemies (see Enemy in traps.js).
+    //   input.punch / input.shoot  pressed this step;  input.aim {x, y} in world px (optional)
+    fight(dt, input) {
+      const p = this.player;
+      this.attackCool -= dt;
+      p.punchT = Math.max(0, (p.punchT || 0) - dt);
+      if (input.punch && this.attackCool <= 0) {
+        this.attackCool = 0.24; p.punchT = 0.16;
+        const box = { x: p.facing > 0 ? p.x + p.w - 2 : p.x - 22, y: p.y, w: 24, h: p.h };
+        let hit = false;
+        for (const e of this.enemies) if (e.alive && U.overlap(box, e.bounds())) hit = e.hurt(1, p.facing, this) || hit;
+        if (!hit) this.emit('swing', { x: p.centerX, y: p.y + 8 });
+      }
+      if (input.shoot && this.gun && this.attackCool <= 0) {
+        const hx = p.centerX + p.facing * 8, hy = p.y + 7;
+        let ax = p.facing, ay = 0;
+        if (input.aim) { const tx = input.aim.x - hx, ty = input.aim.y - hy, d = Math.hypot(tx, ty) || 1; ax = tx / d; ay = ty / d; if (ax) p.facing = Math.sign(ax); }
+        if (this.gun.ammo > 0) { // fire
+          this.gun.ammo--; this.attackCool = 0.2;
+          this.shots.push({ x: hx, y: hy, vx: ax * 420, vy: ay * 420, dmg: 2, t: 0, kind: 'bullet' });
+          this.emit('gunshot', { x: hx, y: hy });
+        } else { // empty: throw it
+          this.gun = null; this.attackCool = 0.25;
+          this.shots.push({ x: hx, y: hy, vx: ax * 300, vy: ay * 300 - 40, dmg: 1, t: 0, kind: 'gun' });
+          this.emit('throw', { x: hx, y: hy });
+        }
+      }
+      for (const b of this.shots) {
+        b.t += dt; b.x += b.vx * dt; b.y += b.vy * dt; if (b.kind === 'gun') b.vy += 500 * dt;
+        if (this.world.overlapsSolid(b.x - 1, b.y - 1, 2, 2, null) || b.t > 3) { b.dead = true; continue; }
+        const box = { x: b.x - 3, y: b.y - 3, w: 6, h: 6 };
+        for (const e of this.enemies) {
+          if (!b.dead && e.alive && U.overlap(box, e.bounds())) { e.hurt(b.dmg, Math.sign(b.vx) || 1, this); b.dead = true; }
+          for (const eb of e.bullets) if (!b.dead && !eb.dead && Math.abs(eb.x - b.x) < 5 && Math.abs(eb.y - b.y) < 5) { eb.dead = true; b.dead = true; this.emit('clink', { x: b.x, y: b.y }); }
+        }
+      }
+      this.shots = this.shots.filter((b) => !b.dead);
     }
 
     // 1 = the full distance from spawn to the door remains, 0 = at the door. The HUD's "enemy" bar.
