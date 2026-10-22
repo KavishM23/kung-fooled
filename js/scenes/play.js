@@ -119,6 +119,7 @@
           case 'punch': A.sfx('punch'); break;
           case 'gravity': A.sfx('gravity', { g: e.g }); fx.tick(e.x, e.y); break;
           case 'bonk': A.sfx('bonk'); fx.tick(e.x, e.y + 8); break;
+          case 'part': this.banner = { text: `PART ${e.part} / 3`, t: 0 }; A.sfx('confirm'); break;
           case 'poof': A.sfx('whoosh'); fx.dust(e.x, e.y, 8); break;
           case 'say': A.sfx('say'); fx.say(e.text, e.x, e.y); break;
           case 'win': if (KF.Present.has(this.style.id, 'win')) KF.Present.sfx(this.style.id, 'win', { perfect: this.deaths === 0 }); else A.sfx('win'); fx.confetti(e.x, e.y); this.mood.cheer = 1.6; break;
@@ -439,7 +440,7 @@
         else KF.HUD.draw(ctx, {
           scene: this, worldName: this.run ? `RUN  ${this.worldName}` : this.worldName, remaining: st.remaining,
           time: this.run ? this.run.t : this.endless ? this.endless.timeLeft : this.time, deaths: this.run ? this.run.deaths : this.deaths, deathPulse: this.deathPulse,
-          reversed: p.reversed !== !!st.rule.reverse && this.phase === 'play', flipped: p.gravDir < 0,
+          part: this.def.parts ? st.part : null, reversed: p.reversed !== !!st.rule.reverse && this.phase === 'play', flipped: p.gravDir < 0,
         }, t);
       }
       if (st.combat && this.phase === 'play') KF.CombatRender.hud(ctx, st);
@@ -493,13 +494,16 @@
           ctx.fillStyle = 'rgba(8,4,16,0.75)'; ctx.fillRect(0, 108 - 34 * k, VW, 68 * k);
           BT.draw(ctx, this.worldName, VW / 2, 92, BT.fit ? BT.fit(this.worldName, VW - 40, 4) : 3, 'steel', slam(pt));
           if (pt > 0.15 && this.rule.rule) F.draw(ctx, this.rule.rule, VW / 2, 114, '#ffd040', 1, 'center', '#000');
-          if (pt > 0.25 && !this.training) F.draw(ctx, `${this.door.name}  -  LEVEL ${this.stageIdx + 1} OF ${this.door.stages.length}`, VW / 2, 128, '#b8b0c8', 1, 'center', '#000');
+          if (pt > 0.25 && !this.training) F.draw(ctx, `${this.door.name}  -  LEVEL ${this.stageIdx + 1} OF ${this.door.stages.length}  -  3 PARTS`, VW / 2, 128, '#b8b0c8', 1, 'center', '#000');
         }
       }
       if (this.style.compose || KF.Present.onTop(this.style.id)) this.renderCards(ctx, t);
       if (this.banner && this.phase === 'play') {
         const bt = this.banner.t;
-        BT.draw(ctx, this.banner.text, VW / 2, 70, 3, 'steel', slam(bt, 2.5, 0.08), bt > 0.6 ? (0.9 - bt) / 0.3 : 1);
+        ctx.save(); ctx.globalAlpha = bt > 0.6 ? (0.9 - bt) / 0.3 : 1;
+        ctx.fillStyle = 'rgba(8,4,16,0.85)'; ctx.fillRect(VW / 2 - 38, 22, 76, 15);
+        F.draw(ctx, this.banner.text, VW / 2, 26, '#ffd040', 1, 'center', '#000');
+        ctx.restore();
       }
       if (this.phase === 'crash') {
         ctx.fillStyle = '#0c2a8a'; ctx.fillRect(0, 0, VW, VH);

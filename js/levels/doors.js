@@ -60,6 +60,41 @@
       [{ type: 'conveyor', at: [3, 10, 4], speed: 75 }],
     ],
   };
+  // Every level is one continuous three-part run. The second and third stretches gain
+  // telegraphed gates; later levels have shorter safe windows, and part three is tighter
+  // than part two. Pick clear columns in the source map so gates never hide in scenery.
+  function threeParts(def, level) {
+    let start = 2, finish = def.map[0].length - 3, lane = 10;
+    def.map.forEach((row, r) => {
+      const p = row.indexOf('P'), d = Math.max(row.indexOf('D'), row.indexOf('U'));
+      if (p >= 0) { start = p; lane = r; }
+      if (d >= 0) finish = d;
+    });
+    for (const tr of def.traps || []) if (tr.type === 'doorRun') for (const stop of tr.path || []) finish = Math.max(finish, stop.to[0]);
+    const span = Math.max(9, finish - start);
+    const cuts = [Math.round(start + span / 3), Math.round(start + 2 * span / 3)];
+    const used = (def.traps || []).filter((t) => t.at).map((t) => [t.at[0], t.at[0] + (t.at[2] || 1)]);
+    const gate = (lo, hi, target, part) => {
+      const options = [];
+      for (let c = Math.max(start + 3, lo); c < Math.min(finish - 2, hi); c++) {
+        const clear = [lane - 2, lane - 1, lane].every((r) => def.map[r] && def.map[r][c] === '.');
+        if (!clear || used.some(([a, b]) => c >= a - 1 && c <= b + 1)) continue;
+        options.push(c);
+      }
+      // The gate still gets a lane if this stretch has an existing obstacle nearby.
+      if (!options.length) for (let c = Math.max(start + 3, lo); c < Math.min(finish - 2, hi); c++)
+        if ([lane - 2, lane - 1, lane].every((r) => def.map[r] && def.map[r][c] === '.')) options.push(c);
+      if (!options.length) return null;
+      const c = options.reduce((best, x) => Math.abs(x - target) < Math.abs(best - target) ? x : best);
+      const on = 0.55 + level * 0.11 + (part === 3 ? 0.24 : 0);
+      const off = 2.1 - level * 0.15 - (part === 3 ? 0.24 : 0);
+      return { type: 'pulseBeam', section: part, at: [c, lane - 2, 0.3, 3], on, off, offset: part === 3 ? 0.45 : 0.1 };
+    };
+    return { cuts: cuts.map((c) => c * KF.TILE), traps: [
+      gate(cuts[0] + 1, cuts[1], (cuts[0] + cuts[1]) / 2, 2),
+      gate(cuts[1] + 1, finish, (cuts[1] + finish) / 2, 3),
+    ].filter(Boolean) };
+  }
   // A theme may carry its own `title` (the smooth realms' places do).
   KF.placeName = (env) => PLACES[env] || (KF.Themes && KF.Themes.has(env) && KF.Themes.get(env).title) ||
     ((KF.Rules && KF.Rules.all[String(env).replace('env_', '')]) || {}).name || String(env).replace(/^[a-z]+_/, '').toUpperCase();
@@ -83,12 +118,17 @@
     REALMS.forEach((r, k) => {
       const src = r.id === 'cyber' ? cyber : order.slice(4 * k, 4 * k + 4);
       const retroSigns = ['CHAPLIN ST.', 'ABOVE THE CITY', 'NIGHT EXPRESS', 'CANAL WALK'];
-      built[r.id] = src.map((def, j) => KF.util.deepFreeze(Object.assign({}, def, {
-        realm: r.id, index: j, env: r.envs[j], theme: r.envs[j],
-        labels: r.id === 'oldtv' ? [{ at: [5, 10], text: retroSigns[j] }] : def.labels,
-        traps: (def.traps || []).concat((EXTRA_OBSTACLES[r.id] || [])[j] || []),
-        style: (r.styles && r.styles[j]) || r.style, music: PLACE_MUSIC[r.envs[j]] || r.music,
-      })));
+      built[r.id] = src.map((def, j) => {
+        const baseTraps = (def.traps || []).concat((EXTRA_OBSTACLES[r.id] || [])[j] || []);
+        const parts = threeParts(Object.assign({}, def, { traps: baseTraps }), j);
+        return KF.util.deepFreeze(Object.assign({}, def, {
+          realm: r.id, index: j, env: r.envs[j], theme: r.envs[j],
+          labels: r.id === 'oldtv' ? [{ at: [5, 10], text: retroSigns[j] }] : def.labels,
+          parts: parts.cuts,
+          traps: baseTraps.concat(parts.traps),
+          style: (r.styles && r.styles[j]) || r.style, music: PLACE_MUSIC[r.envs[j]] || r.music,
+        }));
+      });
       KF.StylePlan[r.id] = built[r.id].map((d) => d.style);
     });
     return built;

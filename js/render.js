@@ -181,7 +181,12 @@
           }
         } else if (tr instanceof types.pulseBeam) {
           const b = tr.rect, x = b.x - cam.x, y = b.y - cam.y;
-          const color = theme.id.startsWith('oldtv') ? '#efe4c8' : theme.id.startsWith('comic') ? '#ffe66b' : '#fb4e78';
+          const id = theme.id;
+          const color = id.startsWith('oldtv') ? '#efe4c8' : id.startsWith('comic') ? '#ffe66b'
+            : id.includes('gameboy') ? '#9bbc0f' : id.includes('nes8bit') ? '#f83800'
+              : id.startsWith('woodblock') ? '#c44830' : id.startsWith('vhs') ? '#ff9a79'
+                : id.startsWith('vapor') ? '#f982df' : id.startsWith('cyber') || id.startsWith('superhot') ? '#8decf4'
+                  : id.startsWith('argo') ? '#91e9b7' : '#fb4e78';
           ctx.save();
           ctx.globalAlpha = tr.active ? 0.2 : tr.warn ? 0.3 : 0.09;
           R(ctx, color, x - 4, y, b.w + 8, b.h);
