@@ -13,11 +13,18 @@
   function chaplinFrame(src) {
     let out = pixels.get(src);
     if (out) return out;
-    out = KF.makeCanvas(20, 20);
+    // Keep the character pixelated against the detailed city, but preserve enough source
+    // pixels for the bowler crown, face, jacket lapels and cane to read at game size.
+    const detail = 32;
+    out = KF.makeCanvas(detail, detail);
     const c = out.getContext('2d'); c.imageSmoothingEnabled = true;
-    c.drawImage(src, 0, 0, 20, 20);
-    const im = c.getImageData(0, 0, 20, 20), d = im.data;
+    c.drawImage(src, 0, 0, detail, detail);
+    const im = c.getImageData(0, 0, detail, detail), d = im.data;
     for (let i = 0; i < d.length; i += 4) {
+      // Downsampling can leave translucent fringe pixels; a firm edge keeps the
+      // enlarged sprite reading as pixel art over the high-detail background.
+      if (d[i + 3] < 128) { d[i + 3] = 0; continue; }
+      d[i + 3] = 255;
       const grey = Math.round(d[i] * 0.3 + d[i + 1] * 0.59 + d[i + 2] * 0.11);
       d[i] = grey; d[i + 1] = grey; d[i + 2] = Math.round(grey * 0.97);
     }
