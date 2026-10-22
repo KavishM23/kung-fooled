@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const SIM_FILES = ['core.js', 'physics.js', 'world.js', 'player.js', 'traps.js', 'stage.js', 'rules.js', 'levels/doors.js'];
+const SIM_FILES = ['core.js', 'physics.js', 'world.js', 'player.js', 'traps.js', 'combat.js', 'stage.js', 'rules.js', 'levels/doors.js'];
 const sandbox = { console, Math, JSON, Object, Array, Set, Map, Uint8Array, Error, parseInt, Number };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
@@ -60,6 +60,10 @@ function key(st, held) {
   for (const s of st.world.dynamicSolids) k += `,${Math.round(s.x / 4)}:${Math.round(s.y / 4)}:${s.active === false ? 0 : 1}`;
   if (st.def.traps && st.def.traps.some((t) => t.when && t.when.time !== undefined)) k += '|' + Math.floor(st.t / 0.25);
   for (const tr of st.traps) if (tr.period) k += '|' + Math.floor(((st.t + (tr.def.offset || 0)) % tr.period) / 0.1);
+  if (st.combat) {
+    k += '|' + [st.combat.health, st.combat.ammo, Math.round(st.combat.reload * 5), ...st.combat.enemies.map((e) => e.hp)].join(',');
+    for (const b of st.combat.bullets) k += ';' + [Math.round(b.x / 8), Math.round(b.y / 8), b.enemy | 0].join(',');
+  }
   return k;
 }
 
@@ -97,6 +101,7 @@ function solve(def, deaths, budget = Number(process.env.BUDGET || 250000)) {
       const input = { left: a.dir < 0, right: a.dir > 0, jumpHeld: !!a.jump, jumpPressed: false };
       for (let i = 0; i < DECIDE && st.state === 'play'; i++) {
         input.jumpPressed = i === 0 && a.jump && !node.held;
+        if (st.combat) { input.shoot = true; input.melee = true; }
         st.step(KF.STEP, input);
         st.events.length = 0;
       }

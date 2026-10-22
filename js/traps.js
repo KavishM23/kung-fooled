@@ -138,6 +138,95 @@
     }
   }
 
+  // A visible rack of spikes patrols between two positions. at: [c,r,w], travel: [dx,dy]
+  // in tiles, period: seconds for a full out-and-back trip. Its track is part of the tell.
+  class MovingSpikes extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      this.home = tileRect(def.at);
+      this.home.h = T;
+      this.travel = def.travel || [3, 0];
+      this.period = def.period || 3;
+      this.fired = true;
+      this.x = this.home.x;
+      this.y = this.home.y;
+      this.rect = {
+        x: Math.min(this.home.x, this.home.x + this.travel[0] * T),
+        y: Math.min(this.home.y, this.home.y + this.travel[1] * T),
+        w: this.home.w + Math.abs(this.travel[0] * T),
+        h: T + Math.abs(this.travel[1] * T),
+      };
+    }
+    tick() {
+      const phase = ((this.stage.t + (this.def.offset || 0)) % this.period) / this.period;
+      const k = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
+      this.x = this.home.x + this.travel[0] * T * k;
+      this.y = this.home.y + this.travel[1] * T * k;
+    }
+    kills(p) {
+      for (let i = 0; i < this.home.w; i += T) {
+        if (U.overlap(p, KF.spikeRect('up', this.x + i, this.y))) return true;
+      }
+      return false;
+    }
+  }
+
+  // A floor-to-ceiling energy gate with a readable off window. at: [c,r,w,h].
+  class PulseBeam extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      this.rect = tileRect(def.at);
+      this.on = def.on || 1;
+      this.period = this.on + (def.off || 1.4);
+      this.fired = true;
+    }
+    get phase() { return (this.stage.t + (this.def.offset || 0)) % this.period; }
+    get active() { return this.phase < this.on; }
+    get warn() { return !this.active && this.phase > this.period - 0.32; }
+    kills(p) { return this.active && U.overlap(p, this.rect); }
+  }
+
+  // A floor belt changes the player's ground speed only while their feet are on it.
+  // at: [c,r,w] on the walkable row, speed: signed pixels/second.
+  class Conveyor extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const [c, r, w = 3] = def.at;
+      this.rect = { x: c * T, y: (r + 1) * T - 4, w: w * T, h: 4 };
+      this.fired = true;
+    }
+    push(p) {
+      if (!p.grounded || p.gravDir < 0 || Math.abs(p.y + p.h - (this.rect.y + 4)) > 2) return 0;
+      return p.x + p.w > this.rect.x && p.x < this.rect.x + this.rect.w ? this.def.speed || 75 : 0;
+    }
+  }
+
+  // A fixed launcher sends one small projectile along a visible line each cycle.
+  // at: [c,r] is the barrel tile; dir: left|right; range is in tiles.
+  class DartLauncher extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const [c, r] = def.at;
+      this.rect = { x: c * T, y: r * T + 8, w: T, h: 8 };
+      this.dir = def.dir === 'right' ? 1 : -1;
+      this.speed = def.speed || 180;
+      this.range = (def.range || 8) * T;
+      this.period = def.period || 2.2;
+      this.fired = true;
+    }
+    get phase() { return (this.stage.t + (this.def.offset || 0)) % this.period; }
+    get warn() { return this.phase > this.period - 0.35; }
+    get dart() {
+      const distance = this.phase * this.speed;
+      if (distance > this.range) return null;
+      return { x: this.rect.x + T / 2 + this.dir * distance - 3, y: this.rect.y + 1, w: 6, h: 3 };
+    }
+    kills(p) {
+      const dart = this.dart;
+      return !!dart && U.overlap(p, dart);
+    }
+  }
+
   // Block in the ceiling that drops. at: [c, r, w, h]. Default trigger: player passes underneath.
   class Crusher extends Trap {
     constructor(def, stage) {
@@ -449,7 +538,8 @@
 
   KF.Traps = {
     types: {
-      collapse: Collapse, spikes: PopSpikes, crusher: Crusher, spring: Spring, shy: Shy,
+      collapse: Collapse, spikes: PopSpikes, movingSpikes: MovingSpikes, pulseBeam: PulseBeam,
+      conveyor: Conveyor, dartLauncher: DartLauncher, crusher: Crusher, spring: Spring, shy: Shy,
       doorRun: DoorRun, fakeDoor: FakeDoor, gravity: GravityZone, reverse: ReverseZone,
       hidden: HiddenBlock, taunt: Taunt, mover: Mover, fakeFloor: FakeFloor, wind: Wind, blink: Blink, axe: Axe,
     },

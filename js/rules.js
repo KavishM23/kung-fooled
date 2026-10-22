@@ -29,7 +29,7 @@
 
   const R = {
     hd: { name: 'ROOFTOPS AT DUSK', rule: null },
-    oldtv: { name: 'THE 1950S STUDIO', rule: 'LIVE TV. THE PICTURE ROLLS NOW AND THEN.', roll: { every: 7, dur: 0.7 } },
+    oldtv: { name: 'THE SILENT CITY', rule: 'SILENT CINEMA. KEEP YOUR FOOTING IN THE DARK.' },
     comic: { name: 'COMIC CITY', rule: 'ONE PANEL AT A TIME.', camera: 'panels' },
     gameboy: { name: 'POCKET TOWN', rule: 'LOW BATTERY: EVERYTHING IS SLUGGISH.', tuning: { runSpeed: 0.85 } },
     vhs: { name: 'BACKYARD TAPE', rule: 'EVERY DEATH GETS REWOUND.', rewind: true },

@@ -4,24 +4,35 @@ A troll platformer dressed as a late-90s arcade fighter. Run from the left of ea
 exit door. The stage will betray you. Learn each trap by dying to it; respawn is instant.
 
 **Ten realms, ten styles.** Each realm is one visual medium, and its four levels are different
-places shown in that medium. The realms are ARCADE (full colour), OLD TV (black and white),
+places shown in that medium. The realms are ARCADE (full colour), RETRO (cinematic black and white),
 POCKET (four Game Boy greens), COMIC, AR GO (the world through your phone), 8-BIT, WOODBLOCK
-(Edo prints), VHS (home video), VAPORWAVE and CYBER. In the Old TV realm, for example, you play
-a 1950s TV studio, the rooftops, the sky express and the docks, all live in black and white.
+(Edo prints), VHS (home video), VAPORWAVE and CYBER. In Retro, you travel through a
+lamp-lit street, moonlit rooftops, a night train and a reflective canal. The Chaplin-style
+bowler-hatted player is deliberately chunky grayscale pixel art against those detailed backdrops.
 Each realm's style also brings its own rule, K.O. card and sounds.
 
-A realm runs level, level, street fight, level, level, boss. Beat the boss to unlock the next
-realm. Levels and fights pay coins, which buy outfits, headgear, hair, fist wraps, stat
+A realm runs level, level, street fight, level, level, boss. **Every realm and every node is
+open from the start.** Clearing them tracks progress and pays coins, which buy outfits, headgear, hair, fist wraps, stat
 upgrades and special moves in the Dojo. Each realm's street fighter and boss suit its style:
-Johnny TV and the bowler-hatted Bramble in Old TV, Bug Kid and Grandma Hana in Pocket, and
+Johnny TV and the bowler-hatted Bramble in Retro, Bug Kid and Grandma Hana in Pocket, and
 Volt and THE SYSTEM in Cyber. Every other fighter appears in the Street Arena.
 
 **Cyber and SUPERHOT.** The last realm's places are a neon megacity, a hologram district and
-chrome Y2K. Its finale breaks into a SUPERHOT tribute, where time moves only when you move. Its boss, THE SYSTEM, is a red crystal man fought the same way, and he
-shatters into shards when you win.
+chrome Y2K. Its finale is a continuous side-on SUPERHOT tribute: move through the level,
+aim and shoot red crystal sentinels, dodge or block their bullets, and defeat THE SYSTEM
+inside the level to open the exit. Time crawls while you stand still, and defeated enemies
+shatter into shards. The clean white atrium uses faceted figures, extruded geometry and
+perspective scenery while movement stays on a flat side-view plane. Press F or V to shoot
+forward, or aim and click; J, Z, K or X strike nearby enemies, and S or Down blocks.
+
+Arcade, Pocket and 8-Bit keep their pixel art. Retro pairs a pixel character with detailed
+scenery. Comic, AR GO, Woodblock, VHS, Vaporwave and Cyber draw smooth characters and
+scenery in their own materials. Realm hazards include patrolling spike racks, timed beam
+gates, moving conveyor floors and dart launchers. The belts change your ground speed;
+the launchers show their firing lane so you can time a crossing.
 
 **Every world has its own K.O., start and win cards and sounds.** Some examples:
-- The 1950s studio shows an art-deco APPLAUSE sign over a scream, a laugh track and applause.
+- Retro shows silent-film intertitles with projector and piano sounds.
 - The silent film shows an intertitle over projector rattle and a piano sting.
 - The Game Boy world shows GAME OVER with a pulse-wave jingle.
 - The comic world shows a POW! burst with a slide whistle.
@@ -40,7 +51,7 @@ pop art, a pop-up book, the Bayeux tapestry and more.
 - The NES world gives full-height jumps only.
 - The glacier is ice everywhere, and the dream has low gravity.
 - The Great Wave blows a headwind.
-- Noir's lights cut out, and the old TV's picture rolls.
+- Noir's lights cut out.
 - The comic and pop-art worlds move one panel at a time, and the notebook's pencil only draws what's near you.
 - The blueprint marks every trap, and the VHS tape rewinds your deaths.
 
@@ -88,7 +99,7 @@ on-screen hints follow the one you last used.
 | Punch (3 quick presses: jab, cross, uppercut) | J | Z | Left click |
 | Kick | K | X | Right click |
 | Special (meter at least half full) | L | C | |
-| Shoot (SUPERHOT fight) | F | V | Aim + left click |
+| Shoot (SUPERHOT level; hold to repeat) | F | V | Aim + left click |
 | Restart the level | R | R | |
 | Pause | Esc / P | Esc / P | Pause button, top right |
 
@@ -111,12 +122,12 @@ Movement has 80 ms coyote time, 100 ms jump buffering and variable jump height (
 1 tile, a full hold 3.5 tiles, 0.56 s in the air). Clipping a ceiling edge slides you past it, and
 clipping a ledge's top corner while falling pops you up onto it.
 
-Tip: `index.html?unlock=1` opens every realm and level for testing; without it, a realm opens when
-you beat the previous realm's boss, and its levels and fights open one after another.
+Tip: every realm, level and fight is open from the start.
 `index.html?stage=oldtv-3` jumps straight into a level. It takes
 each realm id (`arcade`, `oldtv`, `pocket`, `comic`, `argo`, `eightbit`, `woodblock`,
-`vhs`, `vapor`, `cyber`) with level 1-4, and `?fight=oldtv-1` into a realm's street fight (`-2` = the boss),
-`?scene=shop` into the shop, `?stage=training` into the dojo.
+`vhs`, `vapor`, `cyber`) with level 1-4, and `?fight=oldtv-1` into a realm's street fight (`-2` = the boss).
+`?fight=cyber-2` opens Cyber's integrated SUPERHOT finale instead of a separate fight.
+Use `?scene=shop` for the shop and `?stage=training` for the dojo.
 
 ## Project layout
 
@@ -127,10 +138,11 @@ js/physics.js    AABB movement             js/render.js   stage, traps, door, hi
 js/world.js      tile grid, map parsing    js/fx.js       sparks, dust, shake, speech bubbles
 js/player.js     movement + tuning         js/bigtext.js  ROUND / K.O. / PERFECT lettering
 js/traps.js      every trap type           js/hud.js      health bars, timer, death combo
-js/stage.js      rules for one attempt     js/audio.js    Web Audio SFX + sequencer
+js/stage.js      rules for one attempt     js/combat.js   in-level SUPERHOT combat
 js/levels/       doors and stages          js/music.js    the four chiptune tracks
 js/scenes/       title, map, realm path,   tools/solve.js level checker (Node)
                  shop, fight, play          tools/fightsim.js fight balance (Node)
+tools/combatcheck.js integrated finale check
 js/fight/        fighter, AI, roster        js/economy.js  shop items, upgrades, coins
 js/styles.js     per-stage visual styles   js/envs/       per-stage environments
 js/rules.js      world names + rules       js/present.js  per-world cards and sounds
@@ -159,7 +171,7 @@ All movement numbers are in `KF.PlayerTuning` at the top of `js/player.js`.
 
 ## Adding a stage
 
-Stages live in `js/levels/world1.js` to `world8.js`, grouped in buckets (`rooftop`, `harbour`, ...,
+Stages live in `js/levels/world1.js` to `world9.js`, grouped in buckets (`rooftop`, `harbour`, ...,
 `cyber`). `js/levels/doors.js` deals the buckets out to the ten realms in order, so difficulty
 keeps rising, and gives each level its realm's style and a place (`envs`). Each stage is a tile
 grid plus a trap list:

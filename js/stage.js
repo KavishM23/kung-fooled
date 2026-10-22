@@ -24,6 +24,8 @@
       this.traps = KF.Traps.build(this);
       const d = this.world.door;
       this.doorStart = d ? { x: d.x, y: d.y } : null;
+      this.combat = def.combat ? new KF.StageCombat(this, def.combat) : null;
+      this.timePulse = 0;
     }
 
     emit(type, data) { this.events.push(Object.assign({ type }, data)); }
@@ -70,7 +72,9 @@
       dt *= this.rule.timeScale || 1;
       // SUPERHOT: with no input the whole world (you included) crawls; any input runs it at speed.
       if (this.rule.superhot) {
-        this.timeK = input.left || input.right || input.jumpHeld || input.jumpPressed ? 1 : 0.06;
+        this.timePulse = Math.max(0, this.timePulse - dt);
+        if (input.shoot || input.melee) this.timePulse = 0.18;
+        this.timeK = input.left || input.right || input.jumpHeld || input.jumpPressed || this.timePulse > 0 ? 1 : 0.06;
         dt *= this.timeK;
       }
       if (this.state !== 'play') { p.prevX = p.x; p.prevY = p.y; return; }
@@ -105,9 +109,11 @@
       if (w.overlapsSolid(p.x + 1, p.y + 1, p.w - 2, p.h - 2, null)) return this.kill('crush');
       if (p.y > w.pixelH + 16 || (p.gravDir < 0 && p.y + p.h < -32)) return this.kill('pit');
 
+      if (this.combat) this.combat.update(dt, input);
+      if (this.state !== 'play') return;
       const d = w.door;
       // A running door can't be caught mid-sprint; it has to stop first.
-      if (d && !d.moving && U.overlap(p, { x: d.x + 3, y: d.y + (d.flipped ? 0 : 4), w: d.w - 6, h: d.h - 4 })) this.win();
+      if (d && !d.moving && (!this.combat || this.combat.cleared) && U.overlap(p, { x: d.x + 3, y: d.y + (d.flipped ? 0 : 4), w: d.w - 6, h: d.h - 4 })) this.win();
     }
 
     // 1 = the full distance from spawn to the door remains, 0 = at the door. The HUD's "enemy" bar.

@@ -4,6 +4,15 @@
 (function (KF) {
   const bar = (s) => s;
   KF.Music = {
+    // Retro: lightly detuned piano-style steps, with a left-hand stride instead of arcade drums.
+    silent: {
+      bpm: 126,
+      parts: [
+        { wave: 'triangle', vol: 0.13, seq: 'C3 . G3 . C4 . G3 . F2 . C3 . F3 . C3 . G2 . D3 . G3 . D3 . C3 . G3 . C4 . G3 .' },
+        { wave: 'triangle', vol: 0.105, seq: 'E5 . G5 E5 D5 . C5 . A4 . C5 A4 G4 . E4 . F4 . A4 F4 E4 . D4 . B4 . D5 B4 C5 - . .' },
+        { wave: 'sine', vol: 0.05, seq: 'E4 . . . G4 . . . A3 . . . C4 . . . B3 . . . D4 . . . E4 . . . G4 . . .' },
+      ],
+    },
     // Title / door select: temple courtyard, steady and a little mysterious (D minor pentatonic).
     temple: {
       bpm: 96,

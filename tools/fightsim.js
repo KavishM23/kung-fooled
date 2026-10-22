@@ -55,7 +55,7 @@ const ps = { power: 1 + 0.15 * upg, guard: 1 - 0.08 * upg, health: 100 + 15 * up
 console.log(`player skill ${skill}, upgrades all level ${upg}, ${N} fights each`);
 KF.Doors.forEach((door, r) => {
   const row = [];
-  for (let k = 0; k < 4; k++) { const def = KF.Roster.streetDef(r, k); let w = 0; for (let i = 0; i < N; i++) if (fight(ps, def)) w++; row.push(`${Math.round(100 * w / N)}%`); }
+  for (let k = 0; k < KF.Roster.R[door.id].fighters.length; k++) { const def = KF.Roster.streetDef(r, k); let w = 0; for (let i = 0; i < N; i++) if (fight(ps, def)) w++; row.push(`${Math.round(100 * w / N)}%`); }
   const boss = KF.Roster.bossDef(r); let w = 0; for (let i = 0; i < N; i++) if (fight(ps, boss)) w++;
   console.log(`${door.id.padEnd(8)} street ${row.join(' ')}   boss ${Math.round(100 * w / N)}%`);
 });
