@@ -34,6 +34,8 @@ scenery. Comic, AR GO, Woodblock, VHS, Vaporwave and Cyber draw smooth character
 scenery in their own materials. Realm hazards include patrolling spike racks, timed beam
 gates, moving conveyor floors and dart launchers. The belts change your ground speed;
 the launchers show their firing lane so you can time a crossing.
+Later stages also use swinging hammers, floors that crack and vanish when approached, and
+saws that creep toward you while you face away. The floors reform after you move clear.
 
 **Every world has its own K.O., start and win cards and sounds.** Some examples:
 - Retro shows silent-film intertitles with projector and piano sounds.

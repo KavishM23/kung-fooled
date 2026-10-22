@@ -257,6 +257,24 @@
           const r = tr.rect;
           (theme.door || KF.Art.door)(ctx, r.x - cam.x, r.y - cam.y, { lantern: false, open: tr.fired ? 1 : 0, t });
           if (tr.fired) KF.Art.glove(ctx, r.x - cam.x + (tr.dirX > 0 ? 12 : 4), r.y - cam.y + 16, tr.dirX, Math.min(1, tr.fireT * 12));
+        } else if (tr instanceof types.lureFloor) {
+          const r = tr.rect, x = r.x - cam.x, y = r.y - cam.y;
+          if (tr.mode !== 'gone') {
+            const shakeX = tr.mode === 'warning' && Math.floor(t * 18) % 2 ? 0.5 : 0;
+            for (const [c, row, id] of tr.tiles) drawTile(ctx, world, theme, c, row, id, c * T - cam.x + shakeX, row * T - cam.y);
+            if (tr.mode === 'warning') {
+              ctx.save(); ctx.globalAlpha = 0.7;
+              for (let i = 4; i < r.w; i += 11) {
+                R(ctx, '#ffe292', x + i, y + 1, 4, 1);
+                R(ctx, '#19151b', x + i + 3, y + 2, 1, 3);
+              }
+              ctx.restore();
+            }
+          } else {
+            ctx.save(); ctx.globalAlpha = 0.35;
+            for (let i = 0; i < r.w; i += 5) R(ctx, '#ffe292', x + i, y, 3, 1);
+            ctx.restore();
+          }
         } else if (tr instanceof types.fakeFloor) {
           // Drawn exactly like real floor until you've found it; then a ghost outline.
           if (tr.seen) ctx.globalAlpha = 0.3;
@@ -278,6 +296,34 @@
             for (let i = 0; i < s.w; i += 3) R(ctx, '#7cf0ff', x + i, y, 1, 1);
             ctx.globalAlpha = 1;
           }
+        } else if (tr instanceof types.swingHammer) {
+          const pv = tr.pivot, b = tr.blade(), a = tr.angle;
+          const px = pv.x - cam.x, py = pv.y - cam.y, bx = b.x - cam.x + 9, by = b.y - cam.y + 9;
+          ctx.strokeStyle = '#9ba4a8'; ctx.lineWidth = 1.8;
+          ctx.beginPath(); ctx.moveTo(px, py); ctx.lineTo(bx, by); ctx.stroke();
+          R(ctx, '#171b20', px - 3, py - 3, 6, 6);
+          ctx.save(); ctx.translate(bx, by); ctx.rotate(a);
+          ctx.fillStyle = '#151a20';
+          for (let i = 0; i < 8; i++) {
+            ctx.rotate(Math.PI / 4);
+            ctx.beginPath(); ctx.moveTo(-3, -6); ctx.lineTo(0, -13); ctx.lineTo(3, -6); ctx.fill();
+          }
+          ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#aab6ba'; ctx.beginPath(); ctx.arc(-2, -2, 4, 0, Math.PI * 2); ctx.fill();
+          R(ctx, '#ffe292', -4, -4, 2, 2);
+          ctx.restore();
+        } else if (tr instanceof types.lookSaw) {
+          const b = tr.body, x = b.x - cam.x + 6, y = b.y - cam.y + 6;
+          ctx.save(); ctx.translate(x, y); ctx.rotate(t * (tr.awake ? 9 : 2));
+          ctx.fillStyle = '#252a31';
+          for (let i = 0; i < 8; i++) {
+            ctx.rotate(Math.PI / 4);
+            ctx.beginPath(); ctx.moveTo(-2, -4); ctx.lineTo(0, -8); ctx.lineTo(2, -4); ctx.fill();
+          }
+          ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = tr.awake ? '#ff674d' : '#e4d4ac';
+          ctx.beginPath(); ctx.arc(0, 0, 2, 0, Math.PI * 2); ctx.fill();
+          ctx.restore();
         } else if (tr instanceof types.axe) {
           const pv = tr.pivot, b = tr.blade(), a = tr.angle;
           const px = pv.x - cam.x, py = pv.y - cam.y;
