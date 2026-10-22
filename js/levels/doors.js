@@ -29,18 +29,35 @@
   const PLACE_MUSIC = { rooftop: 'rooftop', harbour: 'harbour', neon: 'neon', temple: 'shrine', train: 'train', sakura: 'sakura', viking: 'viking' };
   // Realm-specific obstacles give the same platform layouts different rhythms and silhouettes.
   const EXTRA_OBSTACLES = {
+    arcade: [
+      [{ type: 'conveyor', at: [4, 10, 6], speed: 80 }],
+    ],
     oldtv: [
       [{ type: 'movingSpikes', at: [26, 10, 1], travel: [3, 0], period: 3.6 }],
       [{ type: 'pulseBeam', at: [9, 4, 0.35, 7], on: 1.0, off: 1.7, offset: 0.3 }],
     ],
+    pocket: [
+      [{ type: 'conveyor', at: [3, 10, 6], speed: -85 }],
+    ],
     comic: [
       [{ type: 'movingSpikes', at: [30, 10, 1], travel: [3, 0], period: 3.1, offset: 0.7 }],
+      [{ type: 'dartLauncher', at: [12, 9], dir: 'left', range: 8, period: 2.2, offset: 1.0 }],
+    ],
+    argo: [
+      [{ type: 'conveyor', at: [3, 10, 7], speed: -75 }],
     ],
     eightbit: [
       [], [], [{ type: 'pulseBeam', at: [31, 3, 0.35, 6], on: 1.1, off: 1.5, offset: 0.4 }],
     ],
+    woodblock: [
+      [], [{ type: 'conveyor', at: [4, 10, 7], speed: 75 }],
+    ],
     vhs: [
-      [], [], [], [{ type: 'movingSpikes', at: [28, 10, 1], travel: [3, 0], period: 3.4 }],
+      [{ type: 'dartLauncher', at: [18, 9], dir: 'left', range: 10, period: 2.5, offset: 1.2 }],
+      [], [], [{ type: 'movingSpikes', at: [28, 10, 1], travel: [3, 0], period: 3.4 }],
+    ],
+    vapor: [
+      [{ type: 'conveyor', at: [3, 10, 4], speed: 75 }],
     ],
   };
   // A theme may carry its own `title` (the smooth realms' places do).

@@ -186,6 +186,47 @@
     kills(p) { return this.active && U.overlap(p, this.rect); }
   }
 
+  // A floor belt changes the player's ground speed only while their feet are on it.
+  // at: [c,r,w] on the walkable row, speed: signed pixels/second.
+  class Conveyor extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const [c, r, w = 3] = def.at;
+      this.rect = { x: c * T, y: (r + 1) * T - 4, w: w * T, h: 4 };
+      this.fired = true;
+    }
+    push(p) {
+      if (!p.grounded || p.gravDir < 0 || Math.abs(p.y + p.h - (this.rect.y + 4)) > 2) return 0;
+      return p.x + p.w > this.rect.x && p.x < this.rect.x + this.rect.w ? this.def.speed || 75 : 0;
+    }
+  }
+
+  // A fixed launcher sends one small projectile along a visible line each cycle.
+  // at: [c,r] is the barrel tile; dir: left|right; range is in tiles.
+  class DartLauncher extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const [c, r] = def.at;
+      this.rect = { x: c * T, y: r * T + 8, w: T, h: 8 };
+      this.dir = def.dir === 'right' ? 1 : -1;
+      this.speed = def.speed || 180;
+      this.range = (def.range || 8) * T;
+      this.period = def.period || 2.2;
+      this.fired = true;
+    }
+    get phase() { return (this.stage.t + (this.def.offset || 0)) % this.period; }
+    get warn() { return this.phase > this.period - 0.35; }
+    get dart() {
+      const distance = this.phase * this.speed;
+      if (distance > this.range) return null;
+      return { x: this.rect.x + T / 2 + this.dir * distance - 3, y: this.rect.y + 1, w: 6, h: 3 };
+    }
+    kills(p) {
+      const dart = this.dart;
+      return !!dart && U.overlap(p, dart);
+    }
+  }
+
   // Block in the ceiling that drops. at: [c, r, w, h]. Default trigger: player passes underneath.
   class Crusher extends Trap {
     constructor(def, stage) {
@@ -497,7 +538,8 @@
 
   KF.Traps = {
     types: {
-      collapse: Collapse, spikes: PopSpikes, movingSpikes: MovingSpikes, pulseBeam: PulseBeam, crusher: Crusher, spring: Spring, shy: Shy,
+      collapse: Collapse, spikes: PopSpikes, movingSpikes: MovingSpikes, pulseBeam: PulseBeam,
+      conveyor: Conveyor, dartLauncher: DartLauncher, crusher: Crusher, spring: Spring, shy: Shy,
       doorRun: DoorRun, fakeDoor: FakeDoor, gravity: GravityZone, reverse: ReverseZone,
       hidden: HiddenBlock, taunt: Taunt, mover: Mover, fakeFloor: FakeFloor, wind: Wind, blink: Blink, axe: Axe,
     },

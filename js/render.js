@@ -192,6 +192,39 @@
           R(ctx, '#55565a', x - 2, y - 2, b.w + 4, 2);
           R(ctx, '#55565a', x - 2, y + b.h, b.w + 4, 2);
           ctx.restore();
+        } else if (tr instanceof types.conveyor) {
+          const b = tr.rect, x = Math.round(b.x - cam.x), y = Math.round(b.y - cam.y);
+          const dir = Math.sign(tr.def.speed || 75);
+          const accent = theme.id.includes('woodblock') ? '#d37a48' : theme.id.includes('vapor') ? '#fa66db' : '#79dce5';
+          R(ctx, '#172026', x, y, b.w, 5);
+          R(ctx, accent, x, y, b.w, 1);
+          const shift = ((t * Math.abs(tr.def.speed || 75) / 12) % 8 + 8) % 8;
+          ctx.save(); ctx.beginPath(); ctx.rect(x, y + 1, b.w, 3); ctx.clip();
+          ctx.strokeStyle = accent; ctx.lineWidth = 0.8;
+          for (let i = -8; i < b.w + 8; i += 8) {
+            const xx = x + i + (dir > 0 ? shift : -shift);
+            ctx.beginPath(); ctx.moveTo(xx - dir * 2, y + 1.4); ctx.lineTo(xx + dir * 2, y + 2.5);
+            ctx.lineTo(xx - dir * 2, y + 3.6); ctx.stroke();
+          }
+          ctx.restore();
+        } else if (tr instanceof types.dartLauncher) {
+          const b = tr.rect, x = Math.round(b.x - cam.x), y = Math.round(b.y - cam.y);
+          const accent = theme.id.includes('comic') ? '#ffe66b' : theme.id.includes('vhs') ? '#ff805d' : '#9becff';
+          ctx.save(); ctx.globalAlpha = 0.38;
+          for (let i = 12; i < tr.range; i += 12) R(ctx, accent, x + 8 + tr.dir * i, y + 2, 3, 1);
+          ctx.restore();
+          R(ctx, accent, x + 1, y - 1, 14, 10);
+          R(ctx, '#10151a', x + 2, y, 12, 8);
+          R(ctx, '#7d888e', x + 3, y + 1, 10, 1);
+          R(ctx, accent, x + (tr.warn ? 4 : 6), y + 3, tr.warn ? 7 : 3, 3);
+          R(ctx, '#b3c1c5', x + (tr.dir < 0 ? 0 : 12), y + 2, 4, 3);
+          const dart = tr.dart;
+          if (dart) {
+            const dx = dart.x - cam.x, dy = dart.y - cam.y;
+            R(ctx, '#1c2327', dx, dy, dart.w, dart.h);
+            R(ctx, accent, dx + (tr.dir < 0 ? 4 : 0), dy, 2, 1);
+            R(ctx, '#dce7e8', dx + (tr.dir < 0 ? 0 : 4), dy + 1, 2, 1);
+          }
         } else if (tr instanceof types.spikes) {
           if (!tr.fired) continue;
           const off = Math.round((1 - tr.raise) * 16);

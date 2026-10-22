@@ -27,8 +27,9 @@ forward, or aim and click; J, Z, K or X strike nearby enemies, and S or Down blo
 
 Arcade, Pocket and 8-Bit keep their pixel art. Retro pairs a pixel character with detailed
 scenery. Comic, AR GO, Woodblock, VHS, Vaporwave and Cyber draw smooth characters and
-scenery in their own materials. Moving spike racks and timed
-beam gates now join the realm-specific hazards in Retro, Comic, 8-Bit and VHS.
+scenery in their own materials. Realm hazards include patrolling spike racks, timed beam
+gates, moving conveyor floors and dart launchers. The belts change your ground speed;
+the launchers show their firing lane so you can time a crossing.
 
 **Every world has its own K.O., start and win cards and sounds.** Some examples:
 - Retro shows silent-film intertitles with projector and piano sounds.
