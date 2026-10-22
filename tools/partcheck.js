@@ -11,7 +11,6 @@ for (const file of fs.readdirSync(path.join(root, 'js/levels')).filter((f) => /^
   vm.runInContext(fs.readFileSync(path.join(root, 'js/levels', file), 'utf8'), sb, { filename: file });
 let count = 0;
 for (const door of sb.KF.Doors) {
-  if (door.single) { assert.equal(door.stages.length, 1); continue; }
   assert.equal(door.stages.length, 4, `${door.id} should have four levels`);
   door.stages.forEach((def, index) => {
     const world = new sb.KF.World(def), tag = `${door.id}-${index + 1}`;

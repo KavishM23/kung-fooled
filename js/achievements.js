@@ -64,7 +64,7 @@
           break;
         case 'bossWin': {
           if (data.roundsLost === 0) this.unlock('untouchable');
-          const realms = KF.Doors.filter((door) => !door.single), cleared = realms.filter((door) => KF.Save.realm(door.id).cleared).length;
+          const realms = KF.Doors, cleared = realms.filter((door) => KF.Save.realm(door.id).cleared).length;
           if (cleared >= 1) this.unlock('realm1');
           if (cleared >= realms.length) this.unlock('allrealms');
           if (KF.Doors[data.realm] === realms[realms.length - 1] && KF.Economy.UPGRADES.every((u) => !KF.Economy.level(u.id))) this.unlock('naked');

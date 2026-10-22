@@ -29,13 +29,14 @@
     drawTile,
 
     // Static tiles baked into one canvas per attempt (trap-owned tiles are drawn live instead).
-    bakeStage(world, theme, res = KF.RES) {
+    bakeStage(world, theme, res = KF.RES, def = null) {
       const c = KF.makeHi(world.pixelW, world.pixelH, res), ctx = c.getContext('2d');
       if (res > KF.RES) ctx.imageSmoothingEnabled = true;
       for (let r = 0; r < world.rows; r++) for (let col = 0; col < world.cols; col++) {
         const id = world.tiles[r * world.cols + col];
         if (id) drawTile(ctx, world, theme, col, r, id, col * T, r * T);
       }
+      if (KF.Scenery) KF.Scenery.bake(ctx, world, def);
       if (theme.id !== 'superhot_atrium') KF.Render.detail(c, world);
       return c;
     },
@@ -129,15 +130,31 @@
       }
     },
 
-    // A small still of a theme (and optionally the style's pixel pass), for menus. Cached.
-    thumb(themeId, w, h, styleId) {
-      const key = themeId + '|' + w + 'x' + h + '|' + (styleId || '');
+    // A small still of a theme or a real stage slice, for menus. Cached.
+    thumb(themeId, w, h, styleId, def = null) {
+      const key = themeId + '|' + w + 'x' + h + '|' + (styleId || '') + '|' + (def ? `${def.realm}-${def.index}` : 'theme');
       thumbs[key] = thumbs[key] || (() => {
         const VW = KF.VIEW_W, VH = KF.VIEW_H, big = KF.makeHi(VW, VH, KF.RES, true), bx = big.getContext('2d');
         const th = KF.Themes.get(themeId);
         bx.fillStyle = th.bg; bx.fillRect(0, 0, VW, VH);
-        th.background(bx, { x: 120, y: 0 }, 3.3, { cheer: 0 });
-        for (let x = 0; x < VW; x += 16) for (let r = 0; r < 3; r++) th.tile(bx, x, 168 + r * 16, 'solid', { t: r === 0 }, U.hash2(x, r + 3));
+        if (def) {
+          const world = new KF.World(def), target = world.partDoors[0] || world.spawn;
+          const cam = { x: U.clamp(target.x - VW * .5, 0, Math.max(0, world.pixelW - VW)),
+            y: U.clamp(target.y - VH * .55, 0, Math.max(0, world.pixelH - VH)) };
+          th.background(bx, cam, 3.3, { cheer: 0 });
+          if (KF.Scenery) KF.Scenery.draw(bx, { def, world }, cam, 3.3);
+          bx.save(); bx.translate(-cam.x, -cam.y);
+          for (let r = Math.max(0, Math.floor(cam.y / T)); r < Math.min(world.rows, Math.ceil((cam.y + VH) / T)); r++)
+            for (let col = Math.max(0, Math.floor(cam.x / T)); col < Math.min(world.cols, Math.ceil((cam.x + VW) / T)); col++) {
+              const id = world.tiles[r * world.cols + col];
+              if (id) drawTile(bx, world, th, col, r, id, col * T, r * T);
+            }
+          if (KF.Scenery) KF.Scenery.bake(bx, world, def);
+          bx.restore();
+        } else {
+          th.background(bx, { x: 120, y: 0 }, 3.3, { cheer: 0 });
+          for (let x = 0; x < VW; x += 16) for (let r = 0; r < 3; r++) th.tile(bx, x, 168 + r * 16, 'solid', { t: r === 0 }, U.hash2(x, r + 3));
+        }
         const style = styleId && KF.Styles.get(styleId);
         if (style && style.post) KF.Styles.post(style, big, KF.Styles.info(3.3, 1, KF.RES, VW / 2, 150, 200));
         const c = KF.makeHi(w, h), x = c.getContext('2d');

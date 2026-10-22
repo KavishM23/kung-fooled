@@ -60,7 +60,7 @@
       KF.UI.region(this, 'c' + i, x - 2, y - 2, CW + 4, CH + 4);
       R(ctx, '#161226', x, y, CW, CH);
       const tw = CW - 8, th = 63;
-      if (n.kind === 'level') KF.blit(ctx, KF.Render.thumb(n.def.env, tw, th, n.style.id), x + 4, y + 4);
+      if (n.kind === 'level') KF.blit(ctx, KF.Render.thumb(n.def.env, tw, th, n.style.id, n.def), x + 4, y + 4);
       else { // fighters: their portrait in front of the realm
         KF.blit(ctx, KF.Render.thumb(this.fightOpts(i).env, tw, th, this.fightOpts(i).style), x + 4, y + 4);
         R(ctx, n.kind === 'boss' ? 'rgba(80,0,10,0.55)' : 'rgba(8,4,16,0.45)', x + 4, y + 4, tw, th);

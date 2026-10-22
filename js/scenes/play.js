@@ -54,7 +54,7 @@
 
     newAttempt() {
       this.stage = new KF.Stage(this.def, this.deaths, this.memory);
-      this.layer = KF.Render.bakeStage(this.stage.world, this.theme, this.style.smooth ? this.engine.scale : KF.RES);
+      this.layer = KF.Render.bakeStage(this.stage.world, this.theme, this.style.smooth ? this.engine.scale : KF.RES, this.def);
       this.trail = []; this.trailT = 0;
       this.hist = [];
       this.track = new KF.Ghosts.Track(); this.attemptT = 0;
@@ -372,6 +372,7 @@
       else { w.fillStyle = this.theme.bg; w.fillRect(0, 0, VW, VH); }
       if (!style.clearBg || this.theme.id === 'env_' + style.id) this.theme.background(w, cam, t, this.mood);
       KF.Render.depths(w, st, cam, t);
+      if (KF.Scenery) KF.Scenery.draw(w, st, cam, t);
       KF.Render.zones(w, st, this.theme, cam, t);
       KF.Render.labels(w, this.def, this.theme, cam);
       if (style.extrude) KF.Render.extrude(w, st, this.theme, cam);

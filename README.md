@@ -3,19 +3,13 @@
 A troll platformer dressed as a late-90s arcade fighter. Run from the left of each stage to the
 exit door. The stage will betray you. Learn each trap by dying to it; respawn is instant.
 
-**Ten style realms plus THE ASCENT.** The style realms each have four levels in a different
-places shown in that medium. The realms are ARCADE (full colour), RETRO (cinematic black and white),
+**Ten style realms, each with four levels.** Each realm shows different places in its medium.
+The realms are ARCADE (full colour), RETRO (cinematic black and white),
 POCKET (four Game Boy greens), COMIC, AR GO (the world through your phone), 8-BIT, WOODBLOCK
 (Edo prints), VHS (home video), VAPORWAVE and CYBER. In Retro, you travel through a
 lamp-lit street, moonlit rooftops, a night train and a reflective canal. The Chaplin-style
 bowler-hatted player is deliberately chunky grayscale pixel art against those detailed backdrops.
 Each realm's style also brings its own rule, K.O. card and sounds.
-
-THE ASCENT is a separate continuous hammer climb designed for roughly five minutes, with a cauldron-bound
-climber, momentum, narrow shelves and large falls. Its pixel scenery layers a sunset, misty
-bridges and castle, and a cluttered rock face. Aim the hammer with your mouse and hold click when its head touches stone to push,
-and use A/D to steer. There are no checkpoints; reach the summit to clear the realm. Press R
-to restart or Esc to return to the realm map. You can open it directly with `index.html?stage=ascent`.
 
 A realm runs level, level, street fight, level, level, boss. **Every realm and every node is
 open from the start.** Clearing them tracks progress and pays coins, which buy outfits, headgear, hair, fist wraps, stat
@@ -28,6 +22,8 @@ descend toward the second, then pass through the exit. The HUD advances only whe
 door. Ordinary levels now climb above the old side-scrolling route; the hand-built tall levels
 place their doors along the vertical route. Timed crossings still appear where the terrain has
 room for a fair waiting place.
+Each level also has its own landmarks behind the route and material details on exposed platforms:
+supports, wear, cables, vents, foliage and small objects match the place and its visual style.
 
 **Cyber and SUPERHOT.** The last realm's places are a neon megacity, a hologram district and
 chrome Y2K. Its finale is a continuous side-on SUPERHOT tribute: move through the level,
@@ -157,7 +153,7 @@ js/levels/       doors and stages          js/music.js    the four chiptune trac
 js/scenes/       title, map, realm path,   tools/solve.js level checker (Node)
                  shop, fight, play          tools/fightsim.js fight balance (Node)
 tools/combatcheck.js integrated finale check
-tools/partcheck.js   three-door progression check    tools/climbcheck.js hammer climb check
+tools/partcheck.js   three-door progression check    js/scenery.js stage landmarks and materials
 js/fight/        fighter, AI, roster        js/economy.js  shop items, upgrades, coins
 js/styles.js     per-stage visual styles   js/envs/       per-stage environments
 js/rules.js      world names + rules       js/present.js  per-world cards and sounds
@@ -273,7 +269,6 @@ node tools/solve.js arcade 3        # one stage
 VERBOSE=1 node tools/solve.js comic 2  # also print the winning input sequence
 MARGIN=1 node tools/solve.js        # human-precision check (see below)
 node tools/partcheck.js             # all three-door layouts and door order
-node tools/climbcheck.js            # hammer push, rock collision and summit
 ```
 
 The checker runs the real game logic headless and searches for inputs that pass all three doors,

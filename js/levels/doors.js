@@ -19,7 +19,6 @@
     { id: 'vhs', name: 'VHS', sub: 'HOME VIDEO 1996', style: 'vhs', theme: 'vhs_backyard', music: 'rooftop', envs: ['vhs_backyard', 'vhs_rooftop', 'vhs_mall', 'vhs_train'] },
     { id: 'vapor', name: 'VAPORWAVE', sub: 'SLOWED + REVERB', style: 'vaporwave', theme: 'vapor_plaza', music: 'neon', envs: ['vapor_plaza', 'vapor_neon', 'vapor_harbour', 'vapor_train'] },
     { id: 'cyber', name: 'CYBER', sub: 'NEON TO SUPERHOT', style: 'cyberpunk', theme: 'cyber_megacity', music: 'cyber', styles: ['cyberpunk', 'hologram', 'chrome', 'superhot'], envs: ['cyber_megacity', 'cyber_hologram', 'cyber_chrome', 'superhot_atrium'] },
-    { id: 'ascent', name: 'THE ASCENT', sub: 'ONE LONG HAMMER CLIMB', style: 'hd', theme: 'viking', music: 'viking', single: true },
   ];
   const BUCKETS = ['rooftop', 'harbour', 'neon', 'temple', 'train', 'sakura', 'viking', 'cyber'];
   const pool = {};
@@ -227,7 +226,6 @@
     if (cy[2]) order.push(cy[2]); // the low-poly VR stage joins the main run
     const cyber = [cy[0], cy[1], cy[3], cy[4]].filter(Boolean);
     REALMS.forEach((r, k) => {
-      if (r.single) { built[r.id] = [{ realm: r.id, name: r.name, single: true }]; KF.StylePlan[r.id] = [r.style]; return; }
       const src = r.id === 'cyber' ? cyber : order.slice(4 * k, 4 * k + 4);
       const tall = pool['tall_' + r.id] && pool['tall_' + r.id][0];
       if (tall && src.length > TALL_SLOT) src[TALL_SLOT] = tall;
