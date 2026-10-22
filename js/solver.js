@@ -36,6 +36,10 @@
       if (tr.def.type === 'lookSaw') k += `s${Math.round(tr.x / 4)}`;
       if (tr.def.type === 'lureFloor') k += `l${tr.mode[0]}${Math.round(Math.max(0, tr.timer) * 5)}`;
     }
+    for (const tr of st.traps) if (tr.col !== undefined && tr.col !== null) { // ambush flames: timing only matters until they burn out
+      const live = tr.t < tr.warnT + (tr.def.burn ?? 0.9);
+      k += `|f${tr.col}:${live ? Math.floor(tr.t / 0.05) : 'x'}`;
+    }
     for (const s of st.world.dynamicSolids) k += `,${Math.round(s.x / 4)}:${Math.round(s.y / 4)}:${s.active === false ? 0 : 1}`;
     if (st.def.traps && st.def.traps.some((t) => t.when && t.when.time !== undefined)) k += '|' + Math.floor(st.t / 0.25);
     for (const tr of st.traps) if (tr.period) k += '|' + Math.floor(((st.t + (tr.def.offset || 0)) % tr.period) / 0.1);
