@@ -145,8 +145,8 @@ function heuristic(st) {
 }
 
 const WEIGHT = Number(process.env.WEIGHT || 2.5);
-function solve(def, deaths, budget = Number(process.env.BUDGET || 250000)) {
-  const start = new KF.Stage(def, deaths);
+function solve(def, deaths, budget = Number(process.env.BUDGET || 250000), part = 0) {
+  const start = new KF.Stage(def, deaths, { seen: {}, checkpoint: part || 1 });
   const open = new Heap();
   const seen = new Set([key(start, false)]);
   open.push({ st: start, held: false, g: 0, f: heuristic(start), seq: null });
@@ -173,7 +173,7 @@ function solve(def, deaths, budget = Number(process.env.BUDGET || 250000)) {
         st.events.length = 0;
       }
       const seq = { a, prev: node.seq };
-      if (st.state === 'won') return { ok: true, time: (node.g + decide * KF.STEP), expanded, seq };
+      if (st.state === 'won' || (part && st.part > part)) return { ok: true, time: (node.g + decide * KF.STEP), expanded, seq };
       if (process.env.DEBUG && st.part > (solve.maxPart || 1)) { solve.maxPart = st.part; console.log('  passed part', st.part - 1, 'at', st.player.x.toFixed(0), st.player.y.toFixed(0), 't', st.t.toFixed(2)); }
       if (process.env.DEBUG && st.guide > (solve.maxGuide || 0)) { solve.maxGuide = st.guide; console.log('  reached guide', st.guide, 'at', st.player.x.toFixed(0), st.player.y.toFixed(0), 't', st.t.toFixed(2)); }
       if (process.env.DEBUG && st.state === 'dead' && st.player.centerX > best) { best = st.player.centerX; console.log('  died at', best.toFixed(0), st.player.y.toFixed(0), st.cause, st.t.toFixed(2)); }
@@ -225,14 +225,23 @@ for (const door of KF.Doors) {
     for (const d of variants(def)) {
       if (process.env.DEATHS !== undefined && d !== Number(process.env.DEATHS)) continue;
       const t0 = Date.now();
-      const r = solve(def, d);
+      // A death restarts at the latest door, so each part is searched from its
+      // own checkpoint; DUMP=1 or WHOLE=1 searches the whole level in one go.
+      let r;
+      if (def.doorLinks && !process.env.WHOLE && !process.env.DUMP) {
+        r = { ok: true, time: 0, expanded: 0 };
+        for (let part = 1; part <= def.doorLinks.length + 1 && r.ok; part++) {
+          const one = solve(def, d, undefined, part);
+          r = { ok: one.ok, time: r.time + (one.time || 0), expanded: r.expanded + one.expanded, seq: one.seq, part };
+        }
+      } else r = solve(def, d);
       const label = `${door.id} ${i + 1} "${def.name}" deaths=${d}${MARGIN ? ' [margin]' : ''}`;
       if (r.ok && process.env.DUMP) {
         const steps = []; for (let n = r.seq; n; n = n.prev) steps.push([n.a.dir, n.a.jump]);
         dump[`${door.id}-${i + 1}-${d}`] = steps.reverse();
       }
       if (r.ok) console.log(`OK   ${label}  ${r.time.toFixed(2)}s  (${r.expanded} nodes, ${Date.now() - t0}ms)` + (process.env.VERBOSE ? '\n     ' + describe(r.seq) : ''));
-      else { failures++; console.log(`FAIL ${label}  no route found (${r.expanded} nodes)`); }
+      else { failures++; console.log(`FAIL ${label}  no route found${r.part ? ' in part ' + r.part : ''} (${r.expanded} nodes)`); }
     }
   });
 }

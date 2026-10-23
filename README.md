@@ -297,7 +297,8 @@ node tools/partcheck.js             # all four-part layouts and door order
 ```
 
 The checker runs the real game logic headless and searches for inputs that pass all four parts,
-separately for each `deaths` variant. Every stage that ships passes on every variant, which is
+separately for each `deaths` variant. A death restarts at the latest door, so each part is searched
+from its own checkpoint (`WHOLE=1` searches a level in one go). Every stage that ships passes on every variant, which is
 the "no trap kills you with zero counterplay on the next attempt" rule made testable.
 
 `MARGIN=1` makes it stricter: inputs may only change every 100 ms and the jump is 5% weaker. A
