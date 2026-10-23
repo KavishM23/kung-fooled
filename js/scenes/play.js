@@ -126,7 +126,13 @@
           case 'punch': A.sfx('punch'); break;
           case 'gravity': A.sfx('gravity', { g: e.g }); fx.tick(e.x, e.y); break;
           case 'bonk': A.sfx('bonk'); fx.tick(e.x, e.y + 8); break;
-          case 'part': this.banner = { text: `PART ${e.part} / 3`, t: 0 }; A.sfx('confirm'); break;
+          case 'part':
+            this.banner = { text: `PART ${e.part} / 3`, t: 0 }; A.sfx('confirm');
+            if (this.def.doorLinks) {
+              this.updateCamera(1);
+              this.cam.prevX = this.cam.x; this.cam.prevY = this.cam.y;
+            }
+            break;
           case 'poof': A.sfx('whoosh'); fx.dust(e.x, e.y, 8); break;
           case 'say': A.sfx('say'); fx.say(e.text, e.x, e.y); break;
           case 'win': if (KF.Present.has(this.style.id, 'win')) KF.Present.sfx(this.style.id, 'win', { perfect: this.deaths === 0 }); else A.sfx('win'); fx.confetti(e.x, e.y); this.mood.cheer = 1.6; break;

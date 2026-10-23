@@ -4,7 +4,7 @@ const assert = require('node:assert/strict'), vm = require('node:vm'), fs = requ
 const root = path.join(__dirname, '..');
 const sb = { console, Math, JSON, Object, Array, Set, Map, Uint8Array, Error, parseInt, Number };
 sb.window = sb; vm.createContext(sb);
-for (const file of ['core.js', 'physics.js', 'world.js', 'player.js', 'traps.js', 'combat.js', 'stage.js', 'rules.js', 'levels/doors.js'])
+for (const file of ['core.js', 'physics.js', 'world.js', 'player.js', 'traps.js', 'combat.js', 'stage.js', 'rules.js', 'levels/doors.js', 'levels/routes.js'])
   vm.runInContext(fs.readFileSync(path.join(root, 'js', file), 'utf8'), sb, { filename: file });
 for (const file of fs.readdirSync(path.join(root, 'js/levels')).filter((f) => /^world\d+\.js$/.test(f)).sort())
   vm.runInContext(fs.readFileSync(path.join(root, 'js/levels', file), 'utf8'), sb, { filename: file });
@@ -25,13 +25,13 @@ assert(beam.active && beam.kills(target), 'lit beam must damage on contact');
 beam.stage.t = beam.on + 0.2;
 assert(!beam.active && !beam.kills(target), 'beam must leave a safe timing window');
 const arcade = KF.Doors.find((d) => d.id === 'arcade');
-const belt = new KF.Stage(arcade.stages[0]).traps.find((t) => t.def.type === 'conveyor');
+const belt = new KF.Stage(arcade.stages[0]).traps.find((t) => t.def.type === 'conveyor' && t.def.speed === 80);
 const rider = { x: belt.rect.x + 8, y: belt.rect.y + 4 - 26, w: 12, h: 26, grounded: true, gravDir: 1 };
 assert.equal(belt.push(rider), 80, 'the belt must move a grounded player on its surface');
 rider.y -= 8;
 assert.equal(belt.push(rider), 0, 'the belt must not push a jumping player');
 const pocket = KF.Doors.find((d) => d.id === 'pocket');
-const reverseBelt = new KF.Stage(pocket.stages[0]).traps.find((t) => t.def.type === 'conveyor');
+const reverseBelt = new KF.Stage(pocket.stages[0]).traps.find((t) => t.def.type === 'conveyor' && t.def.speed === -85);
 rider.x = reverseBelt.rect.x + 8; rider.y = reverseBelt.rect.y + 4 - 26;
 assert.equal(reverseBelt.push(rider), -85, 'a reverse belt must oppose forward movement');
 const comic = KF.Doors.find((d) => d.id === 'comic');

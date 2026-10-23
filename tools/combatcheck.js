@@ -4,7 +4,7 @@ const assert = require('node:assert/strict'), vm = require('node:vm'), fs = requ
 const root = path.join(__dirname, '..');
 const sb = { console, Math, JSON, Object, Array, Set, Map, Uint8Array, Error, parseInt, Number };
 sb.window = sb; vm.createContext(sb);
-for (const file of ['core.js', 'physics.js', 'world.js', 'player.js', 'traps.js', 'combat.js', 'stage.js', 'rules.js', 'levels/doors.js'])
+for (const file of ['core.js', 'physics.js', 'world.js', 'player.js', 'traps.js', 'combat.js', 'stage.js', 'rules.js', 'levels/doors.js', 'levels/routes.js'])
   vm.runInContext(fs.readFileSync(path.join(root, 'js', file), 'utf8'), sb, { filename: file });
 for (const file of fs.readdirSync(path.join(root, 'js/levels')).filter((f) => /^world\d+\.js$/.test(f)).sort())
   vm.runInContext(fs.readFileSync(path.join(root, 'js/levels', file), 'utf8'), sb, { filename: file });
@@ -18,9 +18,16 @@ st.step(KF.STEP, empty);
 assert(st.t > 0 && st.t < KF.STEP * 0.07, 'world must crawl when input stops');
 // Reaching the door early cannot skip the enemies.
 const d = st.world.door;
-st.player.x = d.x + 3; st.player.y = 154;
+st.player.x = d.x + 3; st.player.y = d.y + 5;
 st.step(KF.STEP, { ...empty, left: true, right: true });
 assert.equal(st.state, 'play', 'exit must stay locked during combat');
+const [doorOne, doorTwo] = st.world.partDoors;
+st.player.x = doorOne.x + 2; st.player.y = doorOne.y + 5;
+st.step(0, empty);
+assert.equal(st.part, 2);
+st.player.x = doorTwo.x + 2; st.player.y = doorTwo.y + 5;
+st.step(0, empty);
+assert.equal(st.part, 2, 'door two must keep the player in the combat district until it is cleared');
 // Two aimed shots from the real platformer controller kill a sentinel.
 const first = c.enemies[0];
 st.player.x = first.x - 52; st.player.y = first.y + 4; st.player.vx = st.player.vy = 0;

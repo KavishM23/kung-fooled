@@ -9,7 +9,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const SIM_FILES = ['core.js', 'physics.js', 'world.js', 'player.js', 'traps.js', 'combat.js', 'stage.js', 'rules.js', 'levels/doors.js'];
+const SIM_FILES = ['core.js', 'physics.js', 'world.js', 'player.js', 'traps.js', 'combat.js', 'stage.js', 'rules.js', 'levels/doors.js', 'levels/routes.js'];
 const sandbox = { console, Math, JSON, Object, Array, Set, Map, Uint8Array, Error, parseInt, Number };
 sandbox.window = sandbox;
 vm.createContext(sandbox);
@@ -52,10 +52,12 @@ const DECIDE = Number(process.env.DECIDE) || (MARGIN ? 12 : 6); // physics steps
 const ACTIONS = [];
 for (const dir of [1, 0, -1]) for (const jump of [1, 0]) ACTIONS.push({ dir, jump });
 
+function target(st) { return st.part === 2 && st.def.guides && st.def.guides[st.guide] ||
+  st.world.partDoors[st.part - 1] || st.world.door; }
 function key(st, held) {
-  const p = st.player, d = st.world.partDoors[st.part - 1] || st.world.door;
+  const p = st.player, d = target(st);
   let k = `${Math.round(p.x / 2)},${Math.round(p.y / 2)},${Math.round(p.vx / 30)},${Math.round(p.vy / 50)},${p.grounded | 0},${p.gravDir},${p.launchT > 0 ? 1 : 0},${held | 0}${p.jumping | 0}${p.coyoteT > 0 ? 1 : 0}`;
-  k += `|${st.part}|${d ? Math.round(d.x / 4) + ',' + Math.round(d.y / 4) : ''}`;
+  k += `|${st.part}|${st.guide}|${d ? Math.round(d.x / 4) + ',' + Math.round(d.y / 4) : ''}`;
   if (st.part < 3 && st.world.door) k += `|${Math.round(st.world.door.x / 4)},${Math.round(st.world.door.y / 4)}`;
   for (const tr of st.traps) k += tr.fired ? '1' : tr.pending >= 0 ? 'p' : '0';
   for (const tr of st.traps) {
@@ -68,7 +70,11 @@ function key(st, held) {
   }
   for (const s of st.world.dynamicSolids) k += `,${Math.round(s.x / 4)}:${Math.round(s.y / 4)}:${s.active === false ? 0 : 1}`;
   if (st.def.traps && st.def.traps.some((t) => t.when && t.when.time !== undefined)) k += '|' + Math.floor(st.t / 0.25);
-  for (const tr of st.traps) if (tr.period) k += '|' + Math.floor(((st.t + (tr.def.offset || 0)) % tr.period) / 0.1);
+  // A remote gate's exact clock phase cannot affect this decision. Including
+  // every gate across a long level multiplies otherwise identical search states.
+  for (const tr of st.traps) if (tr.period && tr.rect &&
+    p.centerX >= tr.rect.x - 128 && p.centerX <= tr.rect.x + tr.rect.w + 128)
+    k += '|' + Math.floor(((st.t + (tr.def.offset || 0)) % tr.period) / 0.1);
   if (st.combat) {
     k += '|' + [st.combat.health, st.combat.ammo, Math.round(st.combat.reload * 5), ...st.combat.enemies.map((e) => e.hp)].join(',');
     for (const b of st.combat.bullets) k += ';' + [Math.round(b.x / 8), Math.round(b.y / 8), b.enemy | 0].join(',');
@@ -86,10 +92,11 @@ function pathField(st) {
   const def = st.def;
   let byPart = fields.get(def);
   if (!byPart) { byPart = new Map(); fields.set(def, byPart); }
-  if (byPart.has(st.part)) return byPart.get(st.part);
+  const targetKey = `${st.part}-${st.guide}`;
+  if (byPart.has(targetKey)) return byPart.get(targetKey);
   const W = st.world.cols, H = st.world.rows, dist = new Float32Array(W * H).fill(1e9);
   const open = (c, r) => c >= 0 && r >= 0 && c < W && r < H && !'#=~'.includes((def.map[r] || '')[c] || '.');
-  const d = st.world.partDoors[st.part - 1] || st.world.door, q = [];
+  const d = target(st), q = [];
   const dc = Math.floor((d.x + 8) / 16), dr = Math.floor((d.y + 16) / 16);
   for (const [c, r] of [[dc, dr], [dc, dr - 1], [dc, dr + 1]]) if (open(c, r)) { dist[r * W + c] = 0; q.push([c, r]); }
   for (let i = 0; i < q.length; i++) {
@@ -100,18 +107,18 @@ function pathField(st) {
     }
   }
   const f = { dist, W, H };
-  byPart.set(st.part, f);
+  byPart.set(targetKey, f);
   return f;
 }
 function routeEstimate(st) {
-  if (!st.def.noGates || !st.world.door) return null;
+  if (!st.def.noGates || (st.def.doorLinks && st.part !== 2) || !st.world.door) return null;
   const f = pathField(st), p = st.player;
   const c = Math.max(0, Math.min(f.W - 1, Math.floor(p.centerX / 16))), r = Math.max(0, Math.min(f.H - 1, Math.floor((p.y + p.h / 2) / 16)));
   const v = f.dist[r * f.W + c];
   return v >= 1e9 ? null : v * 16;
 }
 function heuristic(st) {
-  const p = st.player, d = st.world.partDoors[st.part - 1] || st.world.door;
+  const p = st.player, d = target(st);
   if (!d) return 1e9;
   const viaRoute = routeEstimate(st);
   if (viaRoute !== null) return viaRoute / 120;
@@ -147,11 +154,12 @@ function solve(def, deaths, budget = Number(process.env.BUDGET || 250000)) {
       for (let i = 0; i < decide && st.state === 'play'; i++) {
         input.jumpPressed = i === 0 && a.jump && !node.held;
         if (st.combat) {
-          input.shoot = true; input.melee = true;
           const p = st.player;
           const visible = st.combat.enemies.filter((e) => e.hp > 0 &&
+            Math.abs(e.x - p.x) < 290 &&
             !st.combat.wallBetween(p.centerX, p.y + 8, e.x + e.w / 2, e.y + e.h / 2));
           const target = visible.sort((a, b) => Math.abs(a.x - p.x) - Math.abs(b.x - p.x))[0];
+          input.shoot = !!target; input.melee = !!target;
           if (target) { input.aimX = target.x + target.w / 2; input.aimY = target.y + target.h / 2; }
         }
         st.step(KF.STEP, input);
@@ -160,9 +168,10 @@ function solve(def, deaths, budget = Number(process.env.BUDGET || 250000)) {
       const seq = { a, prev: node.seq };
       if (st.state === 'won') return { ok: true, time: (node.g + decide * KF.STEP), expanded, seq };
       if (process.env.DEBUG && st.part > (solve.maxPart || 1)) { solve.maxPart = st.part; console.log('  passed part', st.part - 1, 'at', st.player.x.toFixed(0), st.player.y.toFixed(0), 't', st.t.toFixed(2)); }
+      if (process.env.DEBUG && st.guide > (solve.maxGuide || 0)) { solve.maxGuide = st.guide; console.log('  reached guide', st.guide, 'at', st.player.x.toFixed(0), st.player.y.toFixed(0), 't', st.t.toFixed(2)); }
       if (process.env.DEBUG && st.state === 'dead' && st.player.centerX > best) { best = st.player.centerX; console.log('  died at', best.toFixed(0), st.player.y.toFixed(0), st.cause, st.t.toFixed(2)); }
       if (process.env.DEBUG && st.state === 'play' && st.player.centerX > (solve.far || 0)) { solve.far = st.player.centerX; if (Math.floor(solve.far / 16) !== Math.floor((solve.farP || 0) / 16)) { solve.farP = solve.far; console.log('  reached col', (solve.far / 16).toFixed(1), 'y', st.player.y.toFixed(0), 't', st.t.toFixed(2), 'door', st.world.door.x / 16); } }
-      if (st.state !== 'play' || st.t > 60) continue;
+      if (st.state !== 'play' || st.t > (def.doorLinks ? 120 : 60)) continue;
       const k = key(st, a.jump);
       if (seen.has(k)) continue;
       seen.add(k);
@@ -171,7 +180,7 @@ function solve(def, deaths, budget = Number(process.env.BUDGET || 250000)) {
       // so such states get a small bonus.
       const fired = st.traps.reduce((n, tr) => n + (tr.fired ? 1 : 0), 0);
       const combatProgress = st.combat ? st.combat.enemies.reduce((n, e) => n + (e.maxHp - e.hp), 0) : 0;
-      open.push({ st, held: !!a.jump, g, f: g + heuristic(st) * WEIGHT - fired * 1.5 - (st.part - 1) * 100 - combatProgress * 15, seq });
+      open.push({ st, held: !!a.jump, g, f: g + heuristic(st) * WEIGHT - fired * 1.5 - (st.part - 1 + st.guide) * 100 - combatProgress * 15, seq });
     }
   }
   return { ok: false, expanded };

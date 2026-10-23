@@ -17,11 +17,13 @@ upgrades and special moves in the Dojo. Each realm's street fighter and boss sui
 Johnny TV and the bowler-hatted Bramble in Retro, Bug Kid and Grandma Hana in Pocket, and
 Volt and THE SYSTEM in Cyber. Every other fighter appears in the Street Arena.
 
-Each realm level is one continuous run through **three doors**. Reach the first elevated door,
-descend toward the second, then pass through the exit. The HUD advances only when you enter a
-door. Ordinary levels now climb above the old side-scrolling route; the hand-built tall levels
-place their doors along the vertical route. Timed crossings still appear where the terrain has
-room for a fair waiting place.
+Each realm level has three long districts. The first climbs across widely spaced platforms to
+door one. Door one opens into an approach and the original level's hand-built traps; the tall
+levels keep their winding routes there. Door two opens onto another long route with changes in
+height before the final exit. Each level has a distinct pair of outer route profiles. Solid
+dividers prevent shortcuts between districts. The HUD advances only when you enter a door.
+Gaps, spikes, timed beams and unstable or moving surfaces
+change the rhythm along each route.
 Each level also has its own landmarks behind the route and material details on exposed platforms:
 supports, wear, cables, vents, foliage and small objects match the place and its visual style.
 
@@ -149,7 +151,7 @@ js/world.js      tile grid, map parsing    js/fx.js       sparks, dust, shake, s
 js/player.js     movement + tuning         js/bigtext.js  ROUND / K.O. / PERFECT lettering
 js/traps.js      every trap type           js/hud.js      health bars, timer, death combo
 js/stage.js      rules for one attempt     js/combat.js   in-level SUPERHOT combat
-js/levels/       doors and stages          js/music.js    the four chiptune tracks
+js/levels/       doors, routes and stages  js/music.js    the four chiptune tracks
 js/scenes/       title, map, realm path,   tools/solve.js level checker (Node)
                  shop, fight, play          tools/fightsim.js fight balance (Node)
 tools/combatcheck.js integrated finale check
@@ -207,8 +209,10 @@ KF.addStage('rooftop', {
 
 Map legend: `#` solid, `=` solid prop block (crate / AC unit / stall), `-` one-way platform, `~` ice,
 `^ v < >` spikes, `P` spawn, `D` exit door (its bottom tile), `U` upside-down exit hanging from a
-ceiling (its top tile). The ordinary-level builder adds `A` and `B` as intermediate door markers
-and stair platforms above the source map. Falling below the map kills; the left and right edges are walls.
+ceiling (its top tile). `js/levels/routes.js` places the source map and its traps in the middle
+district, then builds the two longer outer routes. `A` and `B` mark the intermediate doors;
+each takes the player to the next district. Falling below the map kills; the left and right
+edges are walls.
 
 To add a whole new realm, add an entry to `KF.Doors` in `js/levels/doors.js`, a theme in
 `js/themes.js` (themes provide `build`, `background` and `tile`), a music track in `js/music.js`

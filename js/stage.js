@@ -18,6 +18,7 @@
       this.player.iceAll = !!this.rule.ice;
       this.t = 0;
       this.part = 1;
+      this.guide = 0;
       this.state = 'play'; // play | dead | won
       this.cause = null;
       this.firedIds = {};
@@ -113,9 +114,13 @@
 
       if (this.combat) this.combat.update(dt, input);
       if (this.state !== 'play') return;
+      const guide = this.def.guides && this.def.guides[this.guide];
+      if (this.part === 2 && guide && U.overlap(p,
+        { x: guide.x - 12, y: guide.y - 10, w: 40, h: 52 })) this.guide++;
       const d = w.door;
       const partDoor = w.partDoors[this.part - 1];
-      if (partDoor && U.overlap(p, { x: partDoor.x - 12, y: partDoor.y - 10, w: partDoor.w + 24, h: partDoor.h + 20 })) {
+      const partUnlocked = this.part !== 2 || !this.combat || this.combat.cleared;
+      if (partDoor && partUnlocked && U.overlap(p, { x: partDoor.x - 12, y: partDoor.y - 10, w: partDoor.w + 24, h: partDoor.h + 20 })) {
         if (!this.def.noGates) {
           // Entering a doorway settles the player onto its shelf. This makes the
           // next climb or descent start at the door instead of mid-fall.
@@ -125,6 +130,13 @@
           p.vx = p.vy = 0; p.grounded = true;
         }
         this.part++;
+        const link = this.def.doorLinks && this.def.doorLinks[this.part - 2];
+        if (link) {
+          p.x = link.x - p.w / 2; p.y = link.y - p.h;
+          p.prevX = p.x; p.prevY = p.y;
+          p.vx = p.vy = 0; p.grounded = false;
+          p.gravDir = 1; p.jumping = false; p.launchT = 0;
+        }
         this.emit('part', { part: this.part, x: p.centerX, y: p.y });
       }
       // A running door can't be caught mid-sprint; it has to stop first.
@@ -135,7 +147,9 @@
     get remaining() {
       const d = this.world.partDoors[this.part - 1] || this.world.door;
       if (!d) return 1;
-      const start = this.part > 1 ? this.world.partDoors[this.part - 2] : this.world.spawn;
+      const start = this.part > 1 ?
+        (this.def.doorLinks && this.def.doorLinks[this.part - 2]) || this.world.partDoors[this.part - 2] :
+        this.world.spawn;
       const total = Math.max(32, Math.hypot(d.x + 8 - start.x, d.y + 16 - start.y));
       return U.clamp(Math.hypot(d.x + 8 - this.player.centerX, d.y + 16 - (this.player.y + this.player.h / 2)) / total, 0, 1);
     }

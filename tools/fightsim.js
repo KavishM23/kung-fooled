@@ -7,7 +7,7 @@ const ROOT = path.join(__dirname, '..');
 const sb = { console, Math, JSON, Object, Array, Set, Map, Uint8Array, Error, parseInt, Number };
 sb.window = sb;
 vm.createContext(sb);
-for (const f of ['core.js', 'levels/doors.js', 'fight/fighter.js', 'fight/ai.js', 'fight/roster.js']) {
+for (const f of ['core.js', 'levels/doors.js', 'levels/routes.js', 'fight/fighter.js', 'fight/ai.js', 'fight/roster.js']) {
   if (f === 'fight/fighter.js') vm.runInContext('KF.Sprites = { buildSet: () => ({ frames: {} }) }; KF.Audio = { sfx() {} }; KF.Save = { unlocked: () => true };', sb);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f), 'utf8'), sb, { filename: f });
 }
