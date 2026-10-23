@@ -54,7 +54,10 @@ for (const checkpoint of st.world.partDoors) {
   p.x = checkpoint.x + 2; p.y = checkpoint.y + 5; p.vx = p.vy = 0;
   st.step(0, empty);
 }
-assert.equal(st.part, 3, 'both intermediate doors must be passed');
+assert.equal(st.part, 4, 'all intermediate doors must be passed');
+const clearedRetry = new KF.Stage(def, 1, st.memory);
+assert.equal(clearedRetry.part, 4, 'retry should preserve the final combat checkpoint');
+assert(clearedRetry.combat.cleared, 'boss clear should survive a death after the combat section');
 p.x = d.x + 3; p.y = d.y + 5; p.vx = p.vy = 0;
 st.step(KF.STEP, { ...empty, left: true, right: true });
 assert.equal(st.state, 'won', 'exit must open once the boss and sentinels are defeated');

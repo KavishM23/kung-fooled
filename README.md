@@ -17,19 +17,20 @@ upgrades and special moves in the Dojo. Each realm's street fighter and boss sui
 Johnny TV and the bowler-hatted Bramble in Retro, Bug Kid and Grandma Hana in Pocket, and
 Volt and THE SYSTEM in Cyber. Every other fighter appears in the Street Arena.
 
-Each realm level has three door acts. The opening and finale each fit within one view, with four
-broad height bands that climb, drop, and change direction again. The exit stays visible while a
-seemingly safe lower stretch turns out to be a fake floor, crumbling floor, pop-up spikes,
-falling ceiling, false door, or floor that gives way on approach.
-The two tricks differ within a level, and all six appear across the 40 levels. Door one opens
-into the original hand-built room, which keeps its own traps and, in the tall levels, its winding
-route. Door two opens into the finale. Solid dividers prevent shortcuts between acts. Revealed
-floors, spikes, and false doors leave small visual reminders on retries, so the next attempt can
-use what the player learned.
+Each realm level now travels through four compact parts: an approach, the original hand-built
+room, an upper passage, and a final exit area. Three intermediate doors connect these places;
+each door is also a checkpoint, so death starts the next attempt in the current part. Every
+generated part fits within one view and has a distinct elevation pattern: the approach weaves,
+the sheltered passage climbs, and the thin exit ledges drop before rising. Its simple
+visible route hides one readable bait. Three variations on a named trap concept develop across
+the level; all six bait types appear across the 40 levels. The original room keeps its own traps,
+combat, and winding route where present. Solid dividers prevent skipping sections. Revealed
+traps leave small visual reminders on retries.
 Each level also has its own landmarks behind the route and material details on exposed platforms:
 supports, wear, cables, vents, foliage and small objects match the place and its visual style.
 Windowed rooms and scaffold frames follow the urban height bands; cliffs, cave openings and trees
-follow the natural ones. The camera looks ahead during climbs and falls while tracking smoothly.
+follow the natural ones. The upper passage has sheltered framing; the exit has exposed skyline
+details. The camera looks ahead during climbs and falls while tracking smoothly.
 
 **Cyber and SUPERHOT.** The last realm's places are a neon megacity, a hologram district and
 chrome Y2K. Its finale is a continuous side-on SUPERHOT tribute: move through the level,
@@ -159,7 +160,7 @@ js/levels/       doors, routes and stages  js/music.js    the four chiptune trac
 js/scenes/       title, map, realm path,   tools/solve.js level checker (Node)
                  shop, fight, play          tools/fightsim.js fight balance (Node)
 tools/combatcheck.js integrated finale check
-tools/partcheck.js   three-door progression check    js/scenery.js stage landmarks and materials
+tools/partcheck.js   four-part progression check    js/scenery.js stage landmarks and materials
 js/fight/        fighter, AI, roster        js/economy.js  shop items, upgrades, coins
 js/styles.js     per-stage visual styles   js/envs/       per-stage environments
 js/rules.js      world names + rules       js/present.js  per-world cards and sounds
@@ -276,10 +277,10 @@ node tools/solve.js                 # every stage, every attempt variant
 node tools/solve.js arcade 3        # one stage
 VERBOSE=1 node tools/solve.js comic 2  # also print the winning input sequence
 MARGIN=1 node tools/solve.js        # human-precision check (see below)
-node tools/partcheck.js             # all three-door layouts and door order
+node tools/partcheck.js             # all four-part layouts and door order
 ```
 
-The checker runs the real game logic headless and searches for inputs that pass all three doors,
+The checker runs the real game logic headless and searches for inputs that pass all four parts,
 separately for each `deaths` variant. Every stage that ships passes on every variant, which is
 the "no trap kills you with zero counterplay on the next attempt" rule made testable.
 

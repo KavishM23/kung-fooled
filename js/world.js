@@ -38,7 +38,7 @@
       this.tiles = new Uint8Array(this.cols * this.rows);
       this.spawn = { x: T, y: T };
       this.door = null;
-      this.partDoors = [null, null];
+      this.partDoors = [null, null, null];
       this.dynamicSolids = []; // { x, y, w, h, active?, oneWay?, dx?, dy? }
 
       for (let r = 0; r < this.rows; r++) {
@@ -51,7 +51,7 @@
           if (ch === 'D') this.door = { x: c * T, y: (r - 1) * T, w: T, h: T * 2, moving: false, flipped: false };
           // U = upside-down door hanging from a ceiling (marker is its top tile).
           if (ch === 'U') this.door = { x: c * T, y: r * T, w: T, h: T * 2, moving: false, flipped: true };
-          if (ch === 'A' || ch === 'B') this.partDoors[ch === 'A' ? 0 : 1] =
+          if (ch === 'A' || ch === 'B' || ch === 'C') this.partDoors[ch.charCodeAt(0) - 65] =
             { x: c * T, y: (r - 1) * T, w: T, h: T * 2, moving: false, flipped: false };
         }
       }

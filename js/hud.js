@@ -101,9 +101,8 @@
       this.lag = this.lag > s.remaining ? Math.max(s.remaining, this.lag - 0.006) : s.remaining;
       R(ctx, '#ffd040', 0, H, Math.round(VW * (1 - s.remaining)), 1);
       if (s.part) {
-        R(ctx, '#f2ebd8', Math.round(VW / 3), H, 1, 2);
-        R(ctx, '#f2ebd8', Math.round(VW * 2 / 3), H, 1, 2);
-        F.draw(ctx, `P${s.part}/3`, VW - 53, 3, '#ffd040', 1, 'right', '#000');
+        for (let i = 1; i < s.parts; i++) R(ctx, '#f2ebd8', Math.round(VW * i / s.parts), H, 1, 2);
+        F.draw(ctx, `P${s.part}/${s.parts}`, VW - 53, 3, '#ffd040', 1, 'right', '#000');
       }
       F.draw(ctx, s.worldName, 6, 3, '#ffffff', 1, 'left', '#000');
       const secs = Math.floor(s.time);

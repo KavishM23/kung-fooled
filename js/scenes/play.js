@@ -51,6 +51,10 @@
 
     setPhase(p) { this.phase = p; this.phaseT = 0; this.cues = {}; }
     cue(name, at) { if (this.phaseT >= at && !this.cues[name]) { this.cues[name] = true; return true; } return false; }
+    locationBanner() {
+      const part = this.stage.part, name = ((this.def.parts || [])[part - 1] || {}).name || 'NEXT AREA';
+      return { text: `${part}/${this.stage.world.partDoors.length + 1}  ${name}`, t: 0 };
+    }
 
     newAttempt() {
       this.stage = new KF.Stage(this.def, this.deaths, this.memory);
@@ -129,7 +133,7 @@
           case 'gravity': A.sfx('gravity', { g: e.g }); fx.tick(e.x, e.y); break;
           case 'bonk': A.sfx('bonk'); fx.tick(e.x, e.y + 8); break;
           case 'part':
-            this.banner = { text: `PART ${e.part} / 3`, t: 0 }; A.sfx('confirm');
+            this.banner = this.locationBanner(); A.sfx('confirm');
             if (this.def.doorLinks) {
               this.updateCamera(1);
               this.cam.prevX = this.cam.x; this.cam.prevY = this.cam.y;
@@ -149,6 +153,7 @@
       this.newAttempt();
       A.sfx('select');
       this.setPhase('play');
+      if (this.def.parts) this.banner = this.locationBanner();
     }
 
     update(dt) {
@@ -205,7 +210,10 @@
           if (this.cue('go', 0.95)) {
             KF.Present.sfx(this.style.id, 'go'); this.fx.shake(5, 0.25); this.goAt = this.engine.time;
           }
-          if (this.phaseT >= 1.05) this.phase = 'play';
+          if (this.phaseT >= 1.05) {
+            this.phase = 'play';
+            if (this.def.parts) this.banner = this.locationBanner();
+          }
           break;
         case 'play':
           this.time += dt;
@@ -458,7 +466,8 @@
         else KF.HUD.draw(ctx, {
           scene: this, worldName: this.run ? `RUN  ${this.worldName}` : this.worldName, remaining: st.remaining,
           time: this.run ? this.run.t : this.endless ? this.endless.timeLeft : this.time, deaths: this.run ? this.run.deaths : this.deaths, deathPulse: this.deathPulse,
-          part: st.world.partDoors[0] ? st.part : null, reversed: p.reversed !== !!st.rule.reverse && this.phase === 'play', flipped: p.gravDir < 0,
+          part: st.world.partDoors[0] ? st.part : null, parts: st.world.partDoors.length + 1,
+          reversed: p.reversed !== !!st.rule.reverse && this.phase === 'play', flipped: p.gravDir < 0,
         }, t);
       }
       if (st.world.partDoors[0] && this.phase === 'play') {

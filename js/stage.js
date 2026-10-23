@@ -17,7 +17,7 @@
       this.player = new KF.Player(sp.x, sp.y, KF.Rules ? KF.Rules.tuning(this.rule) : KF.PlayerTuning);
       this.player.iceAll = !!this.rule.ice;
       this.t = 0;
-      this.part = 1;
+      this.part = Math.min((def.doorLinks || []).length + 1, Math.max(1, memory.checkpoint || 1));
       this.guide = 0;
       this.state = 'play'; // play | dead | won
       this.cause = null;
@@ -27,6 +27,15 @@
       const d = this.world.door;
       this.doorStart = d ? { x: d.x, y: d.y } : null;
       this.combat = def.combat ? new KF.StageCombat(this, def.combat) : null;
+      if (this.part > 2 && this.combat) for (const enemy of this.combat.enemies) enemy.hp = 0;
+      if (this.part > 1 && def.doorLinks) {
+        const link = def.doorLinks[this.part - 2];
+        if (link) {
+          this.player.x = link.x - this.player.w / 2;
+          this.player.y = link.y - this.player.h;
+          this.player.prevX = this.player.x; this.player.prevY = this.player.y;
+        }
+      }
       this.timePulse = 0;
     }
 
@@ -130,6 +139,7 @@
           p.vx = p.vy = 0; p.grounded = true;
         }
         this.part++;
+        this.memory.checkpoint = Math.max(this.memory.checkpoint || 1, this.part);
         const link = this.def.doorLinks && this.def.doorLinks[this.part - 2];
         if (link) {
           p.x = link.x - p.w / 2; p.y = link.y - p.h;
@@ -140,7 +150,7 @@
         this.emit('part', { part: this.part, x: p.centerX, y: p.y });
       }
       // A running door can't be caught mid-sprint; it has to stop first.
-      if ((this.part === 3 || !w.partDoors[0]) && d && !d.moving && (!this.combat || this.combat.cleared) && U.overlap(p, { x: d.x + 3, y: d.y + (d.flipped ? 0 : 4), w: d.w - 6, h: d.h - 4 })) this.win();
+      if ((this.part > w.partDoors.length || !w.partDoors[0]) && d && !d.moving && (!this.combat || this.combat.cleared) && U.overlap(p, { x: d.x + 3, y: d.y + (d.flipped ? 0 : 4), w: d.w - 6, h: d.h - 4 })) this.win();
     }
 
     // 1 = the full distance from spawn to the door remains, 0 = at the door. The HUD's "enemy" bar.

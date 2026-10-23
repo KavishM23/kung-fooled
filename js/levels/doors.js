@@ -42,6 +42,30 @@
   // Names for places shown in any style; a style's own world (env_*) uses that world's name.
   const PLACES = { rooftop: 'ROOFTOPS', harbour: 'THE DOCKS', neon: 'NIGHT MARKET', temple: 'TEMPLE COURTYARD', train: 'SKY EXPRESS', sakura: 'SAKURA VALLEY', viking: 'THE FJORD' };
   const PLACE_MUSIC = { rooftop: 'rooftop', harbour: 'harbour', neon: 'neon', temple: 'shrine', train: 'train', sakura: 'sakura', viking: 'viking' };
+  // A level moves through four recognizable locations in one place. These
+  // names also identify the doorway, stairs, hatch or bridge between them.
+  function localities(env) {
+    if (/train|rail/.test(env)) return ['PLATFORM', 'CARRIAGE', 'ENGINE WALK', 'SIGNAL GANTRY'];
+    if (/harbour|dock|wave/.test(env)) return ['QUAYSIDE', 'WAREHOUSE', 'CRANE WALK', 'BREAKWATER'];
+    if (/temple|sakura|pagoda/.test(env)) return ['OUTER GARDEN', 'INNER HALL', 'COVERED WALK', 'SANCTUARY'];
+    if (/viking|fjord|mountain|cliff/.test(env)) return ['LOWER PATH', 'CAVE PASSAGE', 'CLIFF LEDGE', 'SUMMIT GATE'];
+    if (/backyard/.test(env)) return ['SIDE YARD', 'BASEMENT', 'FIRE ESCAPE', 'UPPER ROOF'];
+    if (/mall/.test(env)) return ['SHOP FRONT', 'SERVICE HALL', 'UPPER ARCADE', 'SKYLIGHT'];
+    if (/gameboy|nes8bit/.test(env)) return ['TOWN EDGE', 'HIDDEN ROUTE', 'HIGH PASS', 'FINAL GATE'];
+    if (/plaza|promenade/.test(env)) return ['LOWER SQUARE', 'PASSAGE', 'BALCONY', 'LOOKOUT'];
+    if (/roof|city|studio|neon|chrome|hologram|atrium|comic|cyber/.test(env))
+      return ['STREET ENTRY', 'INNER FLOORS', 'SCAFFOLD', 'ROOFTOP EXIT'];
+    return ['OUTER PATH', 'INNER PASSAGE', 'UPPER WALK', 'EXIT GATE'];
+  }
+  function passages(env) {
+    if (/train|rail/.test(env)) return ['START', 'CARRIAGE', 'ROOF HATCH', 'SIGNAL GATE'];
+    if (/harbour|dock|wave/.test(env)) return ['START', 'WAREHOUSE', 'CRANE LIFT', 'GANGPLANK'];
+    if (/temple|sakura|pagoda/.test(env)) return ['START', 'TEMPLE GATE', 'STONE STAIRS', 'INNER GATE'];
+    if (/viking|fjord|mountain|cliff/.test(env)) return ['START', 'CAVE MOUTH', 'CLIFF PATH', 'SUMMIT PASS'];
+    if (/roof|city|studio|neon|chrome|hologram|atrium|comic|cyber/.test(env))
+      return ['START', 'SERVICE DOOR', 'FIRE ESCAPE', 'ROOF HATCH'];
+    return ['START', 'GATE', 'STAIRS', 'UPPER DOOR'];
+  }
   // Realm-specific obstacles give the same platform layouts different rhythms and silhouettes.
   const EXTRA_OBSTACLES = {
     arcade: [
@@ -114,17 +138,21 @@
         const baseTraps = (def.traps || []).concat(def.noGates ? [] : (EXTRA_OBSTACLES[r.id] || [])[j] || []);
         const labels = r.id === 'oldtv' && !def.noGates ? [{ at: [5, 10], text: retroSigns[j] }] : def.labels;
         const course = KF.LongRoutes.compose(def, baseTraps, labels, k * 4 + j, GUIDES[`${r.id}-${j + 1}`]);
+        const env = (r.envs.includes(def.env) && def.env) || r.envs[j];
         return KF.util.deepFreeze(Object.assign({}, def, {
-          realm: r.id, index: j, env: (r.envs.includes(def.env) && def.env) || r.envs[j], theme: (r.envs.includes(def.env) && def.env) || r.envs[j],
+          realm: r.id, index: j, env, theme: env,
           labels: course.labels,
           map: course.map,
           depths: course.depths,
           combat: course.combat,
           checkpoints: course.checkpoints,
           doorLinks: course.doorLinks,
+          dividers: course.dividers,
           guides: course.guides,
           routeZones: course.routeZones,
           baits: course.baits,
+          concept: course.concept,
+          parts: localities(env).map((name, i) => ({ name, entrance: passages(env)[i] })),
           traps: course.traps,
           style: (r.styles && r.styles[j]) || r.style, music: PLACE_MUSIC[r.envs[j]] || r.music,
         }));

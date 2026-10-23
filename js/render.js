@@ -516,7 +516,7 @@
         ctx.restore();
       });
       ctx.save();
-      ctx.globalAlpha = stage.part === 3 ? 1 : 0.45;
+      ctx.globalAlpha = stage.part > stage.world.partDoors.length ? 1 : 0.45;
       art(ctx, d.x - cam.x, d.y - cam.y, { lantern: true, open, t, legs: d.moving ? d.runT : 0, flipped: d.flipped });
       ctx.restore();
     },

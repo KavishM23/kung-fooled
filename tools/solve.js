@@ -58,7 +58,7 @@ function key(st, held) {
   const p = st.player, d = target(st);
   let k = `${Math.round(p.x / 2)},${Math.round(p.y / 2)},${Math.round(p.vx / 30)},${Math.round(p.vy / 50)},${p.grounded | 0},${p.gravDir},${p.launchT > 0 ? 1 : 0},${held | 0}${p.jumping | 0}${p.coyoteT > 0 ? 1 : 0}`;
   k += `|${st.part}|${st.guide}|${d ? Math.round(d.x / 4) + ',' + Math.round(d.y / 4) : ''}`;
-  if (st.part < 3 && st.world.door) k += `|${Math.round(st.world.door.x / 4)},${Math.round(st.world.door.y / 4)}`;
+  if (st.part <= st.world.partDoors.length && st.world.door) k += `|${Math.round(st.world.door.x / 4)},${Math.round(st.world.door.y / 4)}`;
   for (const tr of st.traps) k += tr.fired ? '1' : tr.pending >= 0 ? 'p' : '0';
   for (const tr of st.traps) {
     if (tr.def.type === 'lookSaw') k += `s${Math.round(tr.x / 4)}`;
@@ -123,7 +123,7 @@ function heuristic(st) {
   const viaRoute = routeEstimate(st);
   if (viaRoute !== null) return viaRoute / 120;
   let dist = Math.hypot(d.x + 8 - p.centerX, d.y + 16 - (p.y + p.h / 2));
-  if (st.part < 3) return dist / 120;
+  if (st.part <= st.world.partDoors.length) return dist / 120;
   for (const tr of st.traps) {
     if (!(tr instanceof KF.Traps.types.doorRun)) continue;
     const path = tr.def.path || [];

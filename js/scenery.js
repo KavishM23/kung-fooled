@@ -71,6 +71,13 @@
     cyber: ['#182536', '#375366', '#7297a5', '#749da2', '#437e86', '#b0ebec'],
   };
   const profile = (def) => def && SCENES[def.realm] && SCENES[def.realm][def.index];
+  const DISTRICT_MOTIFS = {
+    metal: ['dock', 'rail', 'machine', 'tank'],
+    masonry: ['city', 'atrium', 'ruin', 'roof'],
+    nature: ['grove', 'cave', 'cliff', 'bridge'],
+    print: ['wave', 'pagoda', 'bridge', 'cliff'],
+    circuit: ['arcade', 'circuit', 'machine', 'signal'],
+  };
 
   function motif(ctx, kind, x, base, scale, p, seed) {
     ctx.save(); ctx.translate(Math.round(x), Math.round(base)); ctx.scale(scale, scale);
@@ -228,7 +235,7 @@
   // ledges, trees and cave mouths in natural ones. This stays behind collisions
   // and uses slight parallax so it reads as depth rather than extra platforms.
   function verticalWorld(ctx, def, cam, p, material) {
-    for (const route of def.baits || []) {
+    for (const [part, route] of (def.baits || []).entries()) {
       const bands = route.bands;
       for (let i = 0; i < 4; i++) {
         const x = (route.x0 + bands[i]) * T - cam.x * .91;
@@ -252,6 +259,22 @@
           // An opening under the ledge hints at another environmental layer.
           rect(ctx, p[0], x + w / 2 - 9, y + 42, 18, 24);
           rect(ctx, p[2], x + w / 2 - 9, y + 42, 18, 2);
+          if (part === 1) { // a sheltered pass between the exposed paths
+            ctx.globalAlpha = .44;
+            rect(ctx, p[0], x - 2, y - 62, w + 4, 12);
+            for (let j = 0; j < 3; j++) {
+              const xx = x + 6 + j * w / 3;
+              rect(ctx, p[2], xx, y - 50, 5, 39);
+              rect(ctx, p[0], xx + 1, y - 46, 3, 32);
+            }
+          } else if (part === 2) { // high exposed ridge, sparse greenery
+            ctx.globalAlpha = .55;
+            for (let j = 0; j < 3; j++) {
+              const xx = x + 7 + j * w / 3;
+              rect(ctx, p[4], xx, y - 25 - j * 5, 4, 21 + j * 5);
+              rect(ctx, p[3], xx - 5, y - 30 - j * 5, 14, 6);
+            }
+          }
         } else {
           ctx.globalAlpha = .2;
           rect(ctx, p[0], x - 4, y - 72, w + 8, 160);
@@ -274,6 +297,26 @@
           // rooftop, balcony or interior feel connected to the next height.
           rect(ctx, p[3], x + 3, y - 72, w - 6, 2);
           rect(ctx, p[0], x + 2, y + 80, w - 4, 3);
+          if (part === 1) { // the middle route is enclosed by deep service floors
+            ctx.globalAlpha = .47;
+            rect(ctx, p[0], x - 5, y - 80, w + 10, 8);
+            rect(ctx, p[3], x - 4, y - 79, w + 8, 2);
+            for (let j = 0; j < 3; j++) {
+              const xx = x + 6 + j * w / 3;
+              rect(ctx, p[0], xx, y - 64, 10, 36);
+              rect(ctx, p[5], xx + 2, y - 56, 6, 3);
+            }
+          } else if (part === 2) { // exit above the roofs, with aerials and vents
+            ctx.globalAlpha = .56;
+            for (let j = 0; j < 2; j++) {
+              const xx = x + 8 + j * (w - 20);
+              rect(ctx, p[0], xx, y - 95, 4, 25);
+              rect(ctx, p[2], xx + 1, y - 104, 2, 34);
+              rect(ctx, p[5], xx - 2, y - 105, 8, 3);
+            }
+            rect(ctx, p[0], x + w / 2 - 9, y - 79, 18, 8);
+            rect(ctx, p[2], x + w / 2 - 7, y - 77, 14, 4);
+          }
         }
       }
     }
@@ -286,15 +329,16 @@
     const pal = PALETTE[def.realm], world = stage.world;
     const anchors = [world.spawn, ...world.partDoors, world.door].filter(Boolean);
     const points = [];
-    anchors.forEach((a, i) => {
-      const x = Math.max(45, Math.min(world.pixelW - 45, a.x + (i % 2 ? -54 : 71)));
-      const y = Math.max(111, Math.min(world.pixelH - 13, a.y + 28));
-      points.push([x, y, i % 2 ? scene[1] : scene[0], i]);
-      if (i < anchors.length - 1) {
-        const b = anchors[i + 1];
-        points.push([(a.x + b.x) / 2, Math.max(104, (a.y + b.y) / 2 + 30), scene[(i + 1) % 2], i + 4]);
-      }
-    });
+    const kinds = DISTRICT_MOTIFS[scene[2]] || DISTRICT_MOTIFS.masonry;
+    for (let i = 0; i < anchors.length - 1; i++) {
+      const a = anchors[i], b = anchors[i + 1];
+      const kind = i === 0 ? scene[0] : i === 1 ? scene[1] : kinds[(i + def.index) % kinds.length];
+      const x = (a.x + b.x) / 2;
+      const y = Math.max(111, Math.min(world.pixelH - 13, (a.y + b.y) / 2 + 31));
+      points.push([x, y, kind, i]);
+      // A second smaller prop gives each room a foreground and a far landmark.
+      points.push([x + (i % 2 ? -58 : 54), y + 22, kinds[(i + def.index + 1) % kinds.length], i + 4]);
+    }
     ctx.save(); ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
     // Far haze follows the camera more slowly than the tiles. Landscapes get
     // layered ridges; built places get architecture and small window lights.
@@ -345,6 +389,19 @@
         line(ctx, pal[0], x, y, x, y + 9);
         rect(ctx, pal[5], x - 2, y + 8, 4, 4);
       }
+    }
+    // Small signs on the actual transition doors ground the camera jump in a
+    // stair, hatch, gate or lift that belongs to this place.
+    for (let i = 0; i < world.partDoors.length; i++) {
+      const door = world.partDoors[i], next = (def.parts || [])[i + 1];
+      if (!door || !next) continue;
+      const x = door.x + 8 - cam.x, y = door.y - 25 - cam.y;
+      if (x < -60 || x > VW + 60 || y < 17 || y > VH - 8) continue;
+      const label = next.entrance, width = KF.Font.measure(label, 1) + 10;
+      ctx.globalAlpha = .88;
+      rect(ctx, pal[0], x - width / 2, y - 2, width, 11);
+      rect(ctx, pal[3], x - width / 2 + 2, y - 1, width - 4, 1);
+      KF.Font.draw(ctx, label, x, y + 1, pal[5], 1, 'center', pal[0]);
     }
     ctx.restore();
     void t;
@@ -430,6 +487,29 @@
         ctx.globalAlpha = .47;
         rect(ctx, p[0], x + 1, y + 2, 2, 11);
         rect(ctx, p[2], x + 2, y + 3, 1, 8);
+      }
+    }
+    // The solid dividers are elevator shafts, rock buttresses or gate piers,
+    // rather than featureless two-tile walls between the four locations.
+    for (const [i, col] of (def.dividers || []).entries()) {
+      const x = col * T;
+      for (let r = 3 + i % 2; r < H - 2; r += 6) {
+        const y = r * T;
+        if (material === 'nature' || material === 'print') {
+          ctx.globalAlpha = .72;
+          line(ctx, p[0], x + 4, y + 5, x + 22, y + 24, 2);
+          line(ctx, p[2], x + 18, y + 9, x + 8, y + 31, 1);
+          rect(ctx, p[4], x + 3, y + 28, 5, 4);
+          rect(ctx, p[4], x + 7, y + 24, 3, 7);
+        } else {
+          ctx.globalAlpha = .8;
+          rect(ctx, p[0], x + 3, y, 26, 30);
+          rect(ctx, p[2], x + 5, y + 2, 22, 22);
+          rect(ctx, p[0], x + 7, y + 4, 18, 18);
+          rect(ctx, p[5], x + 9, y + 5, 4, 2);
+          rect(ctx, p[3], x + 16, y + 13, 8, 2);
+          rect(ctx, p[0], x + 3, y + 28, 26, 2);
+        }
       }
     }
     ctx.restore();
