@@ -137,8 +137,8 @@
         // Keep each source room's obstacle set and signs in its middle district.
         const baseTraps = (def.traps || []).concat(def.noGates ? [] : (EXTRA_OBSTACLES[r.id] || [])[j] || []);
         const labels = r.id === 'oldtv' && !def.noGates ? [{ at: [5, 10], text: retroSigns[j] }] : def.labels;
-        const course = KF.LongRoutes.compose(def, baseTraps, labels, k * 4 + j, GUIDES[`${r.id}-${j + 1}`]);
         const env = (r.envs.includes(def.env) && def.env) || r.envs[j];
+        const course = KF.LongRoutes.compose(def, baseTraps, labels, k * 4 + j, GUIDES[`${r.id}-${j + 1}`], env);
         return KF.util.deepFreeze(Object.assign({}, def, {
           realm: r.id, index: j, env, theme: env,
           labels: course.labels,
@@ -153,6 +153,7 @@
           baits: course.baits,
           structures: course.structures,
           concept: course.concept,
+          family: course.family,
           parts: localities(env).map((name, i) => ({ name, entrance: passages(env)[i] })),
           traps: course.traps,
           style: (r.styles && r.styles[j]) || r.style, music: PLACE_MUSIC[r.envs[j]] || r.music,

@@ -115,6 +115,9 @@
     const hatch = 10 + s % 3, stair = hatch + 9 + s % 2, end = 38 + s % 2;
     // One building: roof, two floors and the ground under them.
     b.mass(0, end, roof, 'roof');
+    // The building's taller east wing stops a walk over the roof past the rooms.
+    b.solid(end - 4, end, roof - 6, roof);
+    b.note('wing', end - 4, end, roof - 6, roof);
     b.open(hatch, hatch + 2, roof, roof + 2);
     b.open(3, stair + 3, roof + 2, f1);
     b.note('room', 3, stair + 3, roof + 2, f1);
@@ -246,7 +249,149 @@
       shape: 'climb-plateau-drop' });
   }
 
-  function compose(def, sourceTraps, labels, seed, guides = null) {
+  // A district described as a row of places. Each entry is a stretch of floor
+  // `len` tiles long at `dy` tiles from the base ground, and says how you got
+  // there from the one before:
+  //   up: 'stairs' | 'ladder' | 'vines' | 'lift' | 'scaffold'  (a stack of landings)
+  //   down: 'ledge' | 'stairs' | 'shaft'                        (a landing on the way down)
+  //   span: 'bridge' | 'ropeBridge' | 'catwalk' | 'glass', gap  (same height, over a drop)
+  // `covered` makes it an interior carved into its building, hill or temple:
+  // in through a doorway on the left, out through one on the right, or `up`
+  // the landings of a stairwell to its roof. `bait` places the district's trick
+  // that many tiles in (`spanBait` puts it on the span instead).
+  function layout(m, x0, H, kind, traps, plan, marker, chasingDoor) {
+    const b = builder(m, x0, H);
+    const L = H - 9;
+    let c = 0, prev = null, baitAt = null, start = null, exit = null;
+    plan.places.forEach((pl, i) => {
+      const floor = L + pl.dy;
+      if (pl.span) {
+        b.solid(c, c + pl.gap, floor, floor + 2);
+        b.note(pl.span, c, c + pl.gap, floor, floor + 2);
+        b.sections.push({ x0: x0 + c, x1: x0 + c + pl.gap, floor, kind: 'bridge' });
+        if (pl.spanBait !== undefined) baitAt = { x: c + pl.spanBait, floor, open: true };
+        c += pl.gap;
+      }
+      const c0 = c, c1 = c + pl.len;
+      if (pl.covered) {
+        b.solid(c0, c1, floor - 8, H);
+        b.open(c0 + 2, c1 - 2, floor - 6, floor);
+        b.note('room', c0 + 2, c1 - 2, floor - 6, floor, { style: pl.covered });
+        if (i > 0) { b.open(c0, c0 + 2, floor - 3, floor); b.note('doorway', c0, c0 + 2, floor - 3, floor); }
+        if (pl.exitUp) {
+          b.open(c1 - 6, c1 - 2, floor - 8, floor - 6);
+          for (let r = floor - 2; r >= floor - 8; r -= 2) b.deck(c1 - 6, c1 - 2, r);
+          b.note(pl.exitUp, c1 - 6, c1 - 2, floor - 8, floor);
+        } else if (i < plan.places.length - 1) {
+          b.open(c1 - 2, c1, floor - 3, floor); b.note('doorway', c1 - 2, c1, floor - 3, floor);
+        }
+        b.sections.push({ x0: x0 + c0, x1: x0 + c1, floor, kind: pl.kind, look: 'inside' });
+      } else b.mass(c0, c1, floor, pl.kind);
+      if (!pl.covered) b.sections[b.sections.length - 1].look = pl.look || (pl.dy < -3 ? 'top' : 'low');
+      if (prev && !pl.span && !(prev.covered && prev.exitUp)) {
+        const pf = L + prev.dy;
+        if (floor < pf) b.scaffold(c0, pf, floor), b.structures[b.structures.length - 1].kind = pl.up || 'scaffold';
+        else if (floor > pf) {
+          const mid = pf + Math.floor((floor - pf) / 2);
+          if (floor - pf >= 4) b.deck(c0, c0 + 4, mid);
+          b.note(pl.down || 'ledge', c0, c0 + 4, pf, floor);
+        }
+      }
+      if (pl.bait !== undefined) baitAt = { x: c0 + pl.bait, floor, covered: !!pl.covered };
+      if (i === 0) start = [pl.start || 2, floor];
+      if (i === plan.places.length - 1) exit = [c1 - (marker === 'D' && chasingDoor ? 7 : 4), floor];
+      prev = pl; c = c1;
+    });
+    if (c !== PART_W) throw new Error(`layout ${plan.shape} is ${c} tiles, not ${PART_W}`);
+    const { x, floor } = baitAt;
+    if (FLOOR_BAITS.includes(kind) && !baitAt.open) { b.open(x, x + 3, floor + 2, H); b.note('shaft', x, x + 3, floor, H); }
+    if (kind === 'crusher' && !baitAt.covered) b.note('crane', x, x + 2, 0, floor - 6);
+    bait(m, kind, x0 + x, floor, traps);
+    b.put(start[0], start[1] - 1, marker === 'A' ? 'P' : '.');
+    b.put(exit[0], exit[1] - 1, marker);
+    return Object.assign(b, { start, exit, bait: { x: x0 + x, floor }, shape: plan.shape });
+  }
+
+  // Realm families. Each has its own three districts; built cities keep the
+  // rooftop, building and tower layouts above.
+  const FAMILIES = {
+    // Village, hills and cliffs, a cave, and the high ground beyond.
+    land: [
+      { shape: 'village-cliff-meadow', places: [
+        { len: 18, dy: 0, kind: 'village' },
+        { len: 24, dy: -8, kind: 'highland', up: 'vines', bait: 10 },
+        { len: 20, dy: -2, kind: 'meadow', down: 'ledge' }] },
+      { shape: 'cliff-cave-heights', places: [
+        { len: 12, dy: -6, kind: 'cliff path' },
+        { len: 8, dy: 0, kind: 'cave mouth', down: 'ledge' },
+        { len: 26, dy: 0, kind: 'cave', covered: 'cave', exitUp: 'vines', bait: 9 },
+        { len: 16, dy: -8, kind: 'high ground', look: 'top' }] },
+      { shape: 'bridge-summit', places: [
+        { len: 18, dy: 0, kind: 'valley' },
+        { len: 14, dy: 0, kind: 'far bank', span: 'ropeBridge', gap: 4 },
+        { len: 26, dy: -10, kind: 'summit', up: 'ladder', bait: 12 }] },
+    ],
+    // Courtyard, stairs, halls, lower chambers, and a tower.
+    temple: [
+      { shape: 'courtyard-stairs-hall', places: [
+        { len: 16, dy: 0, kind: 'courtyard' },
+        { len: 12, dy: -6, kind: 'terrace', up: 'stairs' },
+        { len: 24, dy: -6, kind: 'hall', covered: 'hall', bait: 10 },
+        { len: 10, dy: -2, kind: 'garden', down: 'stairs' }] },
+      { shape: 'terrace-chamber-gallery', places: [
+        { len: 12, dy: -4, kind: 'upper terrace' },
+        { len: 8, dy: 4, kind: 'sunken court', down: 'stairs' },
+        { len: 26, dy: 4, kind: 'lower chamber', covered: 'hall', exitUp: 'stairs', bait: 9 },
+        { len: 16, dy: -4, kind: 'gallery', look: 'top' }] },
+      { shape: 'gate-tower', places: [
+        { len: 18, dy: 0, kind: 'outer court' },
+        { len: 12, dy: 0, kind: 'gatehouse', span: 'bridge', gap: 3 },
+        { len: 29, dy: -12, kind: 'tower top', up: 'stairs', bait: 13 }] },
+    ],
+    // Factory floor, catwalks, machinery, a shaft, and the upper platforms.
+    works: [
+      { shape: 'factory-catwalk-platform', places: [
+        { len: 22, dy: 0, kind: 'factory floor', covered: 'works', start: 4, bait: 11 },
+        { len: 14, dy: 0, kind: 'loading yard' },
+        { len: 10, dy: -8, kind: 'platform', up: 'ladder' },
+        { len: 10, dy: -8, kind: 'upper platform', span: 'catwalk', gap: 6, look: 'top' }] },
+      { shape: 'shaft-machinery-lift', places: [
+        { len: 14, dy: -6, kind: 'gantry' },
+        { len: 8, dy: 2, kind: 'shaft floor', down: 'shaft' },
+        { len: 24, dy: 2, kind: 'machine hall', covered: 'works', exitUp: 'ladder', bait: 9 },
+        { len: 16, dy: -6, kind: 'upper platform', look: 'top' }] },
+      { shape: 'catwalk-gantry-top', places: [
+        { len: 16, dy: -4, kind: 'platform' },
+        { len: 12, dy: -4, kind: 'gantry', span: 'catwalk', gap: 8, spanBait: 3 },
+        { len: 26, dy: -12, kind: 'top deck', up: 'lift' }] },
+    ],
+    // Large plain surfaces: plazas, broad steps, suspended decks, an atrium.
+    plain: [
+      { shape: 'plaza-steps-deck', places: [
+        { len: 22, dy: 0, kind: 'plaza' },
+        { len: 18, dy: -8, kind: 'upper deck', up: 'stairs' },
+        { len: 16, dy: -8, kind: 'far deck', span: 'glass', gap: 6, spanBait: 2 }] },
+      { shape: 'mezzanine-atrium-gallery', places: [
+        { len: 12, dy: -6, kind: 'mezzanine' },
+        { len: 8, dy: 0, kind: 'atrium floor', down: 'stairs' },
+        { len: 26, dy: 0, kind: 'atrium hall', covered: 'room', exitUp: 'stairs', bait: 9 },
+        { len: 16, dy: -8, kind: 'upper gallery', look: 'top' }] },
+      { shape: 'terrace-court-skydeck', places: [
+        { len: 14, dy: -4, kind: 'terrace' },
+        { len: 18, dy: 4, kind: 'lower court', down: 'ledge', bait: 9 },
+        { len: 30, dy: -10, kind: 'sky deck', up: 'lift' }] },
+    ],
+  };
+  const familyOf = (env) => {
+    env = String(env || '');
+    if (/temple|sakura|pagoda/.test(env)) return 'temple';
+    if (/viking|fjord|mountain|cliff|wave|gameboy|nes8bit/.test(env)) return 'land';
+    if (/harbour|dock|train|rail|mall/.test(env)) return 'works';
+    if (/plaza|promenade|vapor|hologram|chrome|superhot/.test(env)) return 'plain';
+    return 'city';
+  };
+
+  function compose(def, sourceTraps, labels, seed, guides = null, env = def.env) {
     const originalTraps = clone(sourceTraps);
     const srcW = Math.max(...def.map.map((row) => row.length)), srcH = def.map.length;
     const tall = !!def.noGates;
@@ -263,9 +408,14 @@
     const concept = CONCEPTS[seed % CONCEPTS.length];
     const [firstBait, thirdBait, lastBait] = concept.tricks;
     const chasingDoor = originalTraps.some((t) => t.type === 'doorRun');
-    const parts = [
-      // Each district has two layouts; the seed mixes them so neighbouring
-      // levels don't share a silhouette.
+    const family = FAMILIES[familyOf(env)];
+    const parts = family ? [
+      layout(m, p1X, H, firstBait, traps, family[0], 'A', chasingDoor),
+      layout(m, p3X, H, thirdBait, traps, family[1], 'C', chasingDoor),
+      layout(m, p4X, H, lastBait, traps, family[2], 'D', chasingDoor),
+    ] : [
+      // City districts have two layouts each; the seed mixes them so
+      // neighbouring levels don't share a silhouette.
       (seed % 2 ? approachDown : approach)(m, p1X, H, seed, firstBait, traps),
       (Math.floor(seed / 2) % 2 ? interiorUp : interior)(m, p3X, H, seed, thirdBait, traps),
       (Math.floor(seed / 4) % 2 ? finaleHigh : finale)(m, p4X, H, seed, lastBait, traps, chasingDoor),
@@ -321,7 +471,7 @@
     const startAt = (part) => ({ x: (part.x0 + part.start[0] + 0.5) * T, y: part.start[1] * T });
     return {
       map: m.map((row) => row.join('')),
-      traps, concept: concept.name,
+      traps, concept: concept.name, family: family ? familyOf(env) : 'city',
       baits: parts.map((p, i) => ({ type: concept.tricks[i], x: p.bait.x, floor: p.bait.floor,
         x0: p.x0, shape: p.shape, sections: p.sections })),
       structures: [].concat(...parts.map((p) => p.structures)),
@@ -367,5 +517,5 @@
     }
     return dist;
   }
-  KF.LongRoutes = { compose, walkField, BAITS, CONCEPTS, PART_W };
+  KF.LongRoutes = { compose, walkField, familyOf, BAITS, CONCEPTS, PART_W };
 })(window.KF);

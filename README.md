@@ -33,6 +33,25 @@ small ones, and every height belongs to a structure:
   jump and the climb up a tower to the door. Or the climb first, a long high roof, then down onto
   the lower roof and the exit.
 
+Those are the city layouts. Other places have their own, chosen by the level's place
+(`KF.LongRoutes.familyOf`):
+
+- **Land** (retro towns, mountains, fjords): village, a vine climb to the highland and down to a
+  meadow; a cliff path to a cave mouth, through the cave and up its vines; a valley, a rope bridge
+  and the ladder to the summit.
+- **Temple** (temples, sakura): courtyard, stairs to the terrace and its hall, down to the garden;
+  an upper terrace, the sunken court and lower chamber, stairs up to the gallery; the outer court,
+  the gatehouse bridge and the long stair to the tower top.
+- **Works** (docks, trains, the mall): factory floor, loading yard, a ladder to the platform and a
+  catwalk; down the shaft to the machine hall and up its ladder; a catwalk gantry and the lift to
+  the top deck.
+- **Plain** (plazas, vaporwave, the chrome and hologram districts): a plaza, broad stairs to an
+  upper deck and a glass span; a mezzanine, down into the atrium hall and up to the gallery; a
+  terrace, the lower court and the lift to the sky deck.
+
+Each family's scenery matches: temple walls, gates, eaves and lanterns; warehouse panels, pipes,
+machines and hazard lines; plain pale panels and glass rails; huts, hills, caves and vines.
+
 Floors are solid down to the ground, so nothing floats, and `tools/partcheck.js` fails any
 generated block that does, any token one- to three-tile step, and any section too short to be a
 place. Each part hides one Level Devil trick on an apparently safe floor (the bridge, the hall,

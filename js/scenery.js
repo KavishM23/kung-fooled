@@ -240,37 +240,93 @@
     const [dark, mid, light, warm, leaf, lamp] = p;
     const X = (c) => c * T - cam.x, Y = (r) => r * T - cam.y;
     const seen = (x0, x1, y0, y1) => x1 > -20 && x0 < VW + 20 && y1 > -20 && y0 < VH + 20;
-    // Behind every open walkway: what stands across the street, or the slope behind the path.
+    // Behind every open walkway: what stands across the street, or the slope
+    // behind the path. Each realm family has its own: city facades, temple
+    // walls and eaves, warehouses and pipework, plain plaza panels, hills.
+    const fam = def.family || 'city';
+    const natural = fam === 'land' || (fam === 'city' && wild);
     for (const route of def.baits || []) for (const sec of route.sections) {
       const x0 = X(sec.x0), x1 = X(sec.x1), y = Y(sec.floor);
       if (!seen(x0, x1, y - 140, y)) continue;
-      if (sec.kind === 'street' || sec.kind === 'yard') {
-        ctx.globalAlpha = wild ? .24 : .3;
-        if (wild) {
-          ctx.fillStyle = dark; ctx.beginPath(); ctx.moveTo(x0, y);
-          for (let x = x0; x <= x1; x += 8) ctx.lineTo(x, y - 52 - Math.abs(Math.sin((x + cam.x) * .05)) * 30);
-          ctx.lineTo(x1, y); ctx.closePath(); ctx.fill();
-          ctx.globalAlpha = .45;
-          for (let x = x0 + 6; x < x1 - 6; x += 22) {
-            rect(ctx, dark, x + 3, y - 26, 3, 26);
-            ctx.fillStyle = leaf; ctx.beginPath(); ctx.ellipse(x + 4, y - 30, 11, 8, 0, 0, Math.PI * 2); ctx.fill();
-          }
-        } else {
-          rect(ctx, mid, x0, y - 128, x1 - x0, 128);
-          ctx.globalAlpha = .42;
-          for (let yy = y - 118; yy < y - 20; yy += 26)
-            for (let x = x0 + 6; x < x1 - 12; x += 18) {
-              rect(ctx, dark, x, yy, 10, 14);
-              rect(ctx, hash(x + cam.x, yy, seed) > .45 ? warm : light, x + 2, yy + 2, 6, 9);
-            }
-          rect(ctx, dark, x0, y - 12, x1 - x0, 12);
-          for (let x = x0 + 10; x < x1 - 20; x += 40) { rect(ctx, warm, x, y - 26, 18, 3); rect(ctx, dark, x + 2, y - 23, 14, 11); }
+      const low = sec.kind === 'street' || sec.kind === 'yard' || sec.look === 'low';
+      const top = sec.kind === 'roof' || sec.look === 'top';
+      if (low && natural) {
+        ctx.globalAlpha = .24;
+        ctx.fillStyle = dark; ctx.beginPath(); ctx.moveTo(x0, y);
+        for (let x = x0; x <= x1; x += 8) ctx.lineTo(x, y - 52 - Math.abs(Math.sin((x + cam.x) * .05)) * 30);
+        ctx.lineTo(x1, y); ctx.closePath(); ctx.fill();
+        ctx.globalAlpha = .45;
+        for (let x = x0 + 6; x < x1 - 6; x += 22) {
+          rect(ctx, dark, x + 3, y - 26, 3, 26);
+          ctx.fillStyle = leaf; ctx.beginPath(); ctx.ellipse(x + 4, y - 30, 11, 8, 0, 0, Math.PI * 2); ctx.fill();
         }
-      } else if (sec.kind === 'roof') {
+        if (sec.kind === 'village') for (let x = x0 + 14; x < x1 - 30; x += 70) { // huts
+          ctx.globalAlpha = .6;
+          rect(ctx, mid, x, y - 26, 30, 26); rect(ctx, warm, x + 12, y - 14, 7, 14); rect(ctx, lamp, x + 4, y - 20, 5, 5);
+          ctx.fillStyle = dark; ctx.beginPath(); ctx.moveTo(x - 5, y - 26); ctx.lineTo(x + 15, y - 42); ctx.lineTo(x + 35, y - 26); ctx.fill();
+        }
+      } else if (low && fam === 'temple') {
+        // A courtyard wall with a tiled cap, lanterns, and now and then a gate.
+        ctx.globalAlpha = .45;
+        rect(ctx, mid, x0, y - 40, x1 - x0, 40); rect(ctx, warm, x0, y - 46, x1 - x0, 6); rect(ctx, dark, x0, y - 47, x1 - x0, 2);
+        for (let x = x0 + 16; x < x1 - 10; x += 44) { rect(ctx, dark, x + 3, y - 18, 2, 18); rect(ctx, dark, x, y - 28, 8, 10); rect(ctx, lamp, x + 2, y - 26, 4, 6); }
+        ctx.globalAlpha = .55;
+        for (let x = x0 + 40; x < x1 - 50; x += 130) {
+          rect(ctx, warm, x, y - 70, 4, 70); rect(ctx, warm, x + 34, y - 70, 4, 70);
+          rect(ctx, warm, x - 8, y - 74, 54, 5); rect(ctx, warm, x - 2, y - 62, 42, 3);
+        }
+      } else if (low && fam === 'works') {
+        // Warehouse wall: corrugated panels, a roll-up door, pipes and a hazard line.
+        ctx.globalAlpha = .34;
+        rect(ctx, mid, x0, y - 112, x1 - x0, 112);
+        ctx.globalAlpha = .42;
+        for (let x = x0 + 3; x < x1; x += 6) rect(ctx, dark, x, y - 112, 1, 112);
+        for (let x = x0 + 20; x < x1 - 40; x += 90) { rect(ctx, dark, x, y - 44, 36, 44); for (let k = 0; k < 8; k++) rect(ctx, light, x + 2, y - 42 + k * 5, 32, 1); }
+        rect(ctx, dark, x0, y - 86, x1 - x0, 4); rect(ctx, light, x0, y - 86, x1 - x0, 1);
+        for (let x = x0; x < x1; x += 10) rect(ctx, (x / 10 | 0) % 2 ? warm : dark, x, y - 5, 10, 3);
+      } else if (low && fam === 'plain') {
+        // Large plain panels with fine seams and a few tall windows.
+        ctx.globalAlpha = .22;
+        rect(ctx, light, x0, y - 120, x1 - x0, 120);
+        ctx.globalAlpha = .3;
+        for (let x = x0 + 24; x < x1; x += 48) rect(ctx, mid, x, y - 120, 1, 120);
+        for (let x = x0 + 36; x < x1 - 30; x += 96) rect(ctx, lamp, x, y - 96, 14, 70);
+        rect(ctx, mid, x0, y - 60, x1 - x0, 1);
+      } else if (low) {
+        ctx.globalAlpha = .3;
+        rect(ctx, mid, x0, y - 128, x1 - x0, 128);
+        ctx.globalAlpha = .42;
+        for (let yy = y - 118; yy < y - 20; yy += 26)
+          for (let x = x0 + 6; x < x1 - 12; x += 18) {
+            rect(ctx, dark, x, yy, 10, 14);
+            rect(ctx, hash(x + cam.x, yy, seed) > .45 ? warm : light, x + 2, yy + 2, 6, 9);
+          }
+        rect(ctx, dark, x0, y - 12, x1 - x0, 12);
+        for (let x = x0 + 10; x < x1 - 20; x += 40) { rect(ctx, warm, x, y - 26, 18, 3); rect(ctx, dark, x + 2, y - 23, 14, 11); }
+      } else if (top && fam === 'temple') {
+        // An eave line with upturned ends, and stone lanterns along the terrace.
+        ctx.globalAlpha = .5;
+        for (let x = x0 + 20; x < x1 - 40; x += 80) {
+          rect(ctx, dark, x, y - 36, 44, 4); rect(ctx, dark, x - 6, y - 40, 6, 4); rect(ctx, dark, x + 44, y - 40, 6, 4);
+          rect(ctx, warm, x + 6, y - 32, 3, 32); rect(ctx, warm, x + 35, y - 32, 3, 32);
+        }
+        for (let x = x0 + 50; x < x1 - 10; x += 80) { rect(ctx, mid, x, y - 14, 8, 14); rect(ctx, lamp, x + 2, y - 11, 4, 4); rect(ctx, dark, x - 2, y - 16, 12, 2); }
+      } else if (top && fam === 'works') {
+        // Pipework and vents along the top deck.
+        ctx.globalAlpha = .55;
+        rect(ctx, dark, x0, y - 20, x1 - x0, 5); rect(ctx, light, x0, y - 20, x1 - x0, 1);
+        for (let x = x0 + 12; x < x1 - 10; x += 36) { rect(ctx, dark, x, y - 15, 3, 15); rect(ctx, warm, x - 2, y - 22, 7, 3); }
+        for (let x = x0 + 30; x < x1 - 30; x += 110) { rect(ctx, dark, x, y - 64, 10, 64); rect(ctx, mid, x + 2, y - 62, 6, 60); rect(ctx, warm, x, y - 66, 10, 3); }
+      } else if (top && fam === 'plain') {
+        // A glass balustrade: a thin rail over faint panes.
+        ctx.globalAlpha = .18; rect(ctx, light, x0, y - 14, x1 - x0, 14);
+        ctx.globalAlpha = .6; rect(ctx, light, x0, y - 15, x1 - x0, 1);
+        for (let x = x0; x < x1; x += 24) rect(ctx, mid, x, y - 14, 1, 14);
+      } else if (top) {
         // Roof furniture: tanks, vents and aerials, or standing stones and shrubs.
         ctx.globalAlpha = .55;
         for (let x = x0 + 18; x < x1 - 18; x += 54) {
-          if (wild) {
+          if (natural) {
             rect(ctx, dark, x, y - 18, 10, 18); rect(ctx, mid, x + 2, y - 16, 6, 14);
             ctx.fillStyle = leaf; ctx.beginPath(); ctx.ellipse(x + 22, y - 6, 12, 7, 0, 0, Math.PI * 2); ctx.fill();
           } else {
@@ -280,7 +336,7 @@
             line(ctx, dark, x + 27, y - 40, x + 40, y - 30);
           }
         }
-        if (!wild) { ctx.globalAlpha = .5; line(ctx, dark, x0, y - 6, x1, y - 6); for (let x = x0; x < x1; x += 8) rect(ctx, dark, x, y - 6, 1, 6); }
+        if (!natural) { ctx.globalAlpha = .5; line(ctx, dark, x0, y - 6, x1, y - 6); for (let x = x0; x < x1; x += 8) rect(ctx, dark, x, y - 6, 1, 6); }
       }
     }
     for (const s of def.structures || []) {
@@ -301,31 +357,107 @@
         rect(ctx, dark, lx, y0, 1, y1 - y0); rect(ctx, dark, lx + 7, y0, 1, y1 - y0);
         for (let y = y0 + 4; y < y1; y += 6) rect(ctx, wild ? warm : light, lx, y, 8, 1);
       } else if (s.kind === 'room') {
-        // The back wall of an interior, with its windows, panels and lamps.
-        // Natural interiors are caves: dim rock with a few seams, not a painted wall.
-        ctx.globalAlpha = wild ? .5 : .9;
-        rect(ctx, wild ? dark : mid, x0, y0, x1 - x0, y1 - y0);
-        if (wild) {
+        // The back wall of an interior. A cave is dim rock with seams; a temple
+        // hall has timber posts and paper lanterns; a works hall has machines
+        // and pipes; a plain hall has tall pale columns; a building has windows.
+        const style = s.style || (wild ? 'cave' : 'office');
+        const w = x1 - x0, h = y1 - y0;
+        ctx.globalAlpha = style === 'cave' ? .5 : style === 'room' ? .35 : .9;
+        rect(ctx, style === 'cave' ? dark : style === 'room' ? light : mid, x0, y0, w, h);
+        if (style === 'cave') {
           ctx.globalAlpha = .35;
           for (let x = x0 + 5; x < x1 - 5; x += 13) {
-            const h = hash(x + cam.x, y0, seed);
-            line(ctx, light, x, y0 + 6 + h * 20, x + 6, y0 + 14 + h * 26);
-            rect(ctx, mid, x + 3, y0 + 2, 4, 4 + h * 10);
+            const k = hash(x + cam.x, y0, seed);
+            line(ctx, light, x, y0 + 6 + k * 20, x + 6, y0 + 14 + k * 26);
+            rect(ctx, mid, x + 3, y0 + 2, 4, 4 + k * 10);
           }
-        }
-        ctx.globalAlpha = .5;
-        rect(ctx, dark, x0, y1 - 10, x1 - x0, 10);
-        rect(ctx, light, x0, y1 - 10, x1 - x0, 1);
-        for (let x = x0 + 12; x < x1 - 14; x += 34) {
-          if (wild) {
-            rect(ctx, dark, x, y0 + 14, 16, 30); rect(ctx, warm, x + 7, y0 + 18, 2, 8);
-            rect(ctx, lamp, x + 6, y0 + 15, 4, 4);
-          } else {
+        } else if (style === 'hall') {
+          ctx.globalAlpha = .7;
+          for (let x = x0 + 8; x < x1 - 8; x += 40) {
+            rect(ctx, warm, x, y0, 5, h); rect(ctx, dark, x + 4, y0, 1, h);
+            rect(ctx, light, x + 12, y0 + 10, 20, h - 22); rect(ctx, mid, x + 21, y0 + 10, 1, h - 22); rect(ctx, mid, x + 12, y0 + h / 2, 20, 1);
+            rect(ctx, dark, x + 22, y0, 1, 6); rect(ctx, lamp, x + 19, y0 + 6, 7, 9);
+          }
+        } else if (style === 'works') {
+          ctx.globalAlpha = .65;
+          rect(ctx, dark, x0, y0 + 8, w, 4); rect(ctx, light, x0, y0 + 8, w, 1);
+          for (let x = x0 + 14; x < x1 - 30; x += 60) {
+            ctx.strokeStyle = dark; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x + 10, y0 + h / 2 + 4, 10, 0, Math.PI * 2); ctx.stroke();
+            rect(ctx, dark, x + 9, y0 + h / 2 + 3, 3, 3);
+            rect(ctx, dark, x + 28, y0 + 18, 18, h - 28); rect(ctx, lamp, x + 32, y0 + 22, 4, 3); rect(ctx, warm, x + 38, y0 + 22, 4, 3);
+          }
+          for (let x = x0; x < x1; x += 10) rect(ctx, (x / 10 | 0) % 2 ? warm : dark, x, y1 - 14, 10, 3);
+        } else if (style === 'room') {
+          ctx.globalAlpha = .45;
+          for (let x = x0 + 20; x < x1 - 10; x += 52) { rect(ctx, light, x, y0, 8, h); rect(ctx, mid, x + 7, y0, 1, h); }
+          ctx.globalAlpha = .3; rect(ctx, lamp, x0, y0, w, 3);
+        } else {
+          ctx.globalAlpha = .5;
+          for (let x = x0 + 12; x < x1 - 14; x += 34) {
             rect(ctx, dark, x, y0 + 14, 18, 26); rect(ctx, hash(x + cam.x, y0, seed) > .4 ? warm : light, x + 2, y0 + 16, 14, 22);
             rect(ctx, dark, x + 8, y0 + 16, 2, 22); rect(ctx, dark, x + 2, y0 + 26, 14, 1);
             rect(ctx, dark, x + 24, y0, 1, 7); rect(ctx, lamp, x + 21, y0 + 7, 7, 3);
           }
         }
+        ctx.globalAlpha = .5;
+        rect(ctx, dark, x0, y1 - 10, w, 10);
+        rect(ctx, light, x0, y1 - 10, w, 1);
+      } else if (s.kind === 'stairs') {
+        // A flight of steps across the landings, with its handrail.
+        ctx.globalAlpha = .8;
+        const up = s.r1 - s.r0, steps = Math.max(4, up * 2);
+        for (let k = 0; k < steps; k++) {
+          const x = x0 + (x1 - x0) * k / steps, y = y1 - (y1 - y0) * (k + 1) / steps;
+          rect(ctx, fam === 'plain' ? light : warm, x, y, (x1 - x0) / steps + 1, 2);
+          rect(ctx, dark, x, y + 2, (x1 - x0) / steps + 1, (y1 - y0) / steps);
+        }
+        line(ctx, dark, x0, y1 - 14, x1, y0 - 14, 2);
+        for (let k = 0; k <= 4; k++) { const x = x0 + (x1 - x0) * k / 4, y = y1 - (y1 - y0) * k / 4; line(ctx, dark, x, y - 14, x, y - 2); }
+      } else if (s.kind === 'ladder') {
+        ctx.globalAlpha = .85;
+        const lx = x0 + (x1 - x0) / 2 - 5;
+        rect(ctx, dark, lx, y0 - 8, 2, y1 - y0 + 8); rect(ctx, dark, lx + 9, y0 - 8, 2, y1 - y0 + 8);
+        for (let y = y0 - 4; y < y1; y += 6) rect(ctx, light, lx, y, 11, 1);
+      } else if (s.kind === 'vines') {
+        // Vines and roots hanging down the rock beside the ledges.
+        ctx.globalAlpha = .8;
+        for (let k = 0; k < 4; k++) {
+          const x = x0 + 4 + k * (x1 - x0 - 8) / 3;
+          for (let y = y0 - 6; y < y1; y += 5) {
+            const sway = Math.sin((y + k * 13) * .15) * 2;
+            rect(ctx, leaf, x + sway, y, 2, 5);
+            if ((y / 5 | 0) % 3 === k % 3) rect(ctx, light, x + sway - 2, y + 1, 3, 2);
+          }
+        }
+      } else if (s.kind === 'lift') {
+        // A lift shaft frame with its cables; the landings are its stops.
+        ctx.globalAlpha = .75;
+        rect(ctx, dark, x0, y0 - 24, 3, y1 - y0 + 24); rect(ctx, dark, x1 - 3, y0 - 24, 3, y1 - y0 + 24);
+        rect(ctx, dark, x0, y0 - 26, x1 - x0, 4); rect(ctx, warm, x0 + 2, y0 - 25, x1 - x0 - 4, 1);
+        line(ctx, light, x0 + 8, y0 - 22, x0 + 8, y1); line(ctx, light, x1 - 9, y0 - 22, x1 - 9, y1);
+        for (let y = y0 + 8; y < y1; y += 2 * T) rect(ctx, lamp, x1 - 7, y, 3, 3);
+      } else if (s.kind === 'ledge') {
+        // The way down: worn footholds, or a kerb and a few steps.
+        ctx.globalAlpha = .7;
+        for (let k = 0; k < 4; k++) rect(ctx, natural ? mid : dark, x0 + 2 + k * 3, y0 + 6 + k * (y1 - y0 - 8) / 4, 6, 2);
+      } else if (s.kind === 'catwalk') {
+        // Thin railings over a steel truss.
+        ctx.globalAlpha = .85;
+        rect(ctx, light, x0 - 2, y0 - 13, x1 - x0 + 4, 1);
+        for (let x = x0; x <= x1; x += 6) rect(ctx, dark, x, y0 - 13, 1, 13);
+        for (let x = x0; x < x1 - 8; x += 12) { line(ctx, mid, x, y1, x + 6, y1 + 10); line(ctx, mid, x + 6, y1 + 10, x + 12, y1); }
+        rect(ctx, dark, x0, y1 + 10, x1 - x0, 2);
+      } else if (s.kind === 'ropeBridge') {
+        ctx.globalAlpha = .85;
+        for (let x = x0; x <= x1; x += 6) rect(ctx, warm, x, y0 - 2, 2, 3);
+        ctx.strokeStyle = warm; ctx.lineWidth = 1;
+        for (const h of [14, 7]) { ctx.beginPath(); ctx.moveTo(x0 - 6, y0 - h - 4); ctx.quadraticCurveTo((x0 + x1) / 2, y0 - h + 4, x1 + 6, y0 - h - 4); ctx.stroke(); }
+        for (const x of [x0 - 6, x1 + 4]) rect(ctx, dark, x, y0 - 20, 3, 20);
+      } else if (s.kind === 'glass') {
+        // A glass span: pale panes and a thin bright rail.
+        ctx.globalAlpha = .2; rect(ctx, light, x0, y0 - 16, x1 - x0, 16);
+        ctx.globalAlpha = .7; rect(ctx, light, x0, y0 - 16, x1 - x0, 1); rect(ctx, lamp, x0, y1, x1 - x0, 1);
+        for (let x = x0; x <= x1; x += 16) rect(ctx, light, x, y0 - 16, 1, 16);
       } else if (s.kind === 'hatch' || s.kind === 'shaft') {
         ctx.globalAlpha = .7;
         rect(ctx, dark, x0 + 4, y0, 1, y1 - y0 + (s.kind === 'hatch' ? 2 * T : 0));
