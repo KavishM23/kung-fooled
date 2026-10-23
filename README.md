@@ -17,20 +17,36 @@ upgrades and special moves in the Dojo. Each realm's street fighter and boss sui
 Johnny TV and the bowler-hatted Bramble in Retro, Bug Kid and Grandma Hana in Pocket, and
 Volt and THE SYSTEM in Cyber. Every other fighter appears in the Street Arena.
 
-Each realm level now travels through four compact parts: an approach, the original hand-built
-room, an upper passage, and a final exit area. Three intermediate doors connect these places;
-each door is also a checkpoint, so death starts the next attempt in the current part. Every
-generated part fits within one view and has a distinct elevation pattern: the approach weaves,
-the sheltered passage climbs, and the thin exit ledges drop before rising. Its simple
-visible route hides one readable bait. Three variations on a named trap concept develop across
-the level; all six bait types appear across the 40 levels. The original room keeps its own traps,
-combat, and winding route where present. Solid dividers prevent skipping sections. Revealed
+Each realm level travels through four parts: an approach, the original hand-built room, an
+interior, and a final exit area. Three intermediate doors connect them; each door is also a
+checkpoint, so death starts the next attempt in the current part. The three generated parts are
+long places (about 60 tiles, several screens) with a few big changes in height rather than many
+small ones, and every height belongs to a structure:
+
+- **Approach.** A long street, a scaffold up the side of a building, a sustained run across two
+  roofs joined by a bridge, then the fire escape down to the yard. Or the other way round: down
+  the fire escape first, along the street, and up the taller block opposite.
+- **Interior.** Drop through a roof hatch, take the stairwell down to the hall below and leave by
+  the service door, then climb a scaffold to the next roof. Or come in at the ground floor and go
+  up the stairwell landings to the floor above and out onto the balcony.
+- **Exit.** A long upper roof that ends where it has fallen in, a drop to the yard, a canal to
+  jump and the climb up a tower to the door. Or the climb first, a long high roof, then down onto
+  the lower roof and the exit.
+
+Floors are solid down to the ground, so nothing floats, and `tools/partcheck.js` fails any
+generated block that does, any token one- to three-tile step, and any section too short to be a
+place. Each part hides one Level Devil trick on an apparently safe floor (the bridge, the hall,
+the last roof). Three variations on a named trap concept develop across the level, and all six
+trick types appear across the 40 levels. The hand-built room keeps its own traps, combat and
+winding route; it now stands on ground too, and a floor trap in its bottom row takes the ground
+beneath it, so nothing gives the trap away. Solid dividers prevent skipping parts, and revealed
 traps leave small visual reminders on retries.
-Each level also has its own landmarks behind the route and material details on exposed platforms:
-supports, wear, cables, vents, foliage and small objects match the place and its visual style.
-Windowed rooms and scaffold frames follow the urban height bands; cliffs, cave openings and trees
-follow the natural ones. The upper passage has sheltered framing; the exit has exposed skyline
-details. The camera looks ahead during climbs and falls while tracking smoothly.
+
+Behind the route, each structure is drawn where it stands: scaffold poles and ladders, the back
+walls, windows and lamps of the rooms, the stairs in the stairwell, the bridge railings, the
+zig-zag fire escape, a crane cable over a falling load. Built places get steel, brick and lit
+windows; natural places get timber, rope, rock, caves and trees. Each level also has its own
+distant landmarks and material details on exposed floors. The camera looks ahead during climbs and falls while tracking smoothly.
 
 **Cyber and SUPERHOT.** The last realm's places are a neon megacity, a hologram district and
 chrome Y2K. Its finale is a continuous side-on SUPERHOT tribute: move through the level,
@@ -215,7 +231,7 @@ KF.addStage('rooftop', {
 Map legend: `#` solid, `=` solid prop block (crate / AC unit / stall), `-` one-way platform, `~` ice,
 `^ v < >` spikes, `P` spawn, `D` exit door (its bottom tile), `U` upside-down exit hanging from a
 ceiling (its top tile). `js/levels/routes.js` places the source map and its traps in the middle
-district, then builds the two longer outer routes. `A` and `B` mark the intermediate doors;
+district, then builds the three generated parts around it. `A`, `B` and `C` mark the intermediate doors;
 each takes the player to the next district. Falling below the map kills; the left and right
 edges are walls.
 
@@ -290,7 +306,10 @@ shipped stage passes both checks.
 
 For tall levels (`noGates`), the checker estimates the remaining distance as the length of
 the open-tile path to the door rather than a straight line, so routes that double back down
-floors or through a basin are searched efficiently.
+floors or through a basin are searched efficiently. The generated parts use a stricter version
+of that path (`KF.LongRoutes.walkField`): it only counts tiles a player can stand near or fall
+through, so it scores the real way down the fire escape and back up the scaffold, not a line
+through the air.
 
 The chunks that build Endless Dojo rooms and Daily Trolls have their own checker:
 

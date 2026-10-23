@@ -151,6 +151,7 @@
           guides: course.guides,
           routeZones: course.routeZones,
           baits: course.baits,
+          structures: course.structures,
           concept: course.concept,
           parts: localities(env).map((name, i) => ({ name, entrance: passages(env)[i] })),
           traps: course.traps,

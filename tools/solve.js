@@ -92,18 +92,25 @@ function pathField(st) {
   const def = st.def;
   let byPart = fields.get(def);
   if (!byPart) { byPart = new Map(); fields.set(def, byPart); }
-  const targetKey = `${st.part}-${st.guide}`;
+  const goal = target(st), targetKey = `${st.part}-${st.guide}-${Math.round(goal.x / 16)},${Math.round(goal.y / 16)}`; // a running door moves the goal
   if (byPart.has(targetKey)) return byPart.get(targetKey);
-  const W = st.world.cols, H = st.world.rows, dist = new Float32Array(W * H).fill(1e9);
-  const open = (c, r) => c >= 0 && r >= 0 && c < W && r < H && !'#=~'.includes((def.map[r] || '')[c] || '.');
-  const d = target(st), q = [];
+  const W = st.world.cols, H = st.world.rows;
+  const d = target(st);
   const dc = Math.floor((d.x + 8) / 16), dr = Math.floor((d.y + 16) / 16);
-  for (const [c, r] of [[dc, dr], [dc, dr - 1], [dc, dr + 1]]) if (open(c, r)) { dist[r * W + c] = 0; q.push([c, r]); }
-  for (let i = 0; i < q.length; i++) {
-    const [c, r] = q[i], base = dist[r * W + c];
-    for (const [nc, nr] of [[c + 1, r], [c - 1, r], [c, r + 1], [c, r - 1]]) {
-      if (!open(nc, nr) || dist[nr * W + nc] <= base + 1) continue;
-      dist[nr * W + nc] = base + 1; q.push([nc, nr]);
+  const starts = [[dc, dr], [dc, dr - 1], [dc, dr + 1]];
+  let dist;
+  if (def.doorLinks && st.part !== 2) dist = KF.LongRoutes.walkField(def.map, W, H, starts);
+  else {
+    dist = new Float32Array(W * H).fill(1e9);
+    const open = (c, r) => c >= 0 && r >= 0 && c < W && r < H && !'#=~'.includes((def.map[r] || '')[c] || '.');
+    const q = [];
+    for (const [c, r] of starts) if (open(c, r)) { dist[r * W + c] = 0; q.push([c, r]); }
+    for (let i = 0; i < q.length; i++) {
+      const [c, r] = q[i], base = dist[r * W + c];
+      for (const [nc, nr] of [[c + 1, r], [c - 1, r], [c, r + 1], [c, r - 1]]) {
+        if (!open(nc, nr) || dist[nr * W + nc] <= base + 1) continue;
+        dist[nr * W + nc] = base + 1; q.push([nc, nr]);
+      }
     }
   }
   const f = { dist, W, H };
@@ -111,7 +118,7 @@ function pathField(st) {
   return f;
 }
 function routeEstimate(st) {
-  if (!st.def.noGates || (st.def.doorLinks && st.part !== 2) || !st.world.door) return null;
+  if (!(st.def.noGates || (st.def.doorLinks && st.part !== 2)) || !st.world.door) return null; // the long outer districts double back too
   const f = pathField(st), p = st.player;
   const c = Math.max(0, Math.min(f.W - 1, Math.floor(p.centerX / 16))), r = Math.max(0, Math.min(f.H - 1, Math.floor((p.y + p.h / 2) / 16)));
   const v = f.dist[r * f.W + c];

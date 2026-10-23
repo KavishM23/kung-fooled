@@ -531,7 +531,7 @@
           ctx.fillStyle = 'rgba(8,4,16,0.75)'; ctx.fillRect(0, 108 - 34 * k, VW, 68 * k);
           BT.draw(ctx, this.worldName, VW / 2, 92, BT.fit ? BT.fit(this.worldName, VW - 40, 4) : 3, 'steel', slam(pt));
           if (pt > 0.15 && this.rule.rule) F.draw(ctx, this.rule.rule, VW / 2, 114, '#ffd040', 1, 'center', '#000');
-          if (pt > 0.25 && !this.training) F.draw(ctx, `${this.door.name}  -  LEVEL ${this.stageIdx + 1} OF ${this.door.stages.length}  -  3 PARTS`, VW / 2, 128, '#b8b0c8', 1, 'center', '#000');
+          if (pt > 0.25 && !this.training) F.draw(ctx, `${this.door.name}  -  LEVEL ${this.stageIdx + 1} OF ${this.door.stages.length}  -  ${(this.def.doorLinks || []).length + 1} PARTS`, VW / 2, 128, '#b8b0c8', 1, 'center', '#000');
         }
       }
       if (this.style.compose || KF.Present.onTop(this.style.id)) this.renderCards(ctx, t);

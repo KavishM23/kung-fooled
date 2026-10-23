@@ -1,4 +1,4 @@
-// Every realm level travels through four compact parts, with three checkpoints.
+// Every realm level travels through four long parts, with three checkpoints.
 'use strict';
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), vm = require('node:vm'), path = require('node:path');
@@ -25,44 +25,48 @@ for (const door of sb.KF.Doors) {
     assert(def.parts && def.parts.length === 4 && new Set(def.parts.map((p) => p.name)).size === 4,
       `${tag} needs four named locations`);
     assert(def.doorLinks && def.doorLinks.length === 3, `${tag} needs three transitions`);
-    assert.equal(new Set(def.baits.map((b) => b.bands.join(','))).size, 3,
-      `${tag} generated sections need different silhouettes`);
-    for (const route of [def.routeZones[0], def.routeZones[2], def.routeZones[3]]) {
-      assert(route.to - route.from <= 24, `${tag} outer act should fit within one view`);
-      assert(route.to - route.from >= 20, `${tag} door should require a real approach`);
-    }
     assert(def.baits && def.baits.length === 3, `${tag} needs three designed baits`);
     assert.equal(new Set(def.baits.map((b) => b.type)).size, 3, `${tag} tricks should develop`);
+    assert.equal(new Set(def.baits.map((b) => b.shape)).size, 3,
+      `${tag} generated districts need different silhouettes`);
     assert(def.concept, `${tag} needs a trap concept`);
-    assert(world.partDoors[0].x - world.spawn.x < sb.KF.VIEW_W - 40,
-      `${tag} first door should be visible from the start`);
-    assert(world.door.x - def.doorLinks[2].x < sb.KF.VIEW_W - 40,
-      `${tag} final door should be visible on arrival`);
+    // Solid ground anywhere in a generated district must reach the bottom of
+    // the map: buildings, cliffs and floors, never a block floating in the air.
+    const grounded = new Set(), q = [];
+    // A doorway is a gap in a load-bearing wall; the lintel above it still stands on it.
+    const doorways = def.structures.filter((s) => s.kind === 'doorway');
+    const solidAt = (c, r) => (def.map[r] || '')[c] === '#' ||
+      doorways.some((d) => c >= d.x0 && c < d.x1 && r >= d.r0 && r < d.r1);
+    for (let c = 0; c < world.cols; c++) if (solidAt(c, world.rows - 1)) { grounded.add(`${c},${world.rows - 1}`); q.push([c, world.rows - 1]); }
+    for (let i = 0; i < q.length; i++) {
+      const [c, r] = q[i];
+      for (const [nc, nr] of [[c + 1, r], [c - 1, r], [c, r + 1], [c, r - 1]]) {
+        const k = `${nc},${nr}`;
+        if (!grounded.has(k) && solidAt(nc, nr)) { grounded.add(k); q.push([nc, nr]); }
+      }
+    }
+    for (const [act, route] of [def.routeZones[0], def.routeZones[2], def.routeZones[3]].entries()) {
+      assert(route.to - route.from >= 56, `${tag} district ${act + 1} needs room to breathe`);
+      for (let c = route.from; c < route.to; c++) for (let r = 0; r < world.rows; r++)
+        assert((def.map[r] || '')[c] !== '#' || grounded.has(`${c},${r}`), `${tag} has a floating block at ${c},${r}`);
+    }
     for (const [act, bait] of def.baits.entries()) {
       assert(def.traps.some((t) => t.type === bait.type && t.at[0] === bait.x),
         `${tag} ${bait.type} bait must have a real trap`);
       assert(world.visualSolid(bait.x, bait.floor), `${tag} bait needs an apparent safe floor`);
-      const heights = bait.profile;
-      assert.equal(heights.length, 4, `${tag} act needs four playable height bands`);
-      assert(new Set(heights).size >= 3 && Math.max(...heights) - Math.min(...heights) >= 3,
-        `${tag} act needs a meaningful change in elevation`);
-      const changes = heights.slice(1).map((h, i) => Math.sign(h - heights[i]));
-      if (act === 0) assert(changes[0] !== changes[1] && changes[1] !== changes[2],
-        `${tag} approach should weave through two height changes`);
-      if (act === 1) assert(changes.every((v) => v < 0),
-        `${tag} upper passage should make a sustained climb`);
-      if (act === 2) assert(changes[0] > 0 && changes[1] < 0 && changes[2] < 0,
-        `${tag} finale should drop and then climb`);
-      assert(changes.every((n) => n !== 0) && heights.every((h, i) =>
-        i === 0 || h - heights[i - 1] >= -2), `${tag} climb must have jump margin`);
-      assert.equal(bait.bands.length, 5, `${tag} needs four band boundaries`);
-      for (let band = 0; band < 4; band++) {
-        assert(world.visualSolid(bait.x0 + bait.bands[band] + 1, heights[band]),
-          `${tag} band ${band + 1} must be a playable floor`);
+      // A few large changes in height, each held for a while; no one-tile bumps.
+      const walk = bait.sections.filter((s) => s.kind !== 'bridge');
+      const heights = walk.map((s) => s.floor);
+      assert(Math.max(...heights) - Math.min(...heights) >= 6, `${tag} act ${act + 1} needs a real climb or drop`);
+      assert(new Set(heights).size <= 4, `${tag} act ${act + 1} changes height too often`);
+      for (const s of walk) assert(s.x1 - s.x0 >= 7, `${tag} act ${act + 1} ${s.kind} is too short to be a place`);
+      for (let i = 1; i < heights.length; i++) {
+        const step = Math.abs(heights[i] - heights[i - 1]);
+        assert(step === 0 || step >= 4, `${tag} act ${act + 1} has a token ${step}-tile step`);
       }
       usedBaits.add(bait.type);
     }
-    // From the apparently safe lower band, simply holding forward should
+    // From the apparently safe floor, simply holding forward should
     // reveal the bait and cause an understandable failure.
     def.baits.forEach((bait, act) => {
       const attempt = new sb.KF.Stage(def);

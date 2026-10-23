@@ -30,6 +30,9 @@
 
     // Static tiles baked into one canvas per attempt (trap-owned tiles are drawn live instead).
     bakeStage(world, theme, res = KF.RES, def = null) {
+      // Long levels at a smooth realm's full scale would pass the canvas size
+      // some browsers allow (about 16 million pixels on iOS); bake them a little softer.
+      if (res > KF.RES) res = Math.max(KF.RES, Math.min(res, Math.sqrt(16e6 / (world.pixelW * world.pixelH))));
       const c = KF.makeHi(world.pixelW, world.pixelH, res), ctx = c.getContext('2d');
       if (res > KF.RES) ctx.imageSmoothingEnabled = true;
       for (let r = 0; r < world.rows; r++) for (let col = 0; col < world.cols; col++) {

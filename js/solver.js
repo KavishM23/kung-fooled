@@ -56,23 +56,29 @@
   }
   const fields = new Map();
   function routeEstimate(st) {
-    if (!st.def.noGates || (st.def.doorLinks && st.part !== 2) || !st.world.door) return null;
+    if (!(st.def.noGates || (st.def.doorLinks && st.part !== 2)) || !st.world.door) return null; // the long outer districts double back too
     let byPart = fields.get(st.def);
     if (!byPart) { byPart = new Map(); fields.set(st.def, byPart); }
-    const targetKey = `${st.part}-${st.guide}`;
+    const goal = target(st), targetKey = `${st.part}-${st.guide}-${Math.round(goal.x / 16)},${Math.round(goal.y / 16)}`; // a running door moves the goal
     let field = byPart.get(targetKey);
     if (!field) {
-      const W = st.world.cols, H = st.world.rows, dist = new Float32Array(W * H).fill(1e9);
-      const open = (c, r) => c >= 0 && r >= 0 && c < W && r < H && !'#=~'.includes((st.def.map[r] || '')[c] || '.');
-      const d = target(st), q = [];
+      const W = st.world.cols, H = st.world.rows;
+      const d = target(st);
       const dc = Math.floor((d.x + 8) / 16), dr = Math.floor((d.y + 16) / 16);
-      for (const [c, r] of [[dc, dr], [dc, dr - 1], [dc, dr + 1]])
-        if (open(c, r)) { dist[r * W + c] = 0; q.push([c, r]); }
-      for (let i = 0; i < q.length; i++) {
-        const [c, r] = q[i], base = dist[r * W + c];
-        for (const [nc, nr] of [[c + 1, r], [c - 1, r], [c, r + 1], [c, r - 1]]) {
-          if (!open(nc, nr) || dist[nr * W + nc] <= base + 1) continue;
-          dist[nr * W + nc] = base + 1; q.push([nc, nr]);
+      const starts = [[dc, dr], [dc, dr - 1], [dc, dr + 1]];
+      let dist;
+      if (st.def.doorLinks && st.part !== 2) dist = KF.LongRoutes.walkField(st.def.map, W, H, starts);
+      else {
+        dist = new Float32Array(W * H).fill(1e9);
+        const open = (c, r) => c >= 0 && r >= 0 && c < W && r < H && !'#=~'.includes((st.def.map[r] || '')[c] || '.');
+        const q = [];
+        for (const [c, r] of starts) if (open(c, r)) { dist[r * W + c] = 0; q.push([c, r]); }
+        for (let i = 0; i < q.length; i++) {
+          const [c, r] = q[i], base = dist[r * W + c];
+          for (const [nc, nr] of [[c + 1, r], [c - 1, r], [c, r + 1], [c, r - 1]]) {
+            if (!open(nc, nr) || dist[nr * W + nc] <= base + 1) continue;
+            dist[nr * W + nc] = base + 1; q.push([nc, nr]);
+          }
         }
       }
       field = { dist, W, H }; byPart.set(targetKey, field);
