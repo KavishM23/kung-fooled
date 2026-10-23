@@ -175,6 +175,13 @@
         if (tr instanceof types.collapse) {
           if (tr.drop > 260) continue;
           for (const [c, r, id] of tr.tiles) drawTile(ctx, world, theme, c, r, id, c * T - cam.x + shake, Math.round(r * T + tr.drop - cam.y));
+          if (tr.seen && !tr.fired) {
+            const x = tr.rect.x - cam.x, y = tr.rect.y - cam.y;
+            for (let i = 5; i < tr.rect.w - 4; i += 9) {
+              R(ctx, '#ffe292', x + i, y + 1, 3, 1);
+              R(ctx, '#29212b', x + i + 2, y + 2, 1, 3);
+            }
+          }
         } else if (tr instanceof types.crusher || tr instanceof types.mover) {
           const b = tr instanceof types.crusher ? tr.body : tr.solid;
           const ox = b.x - tr.home.x, oy = b.y - tr.home.y;
@@ -248,15 +255,17 @@
             R(ctx, '#dce7e8', dx + (tr.dir < 0 ? 0 : 4), dy + 1, 2, 1);
           }
         } else if (tr instanceof types.spikes) {
-          if (!tr.fired) continue;
-          const off = Math.round((1 - tr.raise) * 16);
+          if (!tr.fired && !tr.seen) continue;
+          const off = tr.fired ? Math.round((1 - tr.raise) * 16) : 0;
           const d = { up: [0, off], down: [0, -off], left: [off, 0], right: [-off, 0] }[tr.dir];
+          if (!tr.fired) ctx.globalAlpha = 0.42;
           for (const [c, r] of tr.cells) {
             ctx.save(); ctx.beginPath(); ctx.rect(c * T - cam.x, r * T - cam.y, T, T); ctx.clip();
             if (theme.spike) theme.spike(ctx, c * T - cam.x + d[0], r * T - cam.y + d[1], tr.dir);
             else KF.blit(ctx, KF.Art.spikes[tr.dir], c * T - cam.x + d[0], r * T - cam.y + d[1]);
             ctx.restore();
           }
+          ctx.globalAlpha = 1;
         } else if (tr instanceof types.spring) {
           (theme.spring || KF.Art.spring)(ctx, tr.rect.x - 2 - cam.x, tr.rect.y - 9 - cam.y, tr.squash);
         } else if (tr instanceof types.shy) {
@@ -273,12 +282,16 @@
         } else if (tr instanceof types.fakeDoor) {
           const r = tr.rect;
           (theme.door || KF.Art.door)(ctx, r.x - cam.x, r.y - cam.y, { lantern: false, open: tr.fired ? 1 : 0, t });
+          if (tr.seen && !tr.fired) KF.Font.draw(ctx, '?', r.x - cam.x + 8, r.y - cam.y - 7, '#ff9d9d', 1, 'center');
           if (tr.fired) KF.Art.glove(ctx, r.x - cam.x + (tr.dirX > 0 ? 12 : 4), r.y - cam.y + 16, tr.dirX, Math.min(1, tr.fireT * 12));
         } else if (tr instanceof types.lureFloor) {
           const r = tr.rect, x = r.x - cam.x, y = r.y - cam.y;
           if (tr.mode !== 'gone') {
             const shakeX = tr.mode === 'warning' && Math.floor(t * 18) % 2 ? 0.5 : 0;
             for (const [c, row, id] of tr.tiles) drawTile(ctx, world, theme, c, row, id, c * T - cam.x + shakeX, row * T - cam.y);
+            if (tr.seen && tr.mode === 'ready') {
+              for (let i = 4; i < r.w; i += 11) R(ctx, '#ffe292', x + i, y + 1, 4, 1);
+            }
             if (tr.mode === 'warning') {
               ctx.save(); ctx.globalAlpha = 0.7;
               for (let i = 4; i < r.w; i += 11) {

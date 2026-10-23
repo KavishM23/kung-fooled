@@ -10,7 +10,9 @@ for (const file of ['core.js', 'physics.js', 'world.js', 'player.js', 'traps.js'
 for (const file of fs.readdirSync(path.join(root, 'js/levels')).filter((f) => /^(world\d+|tall_[a-z]+)\.js$/.test(f)).sort())
   vm.runInContext(fs.readFileSync(path.join(root, 'js/levels', file), 'utf8'), sb, { filename: file });
 let count = 0;
-const profiles = new Set();
+const baitPairs = new Set();
+const usedBaits = new Set();
+const naiveOutcomes = {};
 for (const door of sb.KF.Doors) {
   assert.equal(door.stages.length, 4, `${door.id} should have four levels`);
   door.stages.forEach((def, index) => {
@@ -19,24 +21,52 @@ for (const door of sb.KF.Doors) {
     assert(world.partDoors[0] && world.partDoors[1], `${tag} needs two intermediate doors`);
     assert.notDeepEqual(world.partDoors[0], world.partDoors[1], `${tag} doors must be separate`);
     assert(def.routeZones && def.routeZones.length === 3, `${tag} needs three distinct routes`);
-    assert(def.routeZones[0].to - def.routeZones[0].from >= 90, `${tag} first route is too short`);
-    assert(def.routeZones[1].to - def.routeZones[1].from >= 35, `${tag} middle route is too short`);
-    assert(def.routeZones[2].to - def.routeZones[2].from >= 90, `${tag} final route is too short`);
-    assert(world.partDoors[1].x - world.partDoors[0].x >= 30 * sb.KF.TILE,
-      `${tag} doors are too close together`);
-    assert(world.door.x - world.partDoors[1].x >= 30 * sb.KF.TILE,
-      `${tag} exit is too close to door two`);
-    assert(world.spawn.y - world.partDoors[0].y >= 10 * sb.KF.TILE,
-      `${tag} needs a real climb to door one`);
-    assert(world.pixelH > sb.KF.VIEW_H + 150, `${tag} needs vertical camera travel`);
-    const heights = [def.routeZones[0].from, def.routeZones[2].from]
-      .flatMap((from) => Array.from({ length: 15 }, (_, k) => {
-        const col = from + k * 7;
-        return def.map.findIndex((row) => '-=~'.includes(row[col] || '.'));
-      }));
-    const profile = heights.join(',');
-    assert(!profiles.has(profile), `${tag} repeats another level's full outer route`);
-    profiles.add(profile);
+    for (const route of [def.routeZones[0], def.routeZones[2]]) {
+      assert(route.to - route.from <= 24, `${tag} outer act should fit within one view`);
+      assert(route.to - route.from >= 20, `${tag} door should require a real approach`);
+    }
+    assert(def.baits && def.baits.length === 2, `${tag} needs two designed baits`);
+    assert.notEqual(def.baits[0].type, def.baits[1].type, `${tag} should change its trick at the last door`);
+    assert(world.partDoors[0].x - world.spawn.x < sb.KF.VIEW_W - 40,
+      `${tag} first door should be visible from the start`);
+    assert(world.door.x - def.doorLinks[1].x < sb.KF.VIEW_W - 40,
+      `${tag} final door should be visible on arrival`);
+    for (const bait of def.baits) {
+      assert(def.traps.some((t) => t.type === bait.type && t.at[0] === bait.x),
+        `${tag} ${bait.type} bait must have a real trap`);
+      assert(world.visualSolid(bait.x, bait.floor), `${tag} bait needs an apparent safe floor`);
+      usedBaits.add(bait.type);
+    }
+    // Simply holding forward should reveal each act's bait and cause an
+    // understandable failure. A successful run must make a different choice.
+    def.baits.forEach((bait, act) => {
+      const attempt = new sb.KF.Stage(def);
+      if (act === 1) {
+        const link = def.doorLinks[1], p = attempt.player;
+        attempt.part = 3;
+        p.x = link.x - p.w / 2; p.y = link.y - p.h;
+        p.prevX = p.x; p.prevY = p.y;
+      }
+      const trap = attempt.traps.find((t) => t.def.type === bait.type && t.def.at[0] === bait.x);
+      const forward = { left: !!attempt.rule.reverse, right: !attempt.rule.reverse,
+        jumpHeld: false, jumpPressed: false };
+      let sprung = false;
+      for (let tick = 0; tick < 1200 && attempt.state === 'play' && attempt.part === (act ? 3 : 1); tick++) {
+        attempt.step(sb.KF.STEP, forward);
+        sprung ||= trap.fired || trap.mode === 'warning' || trap.mode === 'gone';
+      }
+      assert(sprung, `${tag} act ${act + 1} bait must spring on the obvious straight path`);
+      const outcome = attempt.state === 'dead' ? 'death' : attempt.part > (act ? 3 : 1) ? 'passed' : 'blocked';
+      assert.equal(outcome, 'death', `${tag} act ${act + 1} straight run should expose the mistake`);
+      if (bait.type !== 'crusher') {
+        const retry = new sb.KF.Stage(def, 1, attempt.memory);
+        const remembered = retry.traps.find((t) => t.def.type === bait.type && t.def.at[0] === bait.x);
+        assert(remembered.seen, `${tag} act ${act + 1} bait should be marked on retry`);
+      }
+      (naiveOutcomes[bait.type] ||= {})[outcome] =
+        ((naiveOutcomes[bait.type] || {})[outcome] || 0) + 1;
+    });
+    baitPairs.add(def.baits.map((b) => b.type).join('/'));
     count++;
   });
 }
@@ -56,4 +86,7 @@ assert.equal(run.part, 3);
 touch(run.world.door);
 assert.equal(run.state, 'won');
 assert.deepEqual(Array.from(run.events.filter((e) => e.type === 'part'), (e) => e.part), [2, 3]);
-console.log(`PASS ${count} long levels have three distant doors, vertical routes, and ordered passage`);
+assert.equal(usedBaits.size, sb.KF.LongRoutes.BAITS.length, 'all bait types should appear');
+assert.equal(baitPairs.size, sb.KF.LongRoutes.BAITS.length, 'bait pairs should rotate');
+console.log(`PASS ${count} levels have three ordered doors and two distinct readable baits`);
+console.log('Straight-run bait outcomes:', naiveOutcomes);

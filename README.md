@@ -17,13 +17,14 @@ upgrades and special moves in the Dojo. Each realm's street fighter and boss sui
 Johnny TV and the bowler-hatted Bramble in Retro, Bug Kid and Grandma Hana in Pocket, and
 Volt and THE SYSTEM in Cyber. Every other fighter appears in the Street Arena.
 
-Each realm level has three long districts. The first climbs across widely spaced platforms to
-door one. Door one opens into an approach and the original level's hand-built traps; the tall
-levels keep their winding routes there. Door two opens onto another long route with changes in
-height before the final exit. Each level has a distinct pair of outer route profiles. Solid
-dividers prevent shortcuts between districts. The HUD advances only when you enter a door.
-Gaps, spikes, timed beams and unstable or moving surfaces
-change the rhythm along each route.
+Each realm level has three door acts. The opening and finale each fit within one view: a plain
+floor points straight to the door, then one apparent safe choice turns out to be a fake floor,
+crumbling floor, pop-up spikes, falling ceiling, false door, or floor that gives way on approach.
+The two tricks differ within a level, and all six appear across the 40 levels. Door one opens
+into the original hand-built room, which keeps its own traps and, in the tall levels, its winding
+route. Door two opens into the finale. Solid dividers prevent shortcuts between acts. Revealed
+floors, spikes, and false doors leave small visual reminders on retries, so the next attempt can
+use what the player learned.
 Each level also has its own landmarks behind the route and material details on exposed platforms:
 supports, wear, cables, vents, foliage and small objects match the place and its visual style.
 

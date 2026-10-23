@@ -124,6 +124,7 @@
           doorLinks: course.doorLinks,
           guides: course.guides,
           routeZones: course.routeZones,
+          baits: course.baits,
           traps: course.traps,
           style: (r.styles && r.styles[j]) || r.style, music: PLACE_MUSIC[r.envs[j]] || r.music,
         }));

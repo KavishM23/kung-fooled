@@ -98,9 +98,11 @@
 
   // Floor that drops away. at: [c, r, w, h] (tiles drawn in the map with # are taken over).
   class Collapse extends Trap {
-    constructor(def, stage) {
+    constructor(def, stage, index) {
       super(def, stage);
       this.rect = tileRect(def.at);
+      this.key = 'c' + index;
+      this.seen = !!stage.memory.seen[this.key];
       this.tiles = stage.claimTiles(def.at);
       this.solid = { ...this.rect, active: true };
       stage.world.dynamicSolids.push(this.solid);
@@ -108,6 +110,7 @@
     }
     defaultCondition() { return this.stage.standingOn(this.solid); }
     onFire() {
+      this.seen = true; this.stage.memory.seen[this.key] = true;
       this.solid.active = false;
       this.stage.emit('crumble', { x: this.rect.x + this.rect.w / 2, y: this.rect.y, w: this.rect.w });
     }
@@ -119,7 +122,7 @@
 
   // Spikes hidden in a floor/ceiling/wall that shoot out. at: [c, r, w], dir: up|down|left|right.
   class PopSpikes extends Trap {
-    constructor(def, stage) {
+    constructor(def, stage, index) {
       super(def, stage);
       const [c, r, w = 1] = def.at;
       this.dir = def.dir || 'up';
@@ -128,9 +131,14 @@
       this.cells = [];
       for (let i = 0; i < w; i++) this.cells.push(vertical ? [c + i, r] : [c, r + i]);
       this.raise = 0;
+      this.key = 's' + index;
+      this.seen = !!stage.memory.seen[this.key];
     }
     defaultCondition() { return this.distanceTo(this.player) < T * 1.5; }
-    onFire() { this.stage.emit('spikes', center(this.rect)); }
+    onFire() {
+      this.seen = true; this.stage.memory.seen[this.key] = true;
+      this.stage.emit('spikes', center(this.rect));
+    }
     tick(dt) { if (this.fired) this.raise = Math.min(1, this.raise + dt / 0.06); }
     kills(p) {
       if (this.raise < 0.5) return false;
@@ -349,17 +357,20 @@
 
   // Looks exactly like the exit (minus the lantern). Touch it and it punches you. at: [c, r].
   class FakeDoor extends Trap {
-    constructor(def, stage) {
+    constructor(def, stage, index) {
       super(def, stage);
       const [c, r] = def.at;
       this.rect = { x: c * T, y: (r - 1) * T, w: T, h: 2 * T };
       this.dirX = 1;
+      this.key = 'd' + index;
+      this.seen = !!stage.memory.seen[this.key];
     }
     defaultCondition() {
       const r = this.rect;
       return U.overlap(this.player, { x: r.x + 3, y: r.y + 4, w: r.w - 6, h: r.h - 4 });
     }
     onFire() {
+      this.seen = true; this.stage.memory.seen[this.key] = true;
       this.dirX = this.player.centerX < this.rect.x + 8 ? -1 : 1;
       this.stage.emit('punch', center(this.rect));
       this.stage.kill('fakedoor');
@@ -487,9 +498,11 @@
   // A real floor that starts to give way when approached. It reforms after a short
   // absence, baiting a rushed step or a return trip. at: [c,r,w,h] over solid tiles.
   class LureFloor extends Trap {
-    constructor(def, stage) {
+    constructor(def, stage, index) {
       super(def, stage);
       this.rect = tileRect(def.at);
+      this.key = 'l' + index;
+      this.seen = !!stage.memory.seen[this.key];
       this.tiles = stage.claimTiles(def.at);
       this.solid = { ...this.rect, active: true };
       stage.world.dynamicSolids.push(this.solid);
@@ -499,6 +512,7 @@
     update(dt) {
       if (this.mode === 'ready' && this.distanceTo(this.player) < (this.def.near || 2.8) * T) {
         this.mode = 'warning'; this.timer = this.def.delay ?? 0.55;
+        this.seen = true; this.stage.memory.seen[this.key] = true;
         this.stage.emit('rumble', center(this.rect));
       } else if (this.mode === 'warning') {
         this.timer -= dt;
