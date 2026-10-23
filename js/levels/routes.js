@@ -500,7 +500,7 @@
     const open = (c, r) => c >= 0 && r >= 0 && c < W && r < H && !'#=~'.includes((map[r] || '')[c] || '.');
     const floor = (c, r) => '#=-'.includes((map[r] || '')[c] || '.');
     const near = new Uint8Array(W * H), held = new Uint8Array(W * H), dist = new Float32Array(W * H).fill(1e9);
-    for (let c = 0; c < W; c++) for (let r = 0; r < H; r++)
+    for (let c = 0; c < W; c++) for (let r = 0; r < H; r++) if (open(c, r))
       for (let k = 1; k <= 4; k++) if (floor(c, r + k)) { near[r * W + c] = 1; break; } else if (!open(c, r + k)) break;
     for (let c = 0; c < W; c++) for (let r = 0; r < H; r++)
       for (let k = -2; k <= 2; k++) if (near[r * W + c + k] && c + k >= 0 && c + k < W) { held[r * W + c] = 1; break; }
