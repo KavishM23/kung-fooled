@@ -35,18 +35,31 @@ for (const door of sb.KF.Doors) {
       assert(def.traps.some((t) => t.type === bait.type && t.at[0] === bait.x),
         `${tag} ${bait.type} bait must have a real trap`);
       assert(world.visualSolid(bait.x, bait.floor), `${tag} bait needs an apparent safe floor`);
+      const heights = bait.profile;
+      assert.equal(heights.length, 4, `${tag} act needs four playable height bands`);
+      assert(new Set(heights).size >= 3 && Math.max(...heights) - Math.min(...heights) >= 3,
+        `${tag} act needs a meaningful change in elevation`);
+      const changes = heights.slice(1).map((h, i) => Math.sign(h - heights[i]));
+      assert(changes[0] !== changes[1] && changes[1] !== changes[2],
+        `${tag} route should reverse vertical direction twice`);
+      assert(changes.every((n) => n !== 0) && heights.every((h, i) =>
+        i === 0 || h - heights[i - 1] >= -2), `${tag} climb must have jump margin`);
+      assert.equal(bait.bands.length, 5, `${tag} needs four band boundaries`);
+      for (let band = 0; band < 4; band++) {
+        assert(world.visualSolid(bait.x0 + bait.bands[band] + 1, heights[band]),
+          `${tag} band ${band + 1} must be a playable floor`);
+      }
       usedBaits.add(bait.type);
     }
-    // Simply holding forward should reveal each act's bait and cause an
-    // understandable failure. A successful run must make a different choice.
+    // From the apparently safe lower band, simply holding forward should
+    // reveal the bait and cause an understandable failure.
     def.baits.forEach((bait, act) => {
       const attempt = new sb.KF.Stage(def);
-      if (act === 1) {
-        const link = def.doorLinks[1], p = attempt.player;
-        attempt.part = 3;
-        p.x = link.x - p.w / 2; p.y = link.y - p.h;
-        p.prevX = p.x; p.prevY = p.y;
-      }
+      const p = attempt.player;
+      attempt.part = act ? 3 : 1;
+      p.x = (bait.x0 + 8.5) * sb.KF.TILE - p.w / 2;
+      p.y = bait.floor * sb.KF.TILE - p.h;
+      p.prevX = p.x; p.prevY = p.y;
       const trap = attempt.traps.find((t) => t.def.type === bait.type && t.def.at[0] === bait.x);
       const forward = { left: !!attempt.rule.reverse, right: !attempt.rule.reverse,
         jumpHeld: false, jumpPressed: false };

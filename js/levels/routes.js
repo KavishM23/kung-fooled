@@ -5,6 +5,14 @@
   const T = KF.TILE;
   const clone = (o) => JSON.parse(JSON.stringify(o));
   const BAITS = ['fakeFloor', 'collapse', 'spikes', 'crusher', 'fakeDoor', 'lureFloor'];
+  // Four broad pieces within one view: a climb, a drop, then a change of
+  // direction. Every rise is at most two tiles, leaving room for an early
+  // or late jump; larger drops create the stronger vertical reveals.
+  const PROFILES = [
+    [32, 30, 33, 31], [31, 29, 32, 30], [30, 33, 31, 32],
+    [31, 29, 33, 32], [29, 32, 30, 31], [32, 31, 34, 33],
+  ];
+  const BANDS = [0, 4, 8, 16, 22];
 
   function shift(o, x, y) {
     const t = clone(o);
@@ -18,16 +26,19 @@
     return t;
   }
 
-  function baitRoute(m, x0, floor, kind, variant, traps) {
-    // The whole act fits within one camera view. A plain uninterrupted floor
-    // invites the player to run straight at the door.
-    for (let c = x0; c <= x0 + 22; c++)
-      for (let r = floor; r < floor + 3; r++) m[r][c] = '#';
-    const x = x0 + 10 + variant % 4;
+  function baitRoute(m, x0, profile, kind, traps) {
+    // Four readable heights replace the old flat strip without stacking many
+    // platforms. The broad third band looks like a safe run to the door.
+    for (let band = 0; band < 4; band++) {
+      const floor = profile[band];
+      for (let c = x0 + BANDS[band]; c < x0 + BANDS[band + 1]; c++)
+        for (let r = floor; r < floor + 3; r++) m[r][c] = '#';
+    }
+    const x = x0 + 10, floor = profile[2];
     const at = [x, floor, 3, 3];
     if (kind === 'fakeFloor') traps.push({ type: kind, at, say: 'POOF!' });
     if (kind === 'collapse') traps.push({ type: kind, at, delay: 0.28, say: 'NO FLOOR!' });
-    if (kind === 'lureFloor') traps.push({ type: kind, at, delay: 0.48, near: 3, reform: 1.8 });
+    if (kind === 'lureFloor') traps.push({ type: kind, at, delay: 0.48, near: 1.8, reform: 1.8 });
     if (kind === 'spikes') traps.push({ type: kind, at: [x, floor - 1, 2],
       when: { x: x - 2.5 }, delay: 0.18, say: 'SURPRISE!' });
     if (kind === 'crusher') {
@@ -36,7 +47,7 @@
         when: { x: x - 2.7 }, delay: 0.2, say: 'LOOK UP!' });
     }
     if (kind === 'fakeDoor') traps.push({ type: kind, at: [x, floor - 1], say: 'WRONG DOOR!' });
-    return { type: kind, x, floor };
+    return { type: kind, x, floor, x0, profile: profile.slice(), bands: BANDS.slice() };
   }
 
   function compose(def, originalTraps, labels, seed, guides = null) {
@@ -48,20 +59,23 @@
     const W = tailX + 28, H = Math.max(44, def.map.length + 10);
     const m = Array.from({ length: H }, () => Array(W).fill('.'));
     const traps = [];
-    const firstFloor = 29, lastFloor = 30;
+    const firstProfile = PROFILES[seed % PROFILES.length];
+    const lastProfile = PROFILES[(seed + 3) % PROFILES.length];
+    const firstFloor = firstProfile[0], firstDoorFloor = firstProfile[3];
+    const lastFloor = lastProfile[0], lastDoorFloor = lastProfile[3];
     const firstBait = BAITS[seed % BAITS.length];
     const lastBait = BAITS[(seed + 3) % BAITS.length];
     const baits = [
-      baitRoute(m, firstX, firstFloor, firstBait, seed, traps),
-      baitRoute(m, tailX, lastFloor, lastBait, seed * 3 + 1, traps),
+      baitRoute(m, firstX, firstProfile, firstBait, traps),
+      baitRoute(m, tailX, lastProfile, lastBait, traps),
     ];
     m[firstFloor - 1][firstX + 2] = 'P';
-    m[firstFloor - 1][firstEnd] = 'A';
+    m[firstDoorFloor - 1][firstEnd] = 'A';
     const chasingDoor = originalTraps.some((t) => t.type === 'doorRun');
     const finalStep = chasingDoor ? 16 : 18;
-    m[lastFloor - 1][tailX + finalStep] = 'D';
+    m[lastDoorFloor - 1][tailX + finalStep] = 'D';
     if (chasingDoor) traps.push({ type: 'doorRun', path: [{
-      to: [tailX + 20, lastFloor - 1], near: 3, say: 'NOT SO FAST!',
+      to: [tailX + 20, lastDoorFloor - 1], near: 3, say: 'NOT SO FAST!',
     }] });
 
     // Door links keep each act self-contained and stop an accidental leap from
@@ -104,7 +118,7 @@
       combat: def.combat && Object.assign({}, def.combat, {
         enemies: def.combat.enemies.map((e) => Object.assign({}, e, { at: [e.at[0] + coreX, e.at[1] + 8] })),
       }),
-      checkpoints: [[firstEnd * T, (firstFloor - 2) * T], [oldDoor[0] * T, bY]],
+      checkpoints: [[firstEnd * T, (firstDoorFloor - 2) * T], [oldDoor[0] * T, bY]],
       guides: guides && guides.map(([x, y]) => ({ x: x + coreX * T, y: y + 8 * T })),
       doorLinks: [middleStart, { x: (tailX + 2.5) * T, y: lastFloor * T }],
       routeZones: [{ from: firstX, to: firstX + 22 },

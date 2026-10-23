@@ -64,7 +64,7 @@
     ],
     argo: [
       [{ type: 'conveyor', at: [3, 10, 7], speed: -75 }],
-      [{ type: 'swingHammer', at: [9, 4], len: 5.5, amp: 0.9, speed: 2.2 }],
+      [],
     ],
     eightbit: [
       [], [{ type: 'lookSaw', at: [30, 8], range: 2, speed: 48 }],

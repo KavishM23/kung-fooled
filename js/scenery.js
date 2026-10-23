@@ -223,6 +223,63 @@
     ctx.restore();
   }
 
+  // The compact door acts have four playable heights. Continue those heights
+  // into the nearby world: rooms, windows and service frames in built places;
+  // ledges, trees and cave mouths in natural ones. This stays behind collisions
+  // and uses slight parallax so it reads as depth rather than extra platforms.
+  function verticalWorld(ctx, def, cam, p, material) {
+    for (const route of def.baits || []) {
+      const bands = route.bands;
+      for (let i = 0; i < 4; i++) {
+        const x = (route.x0 + bands[i]) * T - cam.x * .91;
+        const y = route.profile[i] * T - cam.y * .94;
+        const w = (bands[i + 1] - bands[i]) * T;
+        if (x > VW + 20 || x + w < -20 || y < -130 || y > VH + 90) continue;
+        if (material === 'nature' || material === 'print') {
+          ctx.globalAlpha = .31;
+          ctx.fillStyle = p[0];
+          ctx.beginPath(); ctx.moveTo(x - 5, y + 112);
+          ctx.lineTo(x - 3, y + 9); ctx.lineTo(x + 7, y - 5);
+          ctx.lineTo(x + w - 9, y - 3); ctx.lineTo(x + w + 4, y + 10);
+          ctx.lineTo(x + w + 8, y + 112); ctx.closePath(); ctx.fill();
+          ctx.globalAlpha = .38;
+          for (let j = 0; j < 3; j++) {
+            const xx = x + 8 + j * (w - 15) / 3;
+            line(ctx, p[2], xx, y + 8, xx - 4, y + 26, 2);
+            rect(ctx, p[4], xx - 4, y - 10 - (j % 2) * 7, 14, 5);
+            rect(ctx, p[4], xx + 1, y - 16 - (j % 2) * 7, 4, 11);
+          }
+          // An opening under the ledge hints at another environmental layer.
+          rect(ctx, p[0], x + w / 2 - 9, y + 42, 18, 24);
+          rect(ctx, p[2], x + w / 2 - 9, y + 42, 18, 2);
+        } else {
+          ctx.globalAlpha = .2;
+          rect(ctx, p[0], x - 4, y - 72, w + 8, 160);
+          rect(ctx, p[1], x, y - 68, w, 153);
+          ctx.globalAlpha = .43;
+          for (const row of [-59, -23, 16, 54]) {
+            rect(ctx, p[0], x + 2, y + row, w - 4, 3);
+            for (let j = 0; j < Math.floor((w - 8) / 16); j++) {
+              const wx = x + 7 + j * 16;
+              rect(ctx, p[0], wx, y + row + 7, 9, 14);
+              rect(ctx, p[2], wx + 1, y + row + 8, 7, 9);
+              rect(ctx, p[5], wx + 2, y + row + 9, 2, 4);
+            }
+          }
+          for (const post of [x + 1, x + w - 3]) {
+            rect(ctx, p[0], post, y - 73, 3, 160);
+            rect(ctx, p[2], post + 1, y - 69, 1, 148);
+          }
+          // Visible framing above and below the traversed floor makes a
+          // rooftop, balcony or interior feel connected to the next height.
+          rect(ctx, p[3], x + 3, y - 72, w - 6, 2);
+          rect(ctx, p[0], x + 2, y + 80, w - 4, 3);
+        }
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
   function draw(ctx, stage, cam, t) {
     const def = stage.def, scene = profile(def);
     if (!scene) return;
@@ -267,6 +324,7 @@
         }
       }
     }
+    verticalWorld(ctx, def, cam, pal, scene[2]);
     ctx.globalAlpha = def.realm === 'cyber' && def.index === 3 ? .25 : .58;
     points.forEach(([wx, wy, kind, i]) => {
       const x = wx - cam.x * .82, y = wy - cam.y * .88;

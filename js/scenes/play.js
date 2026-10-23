@@ -82,8 +82,10 @@
         tx = U.clamp(Math.floor(p.centerX / half) * half - VW / 4, 0, Math.max(0, w.pixelW - VW));
         if (k < 1) k = Math.min(1, k * 4);
       }
-      // Look down when falling (tall levels go underground, into buildings, under the sea).
-      const ty = U.clamp(p.y + p.h / 2 - VH * 0.55 + U.clamp(p.vy * 0.12, -16, 40), 0, Math.max(0, w.pixelH - VH));
+      // Lead a climb or fall while smoothing toward the new height. The next
+      // ledge comes into view before the player reaches it.
+      const verticalLook = U.clamp(p.vy * 0.16, -28, 40);
+      const ty = U.clamp(p.y + p.h / 2 - VH * 0.55 + verticalLook, 0, Math.max(0, w.pixelH - VH));
       c.x += (tx - c.x) * k;
       c.y += (ty - c.y) * k;
     }

@@ -17,9 +17,10 @@ upgrades and special moves in the Dojo. Each realm's street fighter and boss sui
 Johnny TV and the bowler-hatted Bramble in Retro, Bug Kid and Grandma Hana in Pocket, and
 Volt and THE SYSTEM in Cyber. Every other fighter appears in the Street Arena.
 
-Each realm level has three door acts. The opening and finale each fit within one view: a plain
-floor points straight to the door, then one apparent safe choice turns out to be a fake floor,
-crumbling floor, pop-up spikes, falling ceiling, false door, or floor that gives way on approach.
+Each realm level has three door acts. The opening and finale each fit within one view, with four
+broad height bands that climb, drop, and change direction again. The exit stays visible while a
+seemingly safe lower stretch turns out to be a fake floor, crumbling floor, pop-up spikes,
+falling ceiling, false door, or floor that gives way on approach.
 The two tricks differ within a level, and all six appear across the 40 levels. Door one opens
 into the original hand-built room, which keeps its own traps and, in the tall levels, its winding
 route. Door two opens into the finale. Solid dividers prevent shortcuts between acts. Revealed
@@ -27,6 +28,8 @@ floors, spikes, and false doors leave small visual reminders on retries, so the 
 use what the player learned.
 Each level also has its own landmarks behind the route and material details on exposed platforms:
 supports, wear, cables, vents, foliage and small objects match the place and its visual style.
+Windowed rooms and scaffold frames follow the urban height bands; cliffs, cave openings and trees
+follow the natural ones. The camera looks ahead during climbs and falls while tracking smoothly.
 
 **Cyber and SUPERHOT.** The last realm's places are a neon megacity, a hologram district and
 chrome Y2K. Its finale is a continuous side-on SUPERHOT tribute: move through the level,
