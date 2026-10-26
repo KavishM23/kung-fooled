@@ -397,6 +397,7 @@
       if (style.clearBg) w.clearRect(0, 0, VW, VH); // AR: the camera feed shows through
       else { w.fillStyle = this.theme.bg; w.fillRect(0, 0, VW, VH); }
       if (!style.clearBg || this.theme.id === 'env_' + style.id) this.theme.background(w, cam, t, this.mood);
+      if (KF.Scenery && KF.Scenery.parallax) KF.Scenery.parallax(w, st, cam, t);
       KF.Render.depths(w, st, cam, t);
       if (KF.Scenery) KF.Scenery.draw(w, st, cam, t);
       KF.Render.zones(w, st, this.theme, cam, t);

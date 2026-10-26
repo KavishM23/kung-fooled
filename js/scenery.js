@@ -71,6 +71,123 @@
     cyber: ['#182536', '#375366', '#7297a5', '#749da2', '#437e86', '#b0ebec'],
   };
   const profile = (def) => def && SCENES[def.realm] && SCENES[def.realm][def.index];
+  const PARALLAX_STYLE = {
+    city: 'urban', silent: 'urban', comic: 'urban', suburb: 'urban', cyber: 'urban',
+    works: 'works', handheld: 'land', ukiyo: 'land', temple: 'temple',
+    ar: 'temple', dream: 'dream', superhot: 'minimal', nes: 'nes',
+  };
+  const smoothstep = (a, b, v) => {
+    const u = Math.max(0, Math.min(1, (v - a) / (b - a)));
+    return u * u * (3 - 2 * u);
+  };
+
+  // The existing theme owns the sky and most distant art. These three layers
+  // occupy the space between it and the world-aligned walls drawn by depths().
+  // Every feature has a stable world index; moving the camera only translates
+  // it. Place changes crossfade over 96 world pixels instead of popping.
+  function parallax(ctx, stage, cam, t) {
+    const def = stage.def, zones = (def.depths || []).filter((d) => /^family_/.test(d.kind || ''));
+    if (!zones.length) return;
+    const playerX = stage.player.centerX;
+    const pal = PALETTE[def.realm] || PALETTE.arcade;
+    ctx.save(); ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
+    for (const d of zones) {
+      const fadeIn = smoothstep(d.c0 * T - 48, d.c0 * T + 48, playerX);
+      const fadeOut = 1 - smoothstep(d.c1 * T - 48, d.c1 * T + 48, playerX);
+      const weight = fadeIn * fadeOut;
+      if (weight < .005) continue;
+      const family = d.kind.slice(7), style = PARALLAX_STYLE[family] || 'land';
+      const enclosed = /cave|mine|tunnel|crypt|cellar|office|hall|interior|lab|bedroom|storage|garage|mall|carriage|studio/.test(d.mode);
+      const elevation = Math.max(0, Math.min(1, (27 - (d.r1 - d.r0)) / 12));
+      const placeSeed = d.c0 * 7 + d.c1 * 3;
+      // Sky hints are sparse and almost stationary; NES and SUPERHOT retain
+      // their own crisp or minimalist theme sky without extra clouds.
+      if (!enclosed && style !== 'minimal' && style !== 'nes') {
+        const span = 130, factor = .035;
+        const first = Math.floor((cam.x * factor - placeSeed) / span) - 1;
+        ctx.globalAlpha = weight * (style === 'land' ? .14 : .09);
+        for (let k = first; k * span + placeSeed - cam.x * factor < VW + span; k++) {
+          const x = k * span + placeSeed - cam.x * factor;
+          const y = 22 + hash(k, placeSeed, 9) * 29 - cam.y * .025;
+          const width = 26 + hash(k, placeSeed, 3) * 22;
+          rect(ctx, pal[2], x, y + 5, width, 4);
+          rect(ctx, pal[2], x + 5, y + 2, width - 13, 4);
+        }
+      }
+      const bands = [
+        { factor: .12, vertical: .10, baseline: 111, height: 43, opacity: .15, span: 62 },
+        { factor: .36, vertical: .38, baseline: 94, height: 54, opacity: .23, span: 74 },
+        { factor: .68, vertical: .70, baseline: 76, height: 74, opacity: .34, span: 86 },
+      ];
+      for (const [layer, band] of bands.entries()) {
+        const base = band.baseline + (d.r1 * T - cam.y) * band.vertical;
+        const anchor = d.c0 * T + placeSeed % 31;
+        const first = Math.floor((cam.x * band.factor - anchor) / band.span) - 1;
+        ctx.globalAlpha = weight * band.opacity * (enclosed ? .36 : 1);
+        for (let k = first; anchor + k * band.span - cam.x * band.factor < VW + band.span; k++) {
+          const x = Math.round(anchor + k * band.span - cam.x * band.factor);
+          const v = hash(k, layer, placeSeed);
+          const width = Math.round(band.span * (.62 + v * .25));
+          const height = Math.round(band.height * (.7 + v * .55) *
+            (layer === 2 ? 1 - elevation * .42 : 1));
+          const top = Math.round(base - height);
+          const bottom = Math.round(base + 55);
+          const color = layer === 0 ? pal[2] : layer === 1 ? pal[1] : pal[0];
+          if (style === 'urban' || style === 'works') {
+            rect(ctx, color, x, top, width, bottom - top);
+            rect(ctx, layer === 2 ? pal[1] : pal[2], x - 3, top, width + 6, 2);
+            if (style === 'works' && k % 3 === 0) {
+              rect(ctx, color, x + width / 2, top - 24, 3, 24);
+              rect(ctx, color, x + width / 2 - 13, top - 23, 38, 3);
+              line(ctx, color, x + width / 2 + 23, top - 23, x + width / 2 + 23, top - 5);
+            } else if (k % 4 === 0) {
+              rect(ctx, color, x + width / 2, top - 13, 2, 13);
+              rect(ctx, color, x + width / 2 - 6, top - 7, 14, 1);
+            }
+            for (let row = 0, yy = top + 8; yy < Math.min(bottom, VH); row++, yy += layer === 2 ? 13 : 17)
+              for (let col = 0, xx = x + 5; xx < x + width - 5; col++, xx += 12)
+                if (hash(k * 17 + col, row, placeSeed) > (layer === 2 ? .38 : .61)) {
+                  rect(ctx, layer === 2 ? pal[3] : pal[2], xx, yy, layer === 2 ? 4 : 2, 3);
+                  if (layer === 2) rect(ctx, pal[1], xx, yy + 4, 4, 1);
+                }
+          } else if (style === 'minimal') {
+            rect(ctx, layer === 2 ? '#a3abb0' : '#d0d6da', x, top, width, bottom - top);
+            rect(ctx, '#f8fcff', x + 3, top + 3, Math.max(2, width - 6), 2);
+            if (k % 2) rect(ctx, '#b92534', x + width - 7, top + 8, 3, 3);
+          } else if (style === 'dream') {
+            rect(ctx, color, x + 4, top, 5, height);
+            rect(ctx, color, x + width - 10, top, 5, height);
+            rect(ctx, pal[3], x, top, width, 3);
+            rect(ctx, pal[2], x + 10, top + 12, Math.max(6, width - 22), 2);
+            rect(ctx, color, x, base, width, 55);
+          } else if (style === 'nes') {
+            const step = 8;
+            for (let i = 0; i < width / step; i++) {
+              const rise = Math.max(0, height - Math.abs(i - width / step / 2) * 7);
+              rect(ctx, color, x + i * step, base - rise, step, bottom - base + rise);
+            }
+            rect(ctx, pal[2], x + width * .44, top + 4, 5, 3);
+          } else {
+            // Hills, inked ridges, ruins and period-correct blocky NES terrain.
+            ctx.fillStyle = color; ctx.beginPath();
+            ctx.moveTo(x, bottom); ctx.lineTo(x, base - height * .25);
+            ctx.lineTo(x + width * .47, top); ctx.lineTo(x + width, base - height * .24);
+            ctx.lineTo(x + width, bottom); ctx.closePath(); ctx.fill();
+            if (style === 'temple' && layer > 0) {
+              rect(ctx, pal[0], x + width * .3, top + height * .35, width * .42, height * .65);
+              rect(ctx, pal[3], x + width * .23, top + height * .3, width * .56, 3);
+              rect(ctx, pal[0], x + width * .42, top + height * .12, width * .18, height * .18);
+            } else if (style === 'land' && layer === 2 && k % 2 === 0) {
+              rect(ctx, pal[0], x + width * .65, top + 9, 3, height * .65);
+              rect(ctx, pal[4], x + width * .65 - 9, top + 5, 21, 6);
+              rect(ctx, pal[4], x + width * .65 - 6, top + 1, 15, 5);
+            }
+          }
+        }
+      }
+    }
+    ctx.restore(); void t;
+  }
   const DISTRICT_MOTIFS = {
     metal: ['dock', 'rail', 'machine', 'tank'],
     masonry: ['city', 'atrium', 'ruin', 'roof'],
@@ -734,5 +851,5 @@
     ctx.restore();
   }
 
-  KF.Scenery = { draw, bake, profile };
+  KF.Scenery = { draw, bake, profile, parallax };
 })(window.KF);

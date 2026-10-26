@@ -323,8 +323,22 @@
   // Rooms are built around the actual floor of a named indoor place. Furniture
   // is kept behind the player and collision tiles, with fixed world positions
   // so scrolling never rearranges a desk, window or plant.
-  function interior(ctx, x, y, w, h, p, art, mode) {
+  function interior(ctx, x, y, w, h, p, art, mode, cam) {
     const [dark, mid, light, accent, leaf, glow] = p;
+    const windowView = (wx, wy, ww, wh) => {
+      ctx.save(); ctx.beginPath(); ctx.rect(wx, wy, ww, wh); ctx.clip();
+      ctx.globalAlpha = .95;
+      R(ctx, art === 'silent' ? '#858585' : art === 'cyber' ? '#4b7a83' : '#70869a', wx, wy, ww, wh);
+      const distant = .18, span = 25;
+      const first = Math.floor((wx + cam.x * distant) / span) - 1;
+      for (let k = first; k * span - cam.x * distant < wx + ww + span; k++) {
+        const bx = k * span - cam.x * distant;
+        const height = 12 + (k * 13 % 9 + 9) % 9;
+        R(ctx, mid, bx, wy + wh - height, 18 + k % 3 * 2, height);
+        R(ctx, glow, bx + 4, wy + wh - height + 4, 2, 2);
+      }
+      ctx.restore();
+    };
     const bottom = y + h, ceiling = Math.max(y + 4, bottom - 126);
     const home = art === 'suburb' && /bedroom|apartment|garage/.test(mode);
     const work = /machine|control|server|storage|warehouse|lab/.test(mode);
@@ -345,7 +359,7 @@
       // A warm lived-in room: window, framed art, bed, desk and houseplant.
       const wx = x + w - 89, wy = ceiling + 18;
       ctx.globalAlpha = 1;
-      R(ctx, dark, wx - 3, wy - 3, 61, 48); R(ctx, '#54738c', wx, wy, 55, 42);
+      R(ctx, dark, wx - 3, wy - 3, 61, 48); windowView(wx, wy, 55, 42);
       R(ctx, glow, wx + 4, wy + 5, 30, 10);
       R(ctx, light, wx + 26, wy, 3, 42); R(ctx, light, wx, wy + 21, 55, 2);
       R(ctx, accent, wx - 7, wy - 3, 8, 47); R(ctx, accent, wx + 54, wy - 3, 8, 47);
@@ -366,7 +380,7 @@
       ctx.globalAlpha = .94;
       for (let xx = x + 20; xx < x + w - 34; xx += 75) {
         R(ctx, dark, xx, ceiling + 16, 56, 52);
-        R(ctx, '#839bad', xx + 4, ceiling + 20, 48, 44);
+        windowView(xx + 4, ceiling + 20, 48, 44);
         R(ctx, light, xx + 28, ceiling + 20, 2, 44);
         R(ctx, dark, xx - 2, bottom - 56, 55, 39);
         R(ctx, accent, xx + 2, bottom - 52, 48, 29);
@@ -406,7 +420,7 @@
       ctx.globalAlpha = .9;
       for (let xx = x + 17; xx < x + w - 32; xx += 86) {
         R(ctx, dark, xx, ceiling + 15, 58, 53);
-        R(ctx, '#526b80', xx + 4, ceiling + 19, 50, 45);
+        windowView(xx + 4, ceiling + 19, 50, 45);
         R(ctx, light, xx + 27, ceiling + 19, 2, 45);
         R(ctx, light, xx + 4, ceiling + 42, 50, 2);
         R(ctx, glow, xx + 35, ceiling + 24, 10, 7);
@@ -453,14 +467,16 @@
           const closed = /cave|mine|tunnel|hall|lab|office|interior|cellar|crypt|tower/.test(d.mode);
           const builtRoom = indoorPlace(config.art, d.mode);
           if (builtRoom) {
-            interior(ctx, x, y, w, h, palette, config.art, d.mode);
+            interior(ctx, x, y, w, h, palette, config.art, d.mode, cam);
             return;
           }
           ctx.globalAlpha = closed ? .83 : .42;
           R(ctx, closed ? dark : mid, x, y, w, h);
           ctx.globalAlpha = closed ? .36 : .25;
           const stride = config.art === 'handheld' ? 24 : 36;
-          const origin = d.c0 * T - cam.x * .35;
+          // This is the building/terrain wall immediately behind play. Keep it
+          // at camera factor 1; slower parallax belongs behind this layer.
+          const origin = d.c0 * T - cam.x;
           const first = Math.floor((x - origin) / stride) - 1;
           for (let k = first; origin + k * stride < x + w; k++) {
             const xx = origin + k * stride + 5;
