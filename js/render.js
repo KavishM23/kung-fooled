@@ -27,6 +27,8 @@
 
   KF.Render = {
     drawTile,
+    // Background region painters added by realm families: kind -> fn(ctx, x, y, w, h, cam, t, d).
+    depthKinds: {},
 
     // Static tiles baked into one canvas per attempt (trap-owned tiles are drawn live instead).
     bakeStage(world, theme, res = KF.RES, def = null) {
@@ -177,6 +179,22 @@
         }
         if (tr instanceof types.collapse) {
           if (tr.drop > 260) continue;
+          if (tr.def.look === 'glass') { // a glass floor: panes, and shards when it goes
+            const x = tr.rect.x - cam.x + shake, y = tr.rect.y - cam.y;
+            ctx.save();
+            if (!tr.fired) {
+              ctx.globalAlpha = 0.5; R(ctx, '#e2f7ff', x, y, tr.rect.w, 6); ctx.globalAlpha = 0.95;
+              R(ctx, '#ffffff', x, y, tr.rect.w, 1); for (let i = 3; i < tr.rect.w; i += 16) R(ctx, '#9fd8ee', x + i, y + 1, 1, 5);
+              if (tr.warning) for (let i = 5; i < tr.rect.w; i += 7) R(ctx, '#ffffff', x + i, y + 2 + (i % 3), 3, 1);
+            } else {
+              ctx.globalAlpha = Math.max(0, 1 - tr.drop / 200);
+              for (let i = 0; i < tr.rect.w; i += 5) {
+                const dx = (i - tr.rect.w / 2) * tr.drop / 120, dy = tr.drop * (0.6 + ((i * 7) % 5) / 8);
+                R(ctx, '#e8fbff', x + i + dx, y + dy, 3, 2);
+              }
+            }
+            ctx.restore(); continue;
+          }
           for (const [c, r, id] of tr.tiles) drawTile(ctx, world, theme, c, r, id, c * T - cam.x + shake, Math.round(r * T + tr.drop - cam.y));
           if (tr.seen && !tr.fired) {
             const x = tr.rect.x - cam.x, y = tr.rect.y - cam.y;
@@ -226,7 +244,7 @@
           ctx.restore();
         } else if (tr instanceof types.conveyor) {
           const b = tr.rect, x = Math.round(b.x - cam.x), y = Math.round(b.y - cam.y);
-          const dir = Math.sign(tr.def.speed || 75);
+          const dir = Math.sign(tr.speed);
           const accent = theme.id.includes('woodblock') ? '#d37a48' : theme.id.includes('vapor') ? '#fa66db' : '#79dce5';
           R(ctx, '#172026', x, y, b.w, 5);
           R(ctx, accent, x, y, b.w, 1);
@@ -281,6 +299,53 @@
             R(ctx, '#ffffff', ex, y + 4, 3, 3); R(ctx, '#ffffff', ex + 6, y + 4, 3, 3);
             R(ctx, '#1a1020', ex + 1 + px, y + 5, 1, 2); R(ctx, '#1a1020', ex + 7 + px, y + 5, 1, 2);
             if (tr.moving) { R(ctx, '#ff8ab0', ex - 3, y + 6, 2, 1); R(ctx, '#ff8ab0', ex + 10, y + 6, 2, 1); }
+          }
+        } else if (tr instanceof types.platform || tr instanceof types.lift) {
+          // A moving block or plank. A lift also shows its cables, so it reads as a lift.
+          const s = tr.solid, x = Math.round(s.x - cam.x), y = Math.round(s.y - cam.y);
+          const look = tr.def.look || (s.oneWay ? 'plank' : 'block');
+          if (tr instanceof types.lift) {
+            const top = y - (tr.def.cable ?? 7) * T;
+            ctx.save(); ctx.globalAlpha = 0.75;
+            R(ctx, '#2a2a30', x + 3, top, 1, y - top); R(ctx, '#2a2a30', x + s.w - 4, top, 1, y - top);
+            R(ctx, '#2a2a30', x + 1, y - 13, s.w - 2, 2);
+            ctx.restore();
+            if (tr.mode === 'starting' || tr.moving) R(ctx, Math.floor(t * 8) % 2 ? '#ffd23c' : '#ff7a3c', x + s.w / 2 - 2, y - 17, 4, 3);
+          } else if (tr.def.track !== false) { // the platform's track: where it is going
+            ctx.save(); ctx.globalAlpha = 0.3; ctx.strokeStyle = tr.def.trackColor || '#e8e2d0'; ctx.lineWidth = 0.7;
+            ctx.setLineDash([2, 3]); ctx.beginPath();
+            const hx = tr.home.x - cam.x + s.w / 2, hy = tr.home.y - cam.y + s.h / 2;
+            ctx.moveTo(hx, hy); ctx.lineTo(hx + tr.path[0] * T, hy + tr.path[1] * T); ctx.stroke(); ctx.setLineDash([]);
+            ctx.restore();
+          }
+          if (look === 'glass') {
+            ctx.save(); ctx.globalAlpha = 0.45; R(ctx, '#dff6ff', x, y, s.w, s.h); ctx.globalAlpha = 0.9;
+            R(ctx, '#ffffff', x, y, s.w, 1); R(ctx, '#9fd8ee', x, y + s.h - 1, s.w, 1);
+            for (let i = 6; i < s.w; i += 14) R(ctx, '#ffffff', x + i, y + 2, 4, 1);
+            ctx.restore();
+          } else if (look === 'plank') {
+            for (let i = 0; i < s.w; i += T) theme.tile(ctx, x + i, y, 'oneway', {}, 0.3);
+            R(ctx, '#1a1020', x, y + 4, s.w, 4); R(ctx, '#6a4a30', x + 1, y + 4, s.w - 2, 3);
+          } else {
+            for (let i = 0; i < s.w; i += T) theme.tile(ctx, x + i, y, look === 'solid' ? 'solid' : 'alt',
+              { t: true, b: true, l: i === 0, r: i + T >= s.w, d: 0 }, 7 + i);
+          }
+          if (tr.turned) { R(ctx, '#ff5a5a', x + s.w / 2 - 1, y - 6, 2, 3); }
+        } else if (tr instanceof types.pipe) {
+          // Pipe mouth and body; colour from the level (green by default).
+          const r = tr.rect, x = Math.round(r.x - cam.x), y = Math.round(r.y - cam.y);
+          const [body, light, dark] = tr.def.colors || ['#2a9a3a', '#7ae07a', '#0f4a1a'];
+          const len = (tr.def.len ?? 2) * T;
+          if (tr.dir === 'up') {
+            R(ctx, dark, x + 1, y + 6, r.w - 2, len - 6); R(ctx, body, x + 3, y + 6, r.w - 6, len - 6); R(ctx, light, x + 5, y + 6, 3, len - 6);
+            R(ctx, dark, x - 2, y, r.w + 4, 7); R(ctx, body, x - 1, y + 1, r.w + 2, 5); R(ctx, light, x + 1, y + 1, 4, 5);
+            if (tr.hold > 0) { ctx.globalAlpha = 0.6; R(ctx, '#000000', x + 4, y + 1, r.w - 8, 2); ctx.globalAlpha = 1; }
+          } else {
+            const left = tr.dir === 'left', bx = left ? x + 6 : x - len + 10;
+            R(ctx, dark, bx, y + 1, len - 6, r.h - 2); R(ctx, body, bx, y + 3, len - 6, r.h - 6); R(ctx, light, bx, y + 5, len - 6, 3);
+            const lx = left ? x - 1 : x + 3;
+            R(ctx, dark, lx, y - 2, 8, r.h + 4); R(ctx, body, lx + 1, y - 1, 6, r.h + 2); R(ctx, light, lx + 1, y + 1, 6, 4);
+            R(ctx, '#05080a', left ? lx - 1 : lx + 7, y + 3, 2, r.h - 6);
           }
         } else if (tr instanceof types.fakeDoor) {
           const r = tr.rect;
@@ -420,7 +485,9 @@
         if (x1 < 0 || x0 > KF.VIEW_W || y1 < 0 || y0 > KF.VIEW_H) continue;
         const w = x1 - x0, h = y1 - y0;
         ctx.save(); ctx.beginPath(); ctx.rect(x0, y0, w, h); ctx.clip();
-        if (d.kind === 'sea') {
+        const own = KF.Render.depthKinds[d.kind] || (KF.Families && KF.Families.depthKind(d.kind));
+        if (own) own(ctx, x0, y0, w, h, cam, t, d);
+        else if (d.kind === 'sea') {
           const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, '#0e4a78'); g.addColorStop(1, '#020c22');
           ctx.fillStyle = g; ctx.fillRect(x0, y0, w, h);
           ctx.globalAlpha = 0.12; ctx.fillStyle = '#bfefff';

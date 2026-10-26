@@ -35,6 +35,7 @@
     k += `|${st.part}|${st.guide}|${d ? Math.round(d.x / 4) + ',' + Math.round(d.y / 4) : ''}`;
     if (st.part <= st.world.partDoors.length && st.world.door) k += `|${Math.round(st.world.door.x / 4)},${Math.round(st.world.door.y / 4)}`;
     for (const tr of st.traps) k += tr.fired ? '1' : tr.pending >= 0 ? 'p' : '0';
+    for (const tr of st.traps) if (tr.stateKey && (!tr.solid || Math.abs(tr.solid.x - p.centerX) < 220)) k += tr.stateKey(); // lifts, pipes, platforms, belts
     for (const tr of st.traps) {
       if (tr.def.type === 'lookSaw') k += `s${Math.round(tr.x / 4)}`;
       if (tr.def.type === 'lureFloor') k += `l${tr.mode[0]}${Math.round(Math.max(0, tr.timer) * 5)}`;
@@ -43,7 +44,10 @@
       const live = tr.t < tr.warnT + (tr.def.burn ?? 0.9);
       k += `|f${tr.col}:${live ? Math.floor(tr.t / 0.05) : 'x'}`;
     }
-    for (const s of st.world.dynamicSolids) k += `,${Math.round(s.x / 4)}:${Math.round(s.y / 4)}:${s.active === false ? 0 : 1}`;
+    // Moving floors far from the player can't affect this decision; keying them would make
+    // every moment of a looping platform a new state.
+    for (const s of st.world.dynamicSolids) if (Math.abs(s.x + s.w / 2 - p.centerX) < 220 && Math.abs(s.y - p.y) < 200)
+      k += `,${Math.round(s.x / 4)}:${Math.round(s.y / 4)}:${s.active === false ? 0 : 1}`;
     if (st.def.traps && st.def.traps.some((t) => t.when && t.when.time !== undefined)) k += '|' + Math.floor(st.t / 0.25);
     for (const tr of st.traps) if (tr.period && tr.rect &&
       p.centerX >= tr.rect.x - 128 && p.centerX <= tr.rect.x + tr.rect.w + 128)
@@ -67,7 +71,7 @@
       const dc = Math.floor((d.x + 8) / 16), dr = Math.floor((d.y + 16) / 16);
       const starts = [[dc, dr], [dc, dr - 1], [dc, dr + 1]];
       let dist;
-      if (st.def.doorLinks && st.part !== 2) dist = KF.LongRoutes.walkField(st.def.map, W, H, starts);
+      if (st.def.doorLinks && st.part !== 2) dist = KF.LongRoutes.walkField(st.def.map, W, H, starts, KF.LongRoutes.walkExtras(st.def.traps));
       else {
         dist = new Float32Array(W * H).fill(1e9);
         const open = (c, r) => c >= 0 && r >= 0 && c < W && r < H && !'#=~'.includes((st.def.map[r] || '')[c] || '.');
@@ -87,7 +91,10 @@
     const c = Math.max(0, Math.min(field.W - 1, Math.floor(p.centerX / 16)));
     const r = Math.max(0, Math.min(field.H - 1, Math.floor((p.y + p.h / 2) / 16)));
     const v = field.dist[r * field.W + c];
-    return v >= 1e9 ? null : v * 16;
+    // In a long outer part, a spot with no way on (the bottom of a pit) is a dead end,
+    // not a short cut: score it far away instead of falling back to a straight line.
+    if (v >= 1e9) return st.def.doorLinks && st.part !== 2 ? 1e5 : null;
+    return v * 16;
   }
   function heuristic(st) {
     const p = st.player, d = target(st);

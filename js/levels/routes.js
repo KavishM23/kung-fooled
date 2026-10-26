@@ -24,11 +24,15 @@
     const t = clone(o);
     if (t.at) { t.at[0] += x; t.at[1] += y; }
     if (t.zone) { t.zone[0] += x; t.zone[1] += y; }
-    if (t.when) {
-      if (t.when.x !== undefined) t.when.x += x;
-      if (t.when.xl !== undefined) t.when.xl += x;
-      if (t.when.zone) { t.when.zone[0] += x; t.when.zone[1] += y; }
+    for (const key of ['when', 'reverseWhen']) {
+      const w = t[key];
+      if (!w) continue;
+      if (w.x !== undefined) w.x += x;
+      if (w.xl !== undefined) w.xl += x;
+      if (w.zone) { w.zone[0] += x; w.zone[1] += y; }
     }
+    if (t.to) { t.to[0] += x; t.to[1] += y; }
+    if (t.type === 'doorRun') for (const leg of t.path || []) { leg.to[0] += x; leg.to[1] += y; }
     return t;
   }
 
@@ -391,25 +395,122 @@
     return 'city';
   };
 
-  function compose(def, sourceTraps, labels, seed, guides = null, env = def.env) {
+  // ---- Realm families of hand-built parts ----
+  // A family is one realm's way of building space (see js/families/*.js). It
+  // supplies two hand-built maps for each of the three generated parts of a
+  // level, approach, journey and finale, plus its own backgrounds and scenery.
+  //
+  //   KF.Families.add('nes', {
+  //     realms: ['eightbit'],            // realms built this way (or envs: /regex/)
+  //     grounded: false,                 // floating blocks are part of the style
+  //     approach: [partA, partB], journey: [...], finale: [...],
+  //     depthKinds: { kind(ctx, x, y, w, h, cam, t, d) {} },  // background regions
+  //     draw(ctx, part, cam, t, pal) {}, // scenery behind the tiles of one part
+  //     landmarks: false,                // skip the generic distant landmarks
+  //   });
+  //
+  // A part: { name, entrance, shape, map: [rows], traps, trick, trickFrom, depths, props, run }
+  //   map rows are equal-width strings, bottom-aligned with the level's floor of the map.
+  //   'S' marks where you arrive (standing on the tile below) and 'E' the exit door's
+  //   bottom tile. Traps, depths, props, trickFrom and run use the part's own tile
+  //   coordinates: columns from its left edge, rows from the top of its map.
+  //   trick: index of the part's headline trap; trickFrom: [c, r] a floor spot to
+  //   run at it from. run: where a runaway door goes (finale; default 4 tiles right).
+  const registry = {};
+  KF.Families = {
+    add(name, spec) {
+      for (const role of ['approach', 'journey', 'finale'])
+        if (!spec[role] || !spec[role].length) throw new Error(`family ${name} needs ${role} parts`);
+      registry[name] = Object.assign({ name }, spec);
+    },
+    get: (name) => registry[name],
+    // Background painters are looked up here by the renderer (families load before it does).
+    depthKind: (kind) => { for (const f of Object.values(registry)) if (f.depthKinds && f.depthKinds[kind]) return f.depthKinds[kind]; return null; },
+    all: () => Object.values(registry),
+    // Realm first: a realm with its own family is built that way everywhere;
+    // otherwise the place decides (an arcade temple is a temple).
+    pick(realm, env) {
+      const list = Object.values(registry);
+      return list.find((f) => (f.realms || []).includes(realm)) ||
+        list.find((f) => f.envs && f.envs.test(String(env || ''))) || null;
+    },
+  };
+
+  function partProblem(spec) {
+    if (!spec.map || !spec.map.length) return 'no map';
+    const w = spec.map[0].length;
+    const bad = spec.map.findIndex((row) => typeof row !== 'string' || row.length !== w);
+    if (bad >= 0) return `row ${bad} is not ${w} wide`;
+    const text = spec.map.join('');
+    if (!text.includes('S') || !text.includes('E')) return 'needs an S and an E';
+    return null;
+  }
+
+  function placeAuthored(m, x0, H, spec, marker, traps) {
+    const rowOff = H - spec.map.length, w = spec.map[0].length;
+    let start = null, exit = null;
+    spec.map.forEach((row, r) => {
+      if (row.length !== w) throw new Error(`${spec.shape}: row ${r} is ${row.length} wide, not ${w}`);
+      for (let c = 0; c < w; c++) {
+        let ch = row[c];
+        if (ch === 'S') { start = [c, r + rowOff + 1]; ch = marker === 'A' ? 'P' : '.'; }
+        else if (ch === 'E') { exit = [c, r + rowOff + 1]; ch = marker; }
+        m[r + rowOff][x0 + c] = ch;
+      }
+    });
+    if (!start || !exit) throw new Error(`${spec.shape} needs an S and an E`);
+    const first = traps.length;
+    traps.push(...(spec.traps || []).map((t) => shift(t, x0, rowOff)));
+    const trick = spec.trick !== undefined ? traps[first + spec.trick] : null;
+    const from = spec.trickFrom ? [spec.trickFrom[0] + x0, spec.trickFrom[1] + rowOff] : null;
+    return {
+      x0, w, start, exit, authored: true, shape: spec.shape, name: spec.name, entrance: spec.entrance,
+      run: spec.run ? [spec.run[0], spec.run[1] + rowOff] : null,
+      bait: { x: trick && trick.at ? trick.at[0] : x0 + start[0], floor: from ? from[1] : start[1], from, trick: first + (spec.trick ?? -1) },
+      sections: [], structures: [],
+      depths: (spec.depths || []).map((d) => Object.assign({}, d, {
+        c0: (d.c0 || 0) + x0, c1: (d.c1 === undefined ? w : d.c1) + x0,
+        r0: (d.r0 || 0) + rowOff, r1: d.r1 === undefined ? undefined : d.r1 + rowOff })),
+      props: (spec.props || []).map((pr) => Object.assign({}, pr, { c: pr.c + x0, r: pr.r + rowOff })),
+      rowOff, height: spec.map.length,
+    };
+  }
+
+  function compose(def, sourceTraps, labels, seed, guides = null, env = def.env, realm = def.realm) {
     const originalTraps = clone(sourceTraps);
     const srcW = Math.max(...def.map.map((row) => row.length)), srcH = def.map.length;
     const tall = !!def.noGates;
-    const H = Math.max(50, srcH + 10);
+    let authored = KF.Families.pick(realm, env);
+    // A family part with a broken map falls back to the generic layout (and says so),
+    // so one unfinished family can't stop the rest of the game from building.
+    if (authored) for (const role of ['approach', 'journey', 'finale']) for (const spec of authored[role]) {
+      const problem = partProblem(spec);
+      if (problem && authored) { console.warn(`family ${authored.name}: ${spec.shape || spec.name}: ${problem}; using the generic layout`); authored = null; }
+    }
+    // Each level of a realm takes a different pair of each part: four levels, four combinations.
+    const j = seed % 4, pickPart = (list, i) => list[i % list.length];
+    const specs = authored && [pickPart(authored.approach, j), pickPart(authored.journey, j >> 1),
+      pickPart(authored.finale, j + (j >> 1))];
+    const H = Math.max(50, srcH + 10, ...(specs || []).map((p) => p.map.length));
     // Ordinary rooms sit low, on the same ground as the districts around them.
     const coreY = tall ? 8 : H - srcH - 3;
-    const p1X = 0, div1 = p1X + PART_W;
+    const widths = specs ? specs.map((p) => p.map[0].length) : [PART_W, PART_W, PART_W];
+    const p1X = 0, div1 = p1X + widths[0];
     const coreX = div1 + 4, approachX = coreX - 2;
     const div2 = coreX + srcW + (tall ? 1 : 0), p3X = div2 + 2;
-    const div3 = p3X + PART_W, p4X = div3 + 2;
-    const W = p4X + PART_W;
+    const div3 = p3X + widths[1], p4X = div3 + 2;
+    const W = p4X + widths[2];
     const m = Array.from({ length: H }, () => Array(W).fill('.'));
     const traps = [];
     const concept = CONCEPTS[seed % CONCEPTS.length];
     const [firstBait, thirdBait, lastBait] = concept.tricks;
     const chasingDoor = originalTraps.some((t) => t.type === 'doorRun');
-    const family = FAMILIES[familyOf(env)];
-    const parts = family ? [
+    const family = !authored && FAMILIES[familyOf(env)];
+    const parts = authored ? [
+      placeAuthored(m, p1X, H, specs[0], 'A', traps),
+      placeAuthored(m, p3X, H, specs[1], 'C', traps),
+      placeAuthored(m, p4X, H, specs[2], 'D', traps),
+    ] : family ? [
       layout(m, p1X, H, firstBait, traps, family[0], 'A', chasingDoor),
       layout(m, p3X, H, thirdBait, traps, family[1], 'C', chasingDoor),
       layout(m, p4X, H, lastBait, traps, family[2], 'D', chasingDoor),
@@ -421,9 +522,10 @@
       (Math.floor(seed / 4) % 2 ? finaleHigh : finale)(m, p4X, H, seed, lastBait, traps, chasingDoor),
     ];
     const [one, three, four] = parts;
-    if (chasingDoor) traps.push({ type: 'doorRun', path: [{
-      to: [p4X + four.exit[0] + 4, four.exit[1] - 1], near: 3, say: 'NOT SO FAST!',
-    }] });
+    if (chasingDoor) {
+      const to = four.run ? [p4X + four.run[0], four.run[1]] : [p4X + four.exit[0] + 4, four.exit[1] - 1];
+      traps.push({ type: 'doorRun', path: [{ to, near: 3, say: 'NOT SO FAST!' }] });
+    }
 
     // Door links keep each district self-contained and stop an accidental leap from
     // one into another. The middle keeps its authored geometry and traps.
@@ -471,15 +573,21 @@
     const startAt = (part) => ({ x: (part.x0 + part.start[0] + 0.5) * T, y: part.start[1] * T });
     return {
       map: m.map((row) => row.join('')),
-      traps, concept: concept.name, family: family ? familyOf(env) : 'city',
-      baits: parts.map((p, i) => ({ type: concept.tricks[i], x: p.bait.x, floor: p.bait.floor,
-        x0: p.x0, shape: p.shape, sections: p.sections })),
+      traps, concept: authored ? null : concept.name,
+      family: authored ? authored.name : family ? familyOf(env) : 'city', authored: !!authored,
+      baits: parts.map((p, i) => ({ type: authored ? (traps[p.bait.trick] || {}).type : concept.tricks[i],
+        x: p.bait.x, floor: p.bait.floor, from: p.bait.from, trick: p.bait.trick,
+        x0: p.x0, w: p.w || PART_W, shape: p.shape, sections: p.sections })),
+      partNames: authored ? [one.name, null, three.name, four.name] : null,
+      entrances: authored ? [null, one.entrance || null, three.entrance || null, four.entrance || null] : null,
+      props: authored ? [].concat(...parts.map((p) => p.props)) : [],
+      partFrames: parts.map((p) => ({ x0: p.x0, w: p.w || PART_W, rowOff: p.rowOff || 0, height: p.height || H })),
       structures: [].concat(...parts.map((p) => p.structures)),
       labels: (labels || []).map((l) => shift(l, coreX, coreY)),
       depths: (def.depths || []).map((d) => Object.assign({}, d, {
         c0: (d.c0 || 0) + coreX, c1: d.c1 === undefined ? undefined : d.c1 + coreX,
         r0: d.r0 + coreY, r1: d.r1 === undefined ? undefined : d.r1 + coreY,
-      })),
+      })).concat(...parts.map((p) => p.depths || [])),
       combat: def.combat && Object.assign({}, def.combat, {
         enemies: def.combat.enemies.map((e) => Object.assign({}, e, { at: [e.at[0] + coreX, e.at[1] + coreY] })),
       }),
@@ -487,23 +595,32 @@
       guides: guides && guides.map(([x, y]) => ({ x: x + coreX * T, y: y + coreY * T })),
       doorLinks: [middleStart, startAt(three), startAt(four)],
       dividers: [div1, div2, div3],
-      routeZones: [{ from: p1X, to: p1X + PART_W },
+      routeZones: [{ from: p1X, to: p1X + widths[0] },
         { from: tall ? coreX : approachX, to: coreX + srcW + 2 },
-        { from: p3X, to: p3X + PART_W }, { from: p4X, to: p4X + PART_W }],
+        { from: p3X, to: p3X + widths[1] }, { from: p4X, to: p4X + widths[2] }],
     };
   }
   // Steps to the goal for the level checkers, over the open tiles a player can
   // actually occupy: near a floor (or a short jump from one), or falling.
   // Rising through empty air is not a route, so the long districts are scored
   // by their real path down and back up instead of a straight line.
-  function walkField(map, W, H, starts) {
+  function walkField(map, W, H, starts, extra = {}) {
     const open = (c, r) => c >= 0 && r >= 0 && c < W && r < H && !'#=~'.includes((map[r] || '')[c] || '.');
-    const floor = (c, r) => '#=-'.includes((map[r] || '')[c] || '.');
+    // Moving platforms and lifts are floors too, anywhere along their track.
+    const moving = new Set((extra.floors || []).map(([c, r]) => r * W + c));
+    const floor = (c, r) => '#=-'.includes((map[r] || '')[c] || '.') || moving.has(r * W + c);
     const near = new Uint8Array(W * H), held = new Uint8Array(W * H), dist = new Float32Array(W * H).fill(1e9);
     for (let c = 0; c < W; c++) for (let r = 0; r < H; r++) if (open(c, r))
       for (let k = 1; k <= 4; k++) if (floor(c, r + k)) { near[r * W + c] = 1; break; } else if (!open(c, r + k)) break;
     for (let c = 0; c < W; c++) for (let r = 0; r < H; r++)
       for (let k = -2; k <= 2; k++) if (near[r * W + c + k] && c + k >= 0 && c + k < W) { held[r * W + c] = 1; break; }
+    // Pipes: arriving at a pipe's exit is one step from standing on its mouth.
+    const into = new Map();
+    for (const [fc, fr, tc, tr] of extra.links || []) {
+      const k = tr * W + tc;
+      if (!into.has(k)) into.set(k, []);
+      into.get(k).push([fc, fr]);
+    }
     const q = [];
     for (const [c, r] of starts) if (open(c, r)) { dist[r * W + c] = 0; q.push([c, r]); }
     for (let i = 0; i < q.length; i++) {
@@ -514,8 +631,36 @@
         if (!held[r * W + c] && !(nr === r - 1 && nc === c)) continue;
         dist[nr * W + nc] = base + 1; q.push([nc, nr]);
       }
+      for (const [fc, fr] of into.get(r * W + c) || []) {
+        if (!open(fc, fr) || dist[fr * W + fc] <= base + 1) continue;
+        dist[fr * W + fc] = base + 1; q.push([fc, fr]);
+      }
     }
     return dist;
   }
-  KF.LongRoutes = { compose, walkField, familyOf, BAITS, CONCEPTS, PART_W };
+  // What a level's traps add to the walk field: the tracks of moving floors,
+  // and the pipes between places.
+  function walkExtras(traps) {
+    const floors = [], links = [];
+    for (const t of traps) {
+      if (!t.at) continue;
+      const [c, r, w = 2] = t.at;
+      let moves = null;
+      if (t.type === 'platform') moves = [t.path || [3, 0]];
+      else if (t.type === 'lift') moves = t.legs || [[0, -6]];
+      else if (t.type === 'shy') moves = t.path || [];
+      else if (t.type === 'blink') moves = [];
+      if (moves) {
+        let x = 0, y = 0, x0 = 0, x1 = 0, y0 = 0, y1 = 0;
+        for (const [dx, dy] of moves) { x += dx; y += dy; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+        for (let cc = c + x0; cc < c + w + x1; cc++) for (let rr = r + y0; rr <= r + y1; rr++) floors.push([cc, rr]);
+      }
+      if (t.type === 'pipe' && t.to) {
+        const mouth = t.dir === 'left' ? [c - 1, r + 1] : t.dir === 'right' ? [c + 1, r + 1] : [c, r - 1];
+        links.push([mouth[0], mouth[1], t.to[0], t.to[1] - 1], [mouth[0] + (t.dir ? 0 : 1), mouth[1], t.to[0] + 1, t.to[1] - 1]);
+      }
+    }
+    return { floors, links };
+  }
+  KF.LongRoutes = { compose, walkField, walkExtras, familyOf, BAITS, CONCEPTS, PART_W };
 })(window.KF);

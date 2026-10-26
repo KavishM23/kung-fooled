@@ -2,6 +2,7 @@
 // Usage:  node tools/solve.js            (all stages)
 //         node tools/solve.js rooftop 2  (door id, stage number 1-5)
 //         MARGIN=1 node tools/solve.js   (human-precision check: 100 ms inputs, 5% weaker jump)
+//         PARTS=1,3 node tools/solve.js eightbit 2   (only those parts, each from its checkpoint)
 // It runs the real game logic headless and searches for an input sequence that reaches the door.
 'use strict';
 const vm = require('vm');
@@ -16,6 +17,12 @@ vm.createContext(sandbox);
 for (const f of SIM_FILES) vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', f), 'utf8'), sandbox, { filename: f });
 for (const f of fs.readdirSync(path.join(ROOT, 'js/levels')).sort()) {
   if (/^(world\d+|tall_[a-z]+)\.js$/.test(f)) vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/levels', f), 'utf8'), sandbox, { filename: f });
+}
+const FAMILY_DIR = path.join(ROOT, 'js/families');
+for (const f of (fs.existsSync(FAMILY_DIR) ? fs.readdirSync(FAMILY_DIR) : []).filter((f) => f.endsWith('.js')).sort())
+{
+  try { vm.runInContext(fs.readFileSync(path.join(FAMILY_DIR, f), 'utf8'), sandbox, { filename: f }); }
+  catch (e) { console.log(`WARNING: family ${f} did not load: ${e.message}`); }
 }
 const KF = sandbox.KF;
 
@@ -60,6 +67,7 @@ function key(st, held) {
   k += `|${st.part}|${st.guide}|${d ? Math.round(d.x / 4) + ',' + Math.round(d.y / 4) : ''}`;
   if (st.part <= st.world.partDoors.length && st.world.door) k += `|${Math.round(st.world.door.x / 4)},${Math.round(st.world.door.y / 4)}`;
   for (const tr of st.traps) k += tr.fired ? '1' : tr.pending >= 0 ? 'p' : '0';
+  for (const tr of st.traps) if (tr.stateKey && (!tr.solid || Math.abs(tr.solid.x - p.centerX) < 220)) k += tr.stateKey(); // lifts, pipes, platforms, belts
   for (const tr of st.traps) {
     if (tr.def.type === 'lookSaw') k += `s${Math.round(tr.x / 4)}`;
     if (tr.def.type === 'lureFloor') k += `l${tr.mode[0]}${Math.round(Math.max(0, tr.timer) * 5)}`;
@@ -68,7 +76,10 @@ function key(st, held) {
     const live = tr.t < tr.warnT + (tr.def.burn ?? 0.9);
     k += `|f${tr.col}:${live ? Math.floor(tr.t / 0.05) : 'x'}`;
   }
-  for (const s of st.world.dynamicSolids) k += `,${Math.round(s.x / 4)}:${Math.round(s.y / 4)}:${s.active === false ? 0 : 1}`;
+  // Moving floors far from the player can't affect this decision; keying them would make
+  // every moment of a looping platform a new state.
+  for (const s of st.world.dynamicSolids) if (Math.abs(s.x + s.w / 2 - p.centerX) < 220 && Math.abs(s.y - p.y) < 200)
+    k += `,${Math.round(s.x / 4)}:${Math.round(s.y / 4)}:${s.active === false ? 0 : 1}`;
   if (st.def.traps && st.def.traps.some((t) => t.when && t.when.time !== undefined)) k += '|' + Math.floor(st.t / 0.25);
   // A remote gate's exact clock phase cannot affect this decision. Including
   // every gate across a long level multiplies otherwise identical search states.
@@ -99,7 +110,7 @@ function pathField(st) {
   const dc = Math.floor((d.x + 8) / 16), dr = Math.floor((d.y + 16) / 16);
   const starts = [[dc, dr], [dc, dr - 1], [dc, dr + 1]];
   let dist;
-  if (def.doorLinks && st.part !== 2) dist = KF.LongRoutes.walkField(def.map, W, H, starts);
+  if (def.doorLinks && st.part !== 2) dist = KF.LongRoutes.walkField(def.map, W, H, starts, KF.LongRoutes.walkExtras(def.traps));
   else {
     dist = new Float32Array(W * H).fill(1e9);
     const open = (c, r) => c >= 0 && r >= 0 && c < W && r < H && !'#=~'.includes((def.map[r] || '')[c] || '.');
@@ -122,7 +133,10 @@ function routeEstimate(st) {
   const f = pathField(st), p = st.player;
   const c = Math.max(0, Math.min(f.W - 1, Math.floor(p.centerX / 16))), r = Math.max(0, Math.min(f.H - 1, Math.floor((p.y + p.h / 2) / 16)));
   const v = f.dist[r * f.W + c];
-  return v >= 1e9 ? null : v * 16;
+  // In a long outer part, a spot with no way on (the bottom of a pit) is a dead end,
+  // not a short cut: score it far away instead of falling back to a straight line.
+  if (v >= 1e9) return st.def.doorLinks && st.part !== 2 ? 1e5 : null;
+  return v * 16;
 }
 function heuristic(st) {
   const p = st.player, d = target(st);
@@ -230,7 +244,9 @@ for (const door of KF.Doors) {
       let r;
       if (def.doorLinks && !process.env.WHOLE && !process.env.DUMP) {
         r = { ok: true, time: 0, expanded: 0 };
+        const only = process.env.PARTS ? process.env.PARTS.split(',').map(Number) : null; // PARTS=1,3 checks just those
         for (let part = 1; part <= def.doorLinks.length + 1 && r.ok; part++) {
+          if (only && !only.includes(part)) continue;
           const one = solve(def, d, undefined, part);
           r = { ok: one.ok, time: r.time + (one.time || 0), expanded: r.expanded + one.expanded, seq: one.seq, part };
         }

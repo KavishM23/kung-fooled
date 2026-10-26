@@ -140,6 +140,7 @@
             }
             break;
           case 'poof': A.sfx('whoosh'); fx.dust(e.x, e.y, 8); break;
+          case 'pipe': A.sfx('whoosh', { speed: 0.6 }); fx.dust(e.x, e.y, 6); break;
           case 'say': A.sfx('say'); fx.say(e.text, e.x, e.y); break;
           case 'win': if (KF.Present.has(this.style.id, 'win')) KF.Present.sfx(this.style.id, 'win', { perfect: this.deaths === 0 }); else A.sfx('win'); fx.confetti(e.x, e.y); this.mood.cheer = 1.6; break;
         }

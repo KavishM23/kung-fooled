@@ -203,9 +203,19 @@
       this.rect = { x: c * T, y: (r + 1) * T - 4, w: w * T, h: 4 };
       this.fired = true;
     }
+    // reverseWhen: a trigger that flips the belt (once) while you're on it.
+    update(dt) {
+      if (this.def.reverseWhen && !this.flipped && this.test(this.def.reverseWhen)) {
+        this.flipped = true;
+        this.stage.emit('whoosh', center(this.rect));
+        if (this.def.say) this.stage.emit('say', { text: this.def.say, x: this.rect.x + this.rect.w / 2, y: this.rect.y - 20 });
+      }
+    }
+    get speed() { return (this.def.speed || 75) * (this.flipped ? -1 : 1); }
+    stateKey() { return this.flipped ? 'b1' : ''; }
     push(p) {
       if (!p.grounded || p.gravDir < 0 || Math.abs(p.y + p.h - (this.rect.y + 4)) > 2) return 0;
-      return p.x + p.w > this.rect.x && p.x < this.rect.x + this.rect.w ? this.def.speed || 75 : 0;
+      return p.x + p.w > this.rect.x && p.x < this.rect.x + this.rect.w ? this.speed : 0;
     }
   }
 
@@ -678,6 +688,149 @@
     wets(p) { return U.overlap(p, { x: this.rect.x, y: this.rect.y + 4, w: this.rect.w, h: this.rect.h - 4 }); }
   }
 
+  // ---- Moving platforms, lifts and pipes ----
+
+  // A platform that travels back and forth for ever. at: [c, r, w], path: [dx, dy] in tiles,
+  // period: seconds for the round trip (it pauses briefly at each end), offset: seconds.
+  // when: it waits at home until triggered. reverseWhen: a trigger that turns it round mid-trip
+  // (once) - the platform you were jumping for heads back the way it came. oneWay: a plank
+  // you can jump up through. h: height in px (16 for a block, 8 for a plank).
+  class Platform extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const [c, r, w = 2] = def.at;
+      const h = def.h || (def.oneWay ? 8 : T);
+      this.home = { x: c * T, y: r * T };
+      this.solid = { x: c * T, y: r * T, w: w * T, h, active: true, oneWay: !!def.oneWay, dx: 0, dy: 0 };
+      stage.world.dynamicSolids.push(this.solid);
+      this.path = def.path || [3, 0];
+      this.period = def.period || 3;
+      this.u = (def.offset || 0) % this.period;
+      if (!def.when) this.fired = true;
+      this.place();
+    }
+    bounds() { return this.solid; }
+    // 0..1 along the path: ease out of each end, a short rest at each end.
+    get k() {
+      const ph = ((this.u % this.period) + this.period) % this.period / this.period;
+      const tri = ph < 0.5 ? ph * 2 : (1 - ph) * 2, rest = 0.12;
+      const v = U.clamp((tri - rest) / (1 - 2 * rest), 0, 1);
+      return v * v * (3 - 2 * v);
+    }
+    place() {
+      const s = this.solid, k = this.k;
+      const nx = this.home.x + this.path[0] * T * k, ny = this.home.y + this.path[1] * T * k;
+      s.dx = nx - s.x; s.dy = ny - s.y; s.x = nx; s.y = ny;
+    }
+    onFire() { this.stage.emit('rumble', center(this.solid)); }
+    tick(dt) {
+      if (this.def.reverseWhen && !this.turned && this.fired && this.test(this.def.reverseWhen)) {
+        // The mirrored phase is the same position heading the other way.
+        this.turned = true;
+        this.u = this.period - (((this.u % this.period) + this.period) % this.period);
+        this.stage.emit('whoosh', center(this.solid));
+        if (this.def.say) this.stage.emit('say', { text: this.def.say, x: this.solid.x + this.solid.w / 2, y: this.solid.y - 20 });
+      }
+      if (this.fired) { this.u += dt; this.place(); }
+    }
+    stateKey() { return `P${Math.floor(((this.u % this.period) + this.period) % this.period / 0.05)}${this.turned ? 't' : ''}`; }
+  }
+
+  // A lift: stand on it and it carries you along `legs` ([[dx, dy], ...] in tiles) at `speed`.
+  // After `wait` seconds at the end (and once you've stepped off) it goes back home, so a lift
+  // never strands you. The tricks are in the legs: a cargo lift that overshoots the floor
+  // ([[0, -9], [0, 2]]), or one that changes its mind halfway ([[0, -4], [0, 4]]).
+  class Lift extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const [c, r, w = 3] = def.at;
+      this.home = { x: c * T, y: r * T };
+      this.solid = { x: c * T, y: r * T, w: w * T, h: def.h || 8, active: true, oneWay: def.oneWay !== false, dx: 0, dy: 0 };
+      stage.world.dynamicSolids.push(this.solid);
+      this.legs = def.legs || [[0, -6]];
+      this.mode = 'idle'; this.leg = 0; this.timer = 0; this.target = null;
+    }
+    bounds() { return this.solid; }
+    defaultCondition() { return this.stage.standingOn(this.solid); }
+    update(dt) {
+      if (this.mode === 'idle' && (this.def.when ? this.test(this.def.when) : this.defaultCondition())) {
+        this.timer = this.def.delay ?? 0.25; this.mode = 'starting';
+      }
+      if (this.mode === 'starting' && (this.timer -= dt) <= 0) {
+        this.mode = 'going'; this.leg = 0; this.target = null;
+        if (!this.fired) this.fire(); else this.stage.emit('rumble', center(this.solid));
+      }
+      const s = this.solid;
+      s.dx = 0; s.dy = 0;
+      if (this.mode === 'going' || this.mode === 'returning') {
+        if (!this.target) {
+          if (this.mode === 'going') {
+            const [dx, dy] = this.legs[this.leg];
+            this.target = { x: s.x + dx * T, y: s.y + dy * T };
+          } else this.target = { x: this.home.x, y: this.home.y };
+        }
+        const dx = this.target.x - s.x, dy = this.target.y - s.y, d = Math.hypot(dx, dy);
+        const sp = (this.def.speed || 70) * dt;
+        const nx = d <= sp ? this.target.x : s.x + dx / d * sp, ny = d <= sp ? this.target.y : s.y + dy / d * sp;
+        s.dx = nx - s.x; s.dy = ny - s.y; s.x = nx; s.y = ny;
+        if (d <= sp) {
+          this.target = null;
+          if (this.mode === 'going' && ++this.leg < this.legs.length) this.stage.emit('rumble', center(s));
+          else if (this.mode === 'going') { this.mode = 'waiting'; this.timer = this.def.wait ?? 1.2; this.stage.emit('bonk', center(s)); }
+          else this.mode = 'idle';
+        }
+      } else if (this.mode === 'waiting') {
+        if (this.def.wait === null) return;
+        if (!this.stage.standingOn(s)) this.timer -= dt;
+        if (this.timer <= 0) this.mode = 'returning';
+      }
+    }
+    get moving() { return this.mode === 'going' || this.mode === 'returning'; }
+    stateKey() { return `L${this.mode[0]}${this.leg}${Math.round(Math.max(0, this.timer) * 5)}`; }
+  }
+
+  // A pipe. at: [c, r] = left tile of the 2-wide mouth (the mouth is the top of solid tiles in
+  // the map for an upward pipe; dir 'up' is entered by standing on it for `hold` s). dir
+  // 'left'/'right' pipes face sideways: walk into the mouth (the opening tile row r, r+1 must be
+  // open). to: [c, r] = the tile the player comes out standing above (on another pipe's mouth
+  // or any floor). len: how many tiles of pipe body to draw below/behind the mouth.
+  class Pipe extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const [c, r] = def.at;
+      this.dir = def.dir || 'up';
+      this.rect = this.dir === 'up' ? { x: c * T, y: r * T, w: 2 * T, h: T }
+        : { x: c * T, y: r * T, w: T, h: 2 * T };
+      this.hold = 0; this.armed = true; this.warpT = 0;
+    }
+    defaultCondition() { return false; }
+    inMouth(p) {
+      const r = this.rect;
+      if (this.dir === 'up') return p.grounded && Math.abs(p.y + p.h - r.y) < 1.5 &&
+        p.centerX > r.x + 5 && p.centerX < r.x + r.w - 5;
+      const into = this.dir === 'left' ? p.x + p.w >= r.x - 1 && p.x < r.x + 4 && p.vx >= 0
+        : p.x <= r.x + r.w + 1 && p.x + p.w > r.x + r.w - 4 && p.vx <= 0;
+      return into && p.y + p.h > r.y + 4 && p.y < r.y + r.h - 4;
+    }
+    afterPlayer(p) {
+      if (p.dead) return;
+      if (!this.armed) { if (!this.inMouth(p)) this.armed = true; return; }
+      if (this.inMouth(p)) this.hold += KF.STEP; else this.hold = 0;
+      if (this.hold < (this.def.hold ?? (this.dir === 'up' ? 0.3 : 0.08))) return;
+      const [tc, tr] = this.def.to;
+      p.x = tc * T + T - p.w / 2; p.y = tr * T - p.h;
+      if (this.def.toSide) p.x = tc * T + (this.def.toSide > 0 ? 2 * T + 1 : -p.w - 1);
+      p.prevX = p.x; p.prevY = p.y; p.vx = this.def.pushX || 0; p.vy = -(this.def.pop ?? 150);
+      p.grounded = false; p.jumping = false;
+      this.hold = 0; this.warpT = 0.35;
+      for (const other of this.stage.traps) if (other instanceof Pipe) other.armed = false;
+      if (!this.fired) this.fire();
+      this.stage.emit('pipe', { x: p.centerX, y: p.y + p.h });
+    }
+    tick(dt) { this.warpT = Math.max(0, this.warpT - dt); }
+    stateKey() { return `p${this.armed ? 1 : 0}${Math.round(this.hold * 20)}`; }
+  }
+
   KF.Traps = {
     types: {
       collapse: Collapse, spikes: PopSpikes, movingSpikes: MovingSpikes, pulseBeam: PulseBeam,
@@ -686,6 +839,7 @@
       hidden: HiddenBlock, taunt: Taunt, mover: Mover, fakeFloor: FakeFloor, lureFloor: LureFloor,
       wind: Wind, blink: Blink, axe: Axe, swingHammer: SwingHammer, lookSaw: LookSaw,
       lunger: Lunger, ambushFlame: AmbushFlame, water: Water,
+      platform: Platform, lift: Lift, pipe: Pipe,
     },
     matchDeaths,
     build(stage) {

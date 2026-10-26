@@ -138,7 +138,7 @@
         const baseTraps = (def.traps || []).concat(def.noGates ? [] : (EXTRA_OBSTACLES[r.id] || [])[j] || []);
         const labels = r.id === 'oldtv' && !def.noGates ? [{ at: [5, 10], text: retroSigns[j] }] : def.labels;
         const env = (r.envs.includes(def.env) && def.env) || r.envs[j];
-        const course = KF.LongRoutes.compose(def, baseTraps, labels, k * 4 + j, GUIDES[`${r.id}-${j + 1}`], env);
+        const course = KF.LongRoutes.compose(def, baseTraps, labels, k * 4 + j, GUIDES[`${r.id}-${j + 1}`], env, r.id);
         return KF.util.deepFreeze(Object.assign({}, def, {
           realm: r.id, index: j, env, theme: env,
           labels: course.labels,
@@ -154,7 +154,12 @@
           structures: course.structures,
           concept: course.concept,
           family: course.family,
-          parts: localities(env).map((name, i) => ({ name, entrance: passages(env)[i] })),
+          authored: course.authored,
+          props: course.props,
+          partFrames: course.partFrames,
+          parts: localities(env).map((name, i) => ({
+            name: (course.partNames && course.partNames[i]) || name,
+            entrance: (course.entrances && course.entrances[i]) || passages(env)[i] })),
           traps: course.traps,
           style: (r.styles && r.styles[j]) || r.style, music: PLACE_MUSIC[r.envs[j]] || r.music,
         }));

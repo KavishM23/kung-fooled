@@ -8,6 +8,9 @@ for (const file of ['core.js', 'physics.js', 'world.js', 'player.js', 'traps.js'
   vm.runInContext(fs.readFileSync(path.join(root, 'js', file), 'utf8'), sb, { filename: file });
 for (const file of fs.readdirSync(path.join(root, 'js/levels')).filter((f) => /^world\d+\.js$/.test(f)).sort())
   vm.runInContext(fs.readFileSync(path.join(root, 'js/levels', file), 'utf8'), sb, { filename: file });
+for (const file of (fs.existsSync(path.join(root, 'js/families')) ? fs.readdirSync(path.join(root, 'js/families')) : []).filter((f) => f.endsWith('.js')).sort())
+  try { vm.runInContext(fs.readFileSync(path.join(root, 'js/families', file), 'utf8'), sb, { filename: file }); }
+  catch (e) { console.log(`WARNING: family ${file} did not load: ${e.message}`); }
 const KF = sb.KF, retro = KF.Doors.find((d) => d.id === 'oldtv');
 const moving = new KF.Stage(retro.stages[0]).traps.find((t) => t.def.type === 'movingSpikes');
 const start = moving.x;

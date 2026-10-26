@@ -529,7 +529,19 @@
 
   function draw(ctx, stage, cam, t) {
     const def = stage.def, scene = profile(def);
-    if (!scene) return;
+    const fam = def.authored && KF.Families.get(def.family);
+    // A realm family paints its own parts; the generic landmarks can stay or go.
+    if (fam && fam.draw) {
+      ctx.save(); ctx.beginPath(); ctx.rect(0, 0, VW, VH); ctx.clip();
+      for (const [i, frame] of (def.partFrames || []).entries()) {
+        const x0 = frame.x0 * T - cam.x;
+        if (x0 > VW || x0 + frame.w * T < 0) continue;
+        fam.draw(ctx, { def, index: [0, 2, 3][i], frame, props: (def.props || []).filter((pr) =>
+          pr.c >= frame.x0 && pr.c < frame.x0 + frame.w) }, cam, t, scene ? PALETTE[def.realm] : null);
+      }
+      ctx.restore();
+    }
+    if (!scene || (fam && fam.landmarks === false)) return;
     const pal = PALETTE[def.realm], world = stage.world;
     const anchors = [world.spawn, ...world.partDoors, world.door].filter(Boolean);
     const points = [];
@@ -613,7 +625,8 @@
 
   function bake(ctx, world, def) {
     const scene = profile(def);
-    if (!scene) return;
+    const fam = def && def.authored && KF.Families.get(def.family);
+    if (!scene || (fam && fam.wear === false)) return;
     const p = PALETTE[def.realm], material = scene[2], W = world.cols, H = world.rows;
     const forbidden = [world.spawn, ...world.partDoors, world.door].filter(Boolean);
     const nearDoor = (x, y) => forbidden.some((d) => Math.abs(x - d.x) < 27 && Math.abs(y - d.y - 24) < 32);
