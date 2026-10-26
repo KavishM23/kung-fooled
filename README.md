@@ -17,55 +17,20 @@ upgrades and special moves in the Dojo. Each realm's street fighter and boss sui
 Johnny TV and the bowler-hatted Bramble in Retro, Bug Kid and Grandma Hana in Pocket, and
 Volt and THE SYSTEM in Cyber. Every other fighter appears in the Street Arena.
 
-Each realm level travels through four parts: an approach, the original hand-built room, an
-interior, and a final exit area. Three intermediate doors connect them; each door is also a
-checkpoint, so death starts the next attempt in the current part. The three generated parts are
-long places (about 60 tiles, several screens) with a few big changes in height rather than many
-small ones, and every height belongs to a structure:
+Each level has four playable parts and three checkpoint doors. Part two is the original
+hand-built room. The other parts are authored in `js/families/`: each description names four
+connected places, their widths and elevations, how to cross between them, and one deceptive
+trap. The NES family uses its own 8-bit maps. The other families use `00-kit.js` to turn their
+place descriptions into grounded terrain, jumpable landings, moving lifts, props and background
+depth. Doors are separated by several screens of travel; death restarts at the current part.
 
-- **Approach.** A long street, a scaffold up the side of a building, a sustained run across two
-  roofs joined by a bridge, then the fire escape down to the yard. Or the other way round: down
-  the fire escape first, along the street, and up the taller block opposite.
-- **Interior.** Drop through a roof hatch, take the stairwell down to the hall below and leave by
-  the service door, then climb a scaffold to the next roof. Or come in at the ground floor and go
-  up the stairwell landings to the floor above and out onto the balcony.
-- **Exit.** A long upper roof that ends where it has fallen in, a drop to the yard, a canal to
-  jump and the climb up a tower to the door. Or the climb first, a long high roof, then down onto
-  the lower roof and the exit.
-
-Those are the city layouts. Other places have their own, chosen by the level's place
-(`KF.LongRoutes.familyOf`):
-
-- **Land** (retro towns, mountains, fjords): village, a vine climb to the highland and down to a
-  meadow; a cliff path to a cave mouth, through the cave and up its vines; a valley, a rope bridge
-  and the ladder to the summit.
-- **Temple** (temples, sakura): courtyard, stairs to the terrace and its hall, down to the garden;
-  an upper terrace, the sunken court and lower chamber, stairs up to the gallery; the outer court,
-  the gatehouse bridge and the long stair to the tower top.
-- **Works** (docks, trains, the mall): factory floor, loading yard, a ladder to the platform and a
-  catwalk; down the shaft to the machine hall and up its ladder; a catwalk gantry and the lift to
-  the top deck.
-- **Plain** (plazas, vaporwave, the chrome and hologram districts): a plaza, broad stairs to an
-  upper deck and a glass span; a mezzanine, down into the atrium hall and up to the gallery; a
-  terrace, the lower court and the lift to the sky deck.
-
-Each family's scenery matches: temple walls, gates, eaves and lanterns; warehouse panels, pipes,
-machines and hazard lines; plain pale panels and glass rails; huts, hills, caves and vines.
-
-Floors are solid down to the ground, so nothing floats, and `tools/partcheck.js` fails any
-generated block that does, any token one- to three-tile step, and any section too short to be a
-place. Each part hides one Level Devil trick on an apparently safe floor (the bridge, the hall,
-the last roof). Three variations on a named trap concept develop across the level, and all six
-trick types appear across the 40 levels. The hand-built room keeps its own traps, combat and
-winding route; it now stands on ground too, and a floor trap in its bottom row takes the ground
-beneath it, so nothing gives the trap away. Solid dividers prevent skipping parts, and revealed
-traps leave small visual reminders on retries.
-
-Behind the route, each structure is drawn where it stands: scaffold poles and ladders, the back
-walls, windows and lamps of the rooms, the stairs in the stairwell, the bridge railings, the
-zig-zag fire escape, a crane cable over a falling load. Built places get steel, brick and lit
-windows; natural places get timber, rope, rock, caves and trees. Each level also has its own
-distant landmarks and material details on exposed floors. The camera looks ahead during climbs and falls while tracking smoothly.
+Each realm supplies its own route language. Pocket moves through villages, woods, cliffs and
+caves; Woodblock crosses shorelines and inked hills; temples use terraces, halls and galleries;
+the city climbs buildings and fire escapes; industrial places use gantries and shafts; SUPERHOT
+uses precise white corridors, glass decks and atria. The other realms likewise have their own
+named districts, transition props, colors and surface detail. Floors stay visibly grounded,
+and traps reveal a clear cause after the surprise. `tools/partcheck.js` checks all 40 four-part
+layouts, checkpoint order, grounded terrain and straight-run trap outcomes.
 
 **Cyber and SUPERHOT.** The last realm's places are a neon megacity, a hologram district and
 chrome Y2K. Its finale is a continuous side-on SUPERHOT tribute: move through the level,

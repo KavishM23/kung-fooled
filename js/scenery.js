@@ -626,6 +626,7 @@
   function bake(ctx, world, def) {
     const scene = profile(def);
     const fam = def && def.authored && KF.Families.get(def.family);
+    if (fam && fam.bake) return fam.bake(ctx, world, def);
     if (!scene || (fam && fam.wear === false)) return;
     const p = PALETTE[def.realm], material = scene[2], W = world.cols, H = world.rows;
     const forbidden = [world.spawn, ...world.partDoors, world.door].filter(Boolean);

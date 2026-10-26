@@ -523,7 +523,8 @@
     ];
     const [one, three, four] = parts;
     if (chasingDoor) {
-      const to = four.run ? [p4X + four.run[0], four.run[1]] : [p4X + four.exit[0] + 4, four.exit[1] - 1];
+      const to = four.run ? [p4X + four.run[0], four.run[1]] :
+        [Math.min(p4X + widths[2] - 3, p4X + four.exit[0] + 4), four.exit[1] - 1];
       traps.push({ type: 'doorRun', path: [{ to, near: 3, say: 'NOT SO FAST!' }] });
     }
 
