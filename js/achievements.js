@@ -113,7 +113,7 @@
     crusher: ['CRUSHER', 'LOOK UP. ALWAYS LOOK UP.'],
     crush: ['SQUASHED', 'SOMETHING SOLID WON THE ARGUMENT.'],
     pit: ['BOTTOMLESS PIT', 'GRAVITY: STILL UNDEFEATED.'],
-    fakedoor: ['FAKE DOOR', 'NO LANTERN? THEN IT HAS A FIST.'],
+    fakedoor: ['FAKE DOOR', 'IT LOOKED JUST LIKE THE EXIT. IT ALSO HAD A FIST.'],
     axe: ['SWINGING AXE', 'TIMING IS EVERYTHING. YOURS WAS NOT.'],
     blink: ['BLINKING PLATFORM', 'IT BLINKED. YOU DID NOT.'],
     shy: ['SHY PLATFORM', 'IT GETS NERVOUS WHEN YOU COME CLOSE.'],
@@ -124,6 +124,8 @@
     spring: ['SPRING', 'WHEEE. THEN NOT WHEEE.'],
     mover: ['MOVING WALL', 'THE LEVEL REARRANGED ITSELF. ON YOU.'],
     doorRun: ['RUNAWAY DOOR', 'THE EXIT HAS LEGS.'],
+    slab: ['MOVING LEDGE', 'THE GROUND LEFT. YOU DID NOT.'],
+    coin: ['COIN BOMB', 'NOT ALL THAT GLITTERS IS GOLD. SOME OF IT IS TNT.'],
   };
   KF.TrapCards = {
     CARDS,
@@ -131,12 +133,15 @@
     blame(stage) {
       const cause = stage.cause, fired = (type) => stage.traps.some((t) => t.def.type === type && t.fired);
       if (cause === 'pit') {
-        for (const type of ['fakeFloor', 'collapse', 'shy', 'blink', 'spring', 'wind', 'reverse', 'gravity']) {
-          if (type === 'blink' || type === 'wind' || type === 'reverse' || type === 'gravity' ? stage.traps.some((t) => t.def.type === type) : fired(type)) return type;
+        for (const type of ['fakeFloor', 'collapse', 'slab', 'shy', 'blink', 'spring', 'wind', 'reverse', 'gravity']) {
+          // Zones you can't see only get the blame once they've shown themselves this attempt.
+          const zone = type === 'reverse' || type === 'gravity';
+          if (zone ? stage.traps.some((t) => t.def.type === type && t.seen && t.fired) :
+            type === 'blink' || type === 'wind' ? stage.traps.some((t) => t.def.type === type) : fired(type)) return type;
         }
         return 'pit';
       }
-      if (cause === 'crush') return fired('mover') ? 'mover' : fired('crusher') ? 'crusher' : 'crush';
+      if (cause === 'crush') return fired('mover') ? 'mover' : fired('slab') ? 'slab' : fired('crusher') ? 'crusher' : 'crush';
       if (cause === 'spikes' && (fired('hidden') || fired('spring'))) return fired('hidden') ? 'hidden' : 'spring';
       return CARDS[cause] ? cause : null;
     },

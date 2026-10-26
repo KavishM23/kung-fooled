@@ -633,10 +633,11 @@
     const nearDoor = (x, y) => forbidden.some((d) => Math.abs(x - d.x) < 27 && Math.abs(y - d.y - 24) < 32);
     ctx.save();
     for (let r = 1; r < H; r++) for (let c = 1; c < W - 1; c++) {
-      const id = world.tiles[r * W + c], td = KF.TileById[id];
+      // The level as it looks (trap tiles included), so a trap floor gets the same wear and tufts.
+      const id = world.visual[r * W + c], td = KF.TileById[id];
       if (!td || !(td.solid || td.oneWay)) continue;
       const x = c * T, y = r * T, h = hash(c, r, def.index + 9);
-      const above = KF.TileById[world.tileId(c, r - 1)];
+      const above = KF.TileById[world.visualId(c, r - 1)];
       const exposed = !above || !(above.solid || above.oneWay);
       if (td.solid) {
         ctx.globalAlpha = material === 'print' ? .36 : .28;
@@ -665,7 +666,7 @@
           line(ctx, p[2], x + 4, y + 11, x + 12, y + 5);
           rect(ctx, p[3], x + 11, y + 5, 2, 2);
         }
-        if (h > .57 && !nearDoor(x, y) && world.tileId(c, r - 1) === 0) {
+        if (h > .57 && !nearDoor(x, y) && world.visualId(c, r - 1) === 0) {
           ctx.globalAlpha = .68;
           if (material === 'nature' || material === 'print') {
             rect(ctx, p[4], x + 5, y - 4, 1, 4);
@@ -682,7 +683,7 @@
             for (let k = 0; k < 3; k++) rect(ctx, p[2], x + 5 + k * 3, y - 2, 1, 1);
           }
         }
-        if (c % 11 === (def.index * 3 + 2) % 11 && !nearDoor(x, y) && world.tileId(c, r - 1) === 0) {
+        if (c % 11 === (def.index * 3 + 2) % 11 && !nearDoor(x, y) && world.visualId(c, r - 1) === 0) {
           ctx.globalAlpha = .62;
           if (material === 'metal' || material === 'circuit') {
             rect(ctx, p[0], x + 3, y - 10, 11, 10);

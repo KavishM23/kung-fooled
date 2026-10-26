@@ -3,6 +3,13 @@
 A troll platformer dressed as a late-90s arcade fighter. Run from the left of each stage to the
 exit door. The stage will betray you. Learn each trap by dying to it; respawn is instant.
 
+**Memory is the game.** Nothing gives a trap away before it goes off: trap floors are baked into
+the same picture as real floor, hidden spikes aren't drawn, a ledge that drops is cut from the same
+rock, and a fake exit looks exactly like the real one (the HUD's door pointer is fooled too). A retry
+looks exactly like the first try, with no death markers and no revealed traps, and every retry is
+the same level, so what you learned by dying stays true. Each part of a level strings several
+surprises together, so getting past one usually shows you the next.
+
 **Ten style realms, each with four levels.** Each realm shows different places in its medium.
 The realms are ARCADE (full colour), RETRO (cinematic black and white),
 POCKET (four Game Boy greens), COMIC, AR GO (the world through your phone), 8-BIT, WOODBLOCK
@@ -240,7 +247,7 @@ with `#` are taken over by the trap, so the trap looks exactly like the floor ar
 | `spring` | `at: [c, r]`, `power`, `vx`, `control` (seconds of momentum) | landed on |
 | `shy` | `at: [c, r, w]`, `path: [[dx, dy], ...]`, `near`, `speed` | player within `near` tiles, once per leg |
 | `doorRun` | `path: [{ to: [c, r], near, speed, say }, ...]` | player within `near` of the door, per leg |
-| `fakeDoor` | `at: [c, r]` | touched (it punches). Fakes have no lantern. |
+| `fakeDoor` | `at: [c, r]` | touched (it punches). It looks exactly like a real door. |
 | `gravity` | `zone: [c, r, w, h]`, `g: -1 or 1`, `hidden` | entering the zone |
 | `reverse` | `zone`, `hidden` | while inside the zone |
 | `hidden` | `at: [c, r]` | jumping into it from below |
@@ -253,6 +260,9 @@ with `#` are taken over by the trap, so the trap looks exactly like the floor ar
 | `lunger` | `at`, `speed`, `hop`, `range` | player within `range` tiles; the block leaps at you, then falls |
 | `ambushFlame` | `at: [c0, floorRow, width]`, `warn`, `burn`, `h` | airborne nearby; predicts your landing column, a vent glows, then a flame column erupts |
 | `water` | `at` | always on; you sink slowly, and jump swims upward |
+| `slab` | `at`, `legs: [[dx, dy, speed, pause], ...]`, `home`, `hold`, `returnSpeed`, `ease` | player within `near` (2) tiles. Disguised architecture that moves: a ledge that drops, a wall that slides, a floor that rises. Pushes and crushes; carries riders. |
+| `ghostFloor` | `at: [c, r, w]`, `oneWay` | always solid, invisible until stood on (a pit that is secretly safe) |
+| `warpDoor` | `at: [c, r]`, `to: [c, r]` | touched: looks like the exit, sends you to `to` instead |
 
 The cyber realm's first three levels use these in the style of Trap Adventure 2. Its opener
 has three stair blocks: the third one sprouts spikes, then on later attempts leaps at you, and
@@ -265,19 +275,32 @@ part gates.
 Fields every trap accepts:
 
 - `when`: trigger conditions, all of which must hold. `x: 12` (player right of column 12),
-  `xl: 12` (left of it), `zone: [c, r, w, h]`, `near: 3`, `time: 1.5` (seconds since spawn),
-  `after: 'id'` (another trap fired), `touch`, `airborne`, `grounded`.
-- `delay`: seconds between trigger and firing. The trap shakes during it.
-- `deaths`: which attempts the trap exists on, counted as deaths so far on this stage:
-  `[0]` first attempt only, `['1+']` from the second attempt on, `[0, '2+']` fire, rest, fire again.
-- `id`: name for `after` chains. `say`: speech bubble when it fires.
+  `xl: 12` (left of it), `zone: [c, r, w, h]`, `leave: [c, r, w, h]` (just left that rectangle),
+  `near: 3`, `above: 8` / `below: 8` (feet above or below a row), `time: 1.5` (seconds since
+  spawn), `after: 'id'` (another trap fired), `done: 'id'` (another trap finished moving), `touch`,
+  `airborne`, `grounded`, `rising`, `falling`, `land` (just landed), `back: [c1, c0]` (went past
+  c1, then retreated left of c0), `stay: 0.4` (the rest held for 0.4 s: waiting, loitering).
+- `delay`: seconds between trigger and firing. The trap may shake during it, but nothing shows
+  before the trigger.
+- `deaths`: only for levels marked `changing: true`, which rearrange themselves after each death
+  on purpose. Everywhere else every retry builds the level's last variant, the one with all its
+  traps (`[0]` first-attempt-only traps drop out, `['1+']` ones are always there).
+- `id`: name for `after` / `done` chains. `say`: speech bubble when it fires.
 
-Hidden zones and hidden blocks stay revealed for the rest of the visit once they've caught you.
+What a trap showed you lasts until you die: hidden zones, blocks and floors are hidden again on the
+retry. Press F1 for the developer view, which outlines every trap, its trigger region and state.
+
+The realm-family parts get their layered sequences from `js/families/01-devil.js`: after each
+part's headline trick it adds two or three more beats where the part has room (spikes that rise
+just ahead of a runner and behind a retreat, a far ledge that drops while you're over the gap, a
+floor that falls in behind you, a fake exit, a pit with an invisible floor before a false one,
+controls that swap before a jump, and on most finales an exit that runs off over a floor that
+gives way). Each realm leans on different beats and taunts.
 
 ## Checking a level is fair
 
 ```
-node tools/solve.js                 # every stage, every attempt variant
+node tools/solve.js                 # every stage (every variant of a `changing` one)
 node tools/solve.js arcade 3        # one stage
 VERBOSE=1 node tools/solve.js comic 2  # also print the winning input sequence
 MARGIN=1 node tools/solve.js        # human-precision check (see below)
@@ -285,8 +308,8 @@ node tools/partcheck.js             # all four-part layouts and door order
 ```
 
 The checker runs the real game logic headless and searches for inputs that pass all four parts,
-separately for each `deaths` variant. A death restarts at the latest door, so each part is searched
-from its own checkpoint (`WHOLE=1` searches a level in one go). Every stage that ships passes on every variant, which is
+for the variant every retry uses (each `deaths` variant of a `changing` level). A death restarts at the latest door, so each part is searched
+from its own checkpoint (`WHOLE=1` searches a level in one go). Every stage that ships passes, which is
 the "no trap kills you with zero counterplay on the next attempt" rule made testable.
 
 `MARGIN=1` makes it stricter: inputs may only change every 100 ms and the jump is 5% weaker. A

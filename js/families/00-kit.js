@@ -69,21 +69,29 @@
     const baitArea = cfg.baitArea ?? 1;
     const bx = bounds[baitArea] + (cfg.baitOffset ?? Math.floor(widths[baitArea] / 2));
     const fy = cfg.floors[baitArea], kind = cfg.trick;
-    if (FLOOR.has(kind)) fill(bx, bx + 3, fy + 2, H, '.');
-    const at = [bx, fy, 3, 2];
+    // A floor trick takes its whole column to the bottom: the ground under it looks like ground.
+    let depth = 0;
+    while (fy + depth < H && [0, 1, 2].every((i) => m[fy + depth][bx + i] === '#')) depth++;
+    const at = FLOOR.has(kind) ? [bx, fy, 3, Math.max(2, depth)] : [bx, fy, 3, 2];
     if (kind === 'fakeFloor') traps.push({ type: kind, at, say: 'POOF!' });
     if (kind === 'collapse') traps.push({ type: kind, at, delay: .24, say: 'GONE!' });
     if (kind === 'lureFloor') traps.push({ type: kind, at, delay: .44, near: 1.8, reform: 1.7 });
     if (kind === 'spikes') traps.push({ type: kind, at: [bx, fy - 1, 2],
       when: { x: bx - 2.5 }, delay: .16, say: 'SURPRISE!' });
     if (kind === 'crusher') {
-      fill(bx, bx + 2, fy - 6, fy - 4, '=');
-      traps.push({ type: kind, at: [bx, fy - 6, 2, 2], when: { x: bx - 2.7 },
-        delay: .2, say: 'LOOK UP!' });
+      // It waits high above the top of the screen, so there's no floating block over the path
+      // to give it away; it is timed to arrive as a runner gets under it.
+      const top = Math.max(0, fy - 15);
+      fill(bx, bx + 2, top, top + 2, '=');
+      traps.push({ type: kind, at: [bx, top, 2, 2], when: { x: bx - 2.7 },
+        delay: .03, say: 'LOOK UP!' });
     }
     if (kind === 'fakeDoor') traps.push({ type: kind, at: [bx, fy - 1], say: 'WRONG WAY!' });
     if (!traps.some((t) => t.type === kind)) throw new Error(`${cfg.name}: unknown trick ${kind}`);
     const trick = traps.findIndex((t) => t.type === kind);
+    // Further surprises along the rest of the part (js/families/01-devil.js).
+    const exitCol = W - (role === 'finale' ? 7 : 4);
+    if (KF.Devil) KF.Devil.layer({ cfg, role, variant, m, H, W, bounds, floors: cfg.floors, traps, bx, exitCol });
     m[cfg.floors[0] - 1][2] = 'S';
     // Leave room for a running exit to flee without leaving the map.
     m[cfg.floors.at(-1) - 1][W - (role === 'finale' ? 7 : 4)] = 'E';
@@ -435,7 +443,7 @@
     const depthName = `family_${config.name}`;
     const roles = {};
     for (const role of ['approach', 'journey', 'finale'])
-      roles[role] = config[role].map((p, i) => part(Object.assign({ depthKind: depthName }, p), role, i));
+      roles[role] = config[role].map((p, i) => part(Object.assign({ depthKind: depthName, family: config.name, art: config.art }, p), role, i));
     KF.Families.add(config.name, Object.assign({
       realms: config.realms || [], envs: config.envs || null,
       grounded: true, landmarks: false, wear: false,

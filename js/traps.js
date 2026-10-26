@@ -8,15 +8,22 @@
 //             x: 12        player centre is right of tile column 12 (fractions allowed)
 //             xl: 12       player centre is left of column 12
 //             zone: [c, r, w, h]   player overlaps this tile rectangle
+//             leave: [c, r, w, h]  player was inside this rectangle and has just left it
 //             near: 3      player within 3 tiles of the trap
+//             above: 8 / below: 8  player's feet above / below tile row 8 (a height reached)
 //             time: 1.5    seconds since (re)spawn
-//             after: 'id'  another trap has fired
+//             after: 'id'  another trap has fired;  done: 'id'  another trap has finished moving
 //             touch: true  player touches the trap
-//             airborne / grounded: true
+//             airborne / grounded / rising / falling: true
+//             land: true   the player has just landed (with zone/x: landed there)
+//             back: [c1, c0]  the player went past column c1 and then retreated left of c0
+//             stay: 0.4    everything else has held for 0.4 s without a break (waiting, loitering)
 //           Without `when`, each type has a sensible default (collapse = stood on, etc).
-//   delay   seconds between trigger and firing (traps visibly shake/warn during it)
-//   deaths  which attempts the trap exists on: 0, [0, 2], ['1+'], [1, '3+'] ...
-//           (deaths so far on this stage; lets a trap fire on attempt 1, sleep, then move)
+//   delay   seconds between trigger and firing. Nothing shows before the trigger: a trap looks
+//           exactly like the level around it until then (see js/render.js and PlayScene's unbake).
+//   deaths  which attempts the trap exists on: 0, [0, 2], ['1+'], [1, '3+'] ... Only levels marked
+//           `changing: true` use this: everywhere else each retry is the same level (its last
+//           variant), so what you learned by dying stays true.
 //   say     taunt text that pops up when it fires
 (function (KF) {
   const T = KF.TILE;
@@ -52,21 +59,49 @@
       return U.overlap(this.player, { x: r.x - 1, y: r.y - 1, w: r.w + 2, h: r.h + 2 });
     }
     test(w) {
-      const s = this.stage, p = s.player;
-      if (w.x !== undefined && p.centerX < w.x * T) return false;
-      if (w.xl !== undefined && p.centerX > w.xl * T) return false;
-      if (w.zone && !U.overlap(p, tileRect(w.zone))) return false;
-      if (w.near !== undefined && this.distanceTo(p) > w.near * T) return false;
-      if (w.time !== undefined && s.t < w.time) return false;
-      if (w.after !== undefined && !s.hasFired(w.after)) return false;
-      if (w.touch && !this.touching()) return false;
-      if (w.airborne && p.grounded) return false;
-      if (w.grounded && !p.grounded) return false;
-      return true;
+      const s = this.stage, p = s.player, g = p.gravDir || 1, tr = this.trig || (this.trig = {});
+      // Edge-style triggers keep a little memory on the trap (it is rebuilt each attempt).
+      const wasAir = tr.air; tr.air = !p.grounded;
+      if (w.back) {
+        if (p.centerX >= w.back[0] * T) tr.past = true;
+        if (!tr.past || p.centerX > w.back[1] * T) return this.held(w, false);
+      }
+      if (w.leave) {
+        const inside = U.overlap(p, tileRect(w.leave));
+        const left = tr.inside && !inside; tr.inside = inside;
+        if (!left) return this.held(w, false);
+      }
+      let ok = true;
+      if (w.x !== undefined && p.centerX < w.x * T) ok = false;
+      else if (w.xl !== undefined && p.centerX > w.xl * T) ok = false;
+      else if (w.zone && !U.overlap(p, tileRect(w.zone))) ok = false;
+      else if (w.near !== undefined && this.distanceTo(p) > w.near * T) ok = false;
+      else if (w.above !== undefined && p.y + p.h > w.above * T) ok = false;
+      else if (w.below !== undefined && p.y < w.below * T) ok = false;
+      else if (w.time !== undefined && s.t < w.time) ok = false;
+      else if (w.after !== undefined && !s.hasFired(w.after)) ok = false;
+      else if (w.done !== undefined && !s.isDone(w.done)) ok = false;
+      else if (w.touch && !this.touching()) ok = false;
+      else if (w.airborne && p.grounded) ok = false;
+      else if (w.grounded && !p.grounded) ok = false;
+      else if (w.rising && (p.grounded || p.vy * g >= 0)) ok = false;
+      else if (w.falling && (p.grounded || p.vy * g <= 0)) ok = false;
+      else if (w.land && !(p.grounded && wasAir)) ok = false;
+      return this.held(w, ok);
+    }
+    // stay: the rest of the condition has to hold continuously for that long.
+    held(w, ok) {
+      if (w.stay === undefined) return ok;
+      const tr = this.trig;
+      tr.stayT = ok ? (tr.stayT || 0) + (this.stage.dt || KF.STEP) : 0;
+      return tr.stayT >= w.stay;
     }
     condition() { return this.def.when ? this.test(this.def.when) : this.defaultCondition(); }
     defaultCondition() { return false; }
     get warning() { return !this.fired && this.pending >= 0; }
+    // Set once the trap has been triggered or has moved: from then on it is drawn live, and the
+    // stage's baked picture no longer shows it (until the next attempt bakes a fresh one).
+    get disturbed() { return this.fired || this.pending >= 0; }
 
     update(dt) {
       if (!this.fired) {
@@ -82,6 +117,7 @@
       this.fired = true;
       this.fireT = 0;
       this.stage.markFired(this.id);
+      if (!this.ownDone) this.stage.markDone(this.id); // moving traps say when they've finished
       if (this.def.say) {
         const c = center(this.bounds());
         this.stage.emit('say', { text: this.def.say, x: c.x, y: c.y - 20 });
@@ -121,6 +157,7 @@
   Collapse.prototype.defaultDelay = 0.05;
 
   // Spikes hidden in a floor/ceiling/wall that shoot out. at: [c, r, w], dir: up|down|left|right.
+  // retract: seconds after springing before they sink back into the floor (and stay down).
   class PopSpikes extends Trap {
     constructor(def, stage, index) {
       super(def, stage);
@@ -139,7 +176,11 @@
       this.seen = true; this.stage.memory.seen[this.key] = true;
       this.stage.emit('spikes', center(this.rect));
     }
-    tick(dt) { if (this.fired) this.raise = Math.min(1, this.raise + dt / 0.06); }
+    tick(dt) {
+      if (!this.fired) return;
+      if (this.def.retract !== undefined && this.fireT > this.def.retract) this.raise = Math.max(0, this.raise - dt / 0.18);
+      else this.raise = Math.min(1, this.raise + dt / (this.def.rise || 0.06));
+    }
     kills(p) {
       if (this.raise < 0.5) return false;
       return this.cells.some(([c, r]) => U.overlap(p, KF.spikeRect(this.dir, c * T, r * T)));
@@ -275,6 +316,7 @@
       this.body.dy = this.body.y - before;
       if (hit || this.body.y > this.stage.world.pixelH + 64) {
         this.falling = false; this.landed = true; this.vy = 0;
+        this.stage.markDone(this.id);
         this.stage.emit('slam', { x: this.body.x + this.body.w / 2, y: this.body.y + this.body.h, w: this.body.w });
       }
     }
@@ -358,7 +400,10 @@
       if (this.moving) {
         const sp = (path[this.leg].speed || 260) * dt;
         const dx = this.target.x - door.x, dy = this.target.y - door.y, d = Math.hypot(dx, dy);
-        if (d <= sp) { door.x = this.target.x; door.y = this.target.y; this.moving = false; door.moving = false; this.leg++; }
+        if (d <= sp) {
+          door.x = this.target.x; door.y = this.target.y; this.moving = false; door.moving = false; this.leg++;
+          if (this.leg >= path.length) this.stage.markDone(this.id);
+        }
         else { door.x += dx / d * sp; door.y += dy / d * sp; }
         door.runT = (door.runT || 0) + dt;
       }
@@ -508,6 +553,7 @@
   // A real floor that starts to give way when approached. It reforms after a short
   // absence, baiting a rushed step or a return trip. at: [c,r,w,h] over solid tiles.
   class LureFloor extends Trap {
+    get disturbed() { return this.mode !== 'ready' || this.wobbled; }
     constructor(def, stage, index) {
       super(def, stage);
       this.rect = tileRect(def.at);
@@ -533,7 +579,7 @@
       } else if (this.mode === 'gone') {
         this.timer -= dt;
         if (this.timer <= 0 && !U.overlap(this.player, this.rect)) {
-          this.mode = 'ready'; this.solid.active = true;
+          this.mode = 'ready'; this.solid.active = true; this.wobbled = true;
         }
       }
     }
@@ -831,6 +877,130 @@
     stateKey() { return `p${this.armed ? 1 : 0}${Math.round(this.hold * 20)}`; }
   }
 
+  // ---- Disguised architecture ----
+
+  // A piece of the level that moves: a wall that slides out, a floor that rises into a pillar or
+  // sinks away, a ledge that drops while you're in the air, a ceiling that comes down. Until it
+  // is triggered it is drawn exactly like the tiles around it (it is baked with them).
+  //   at: [c, r, w, h]   the tiles it takes over (they must be in the map)
+  //   legs: [[dx, dy, speed?, pause?], ...]  tiles; speed in px/s (default def.speed or 160);
+  //         pause: seconds it waits after that leg before the next
+  //   home: true         after the last leg it waits `hold` s (default 1) and glides back
+  //   ease: 0.15         seconds to reach full speed (a heavy thing starts slowly; 0 = instant)
+  //   Default trigger: the player within `near` tiles (default 2). It pushes and crushes like any
+  //   moving solid (js/stage.js); riding on it carries you.
+  class Slab extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const r = tileRect(def.at);
+      this.tiles = stage.claimTiles(def.at);
+      this.home = { x: r.x, y: r.y };
+      this.solid = { ...r, active: true, dx: 0, dy: 0, oneWay: !!def.oneWay };
+      stage.world.dynamicSolids.push(this.solid);
+      this.legs = def.legs || [[0, -2]];
+      this.leg = 0; this.target = null; this.timer = 0; this.mode = 'idle'; this.legT = 0;
+    }
+    bounds() { return this.solid; }
+    defaultCondition() { return this.distanceTo(this.player) < (this.def.near ?? 2) * T; }
+    onFire() { this.mode = 'moving'; this.stage.emit('rumble', center(this.solid)); }
+    get moving() { return this.mode === 'moving' || this.mode === 'returning'; }
+    tick(dt) {
+      const s = this.solid;
+      if (this.mode === 'pause' || this.mode === 'hold') {
+        if ((this.timer -= dt) > 0) return;
+        this.mode = this.mode === 'hold' ? 'returning' : 'moving';
+        this.legT = 0;
+        if (this.mode === 'returning') this.stage.emit('rumble', center(s));
+      }
+      if (!this.moving) return;
+      if (!this.target) {
+        if (this.mode === 'returning') this.target = { x: this.home.x, y: this.home.y, speed: this.def.returnSpeed || 90 };
+        else {
+          const [dx, dy, speed] = this.legs[this.leg];
+          this.target = { x: s.x + dx * T, y: s.y + dy * T, speed: speed || this.def.speed || 160 };
+        }
+      }
+      this.legT += dt;
+      const ease = this.def.ease ?? 0.12, k = ease > 0 ? Math.min(1, 0.25 + this.legT / ease) : 1;
+      const sp = this.target.speed * k * dt;
+      const dx = this.target.x - s.x, dy = this.target.y - s.y, d = Math.hypot(dx, dy);
+      const nx = d <= sp ? this.target.x : s.x + dx / d * sp, ny = d <= sp ? this.target.y : s.y + dy / d * sp;
+      s.dx = nx - s.x; s.dy = ny - s.y; s.x = nx; s.y = ny;
+      if (d > sp) return;
+      const wasDown = dy > 0;
+      this.target = null;
+      if (this.mode === 'returning') { this.mode = 'idle'; this.stage.markDone(this.id); return; }
+      if (wasDown && Math.abs(dy) >= T) this.stage.emit('slam', { x: s.x + s.w / 2, y: s.y + s.h, w: s.w });
+      const pause = this.legs[this.leg][3];
+      this.leg++;
+      if (this.leg < this.legs.length) { if (pause) { this.mode = 'pause'; this.timer = pause; } return; }
+      this.stage.markDone(this.id);
+      if (this.def.home) { this.mode = 'hold'; this.timer = this.def.hold ?? 1; this.leg = 0; }
+      else this.mode = 'done';
+    }
+    stateKey() { return this.mode === 'idle' || this.mode === 'done' ? '' : `S${this.mode[0]}${this.leg}${Math.round(this.timer * 10)}`; }
+  }
+
+  // Floor you can't see. It is there all along (a safe way across a gap that looks deadly) and
+  // shows itself once you stand on it, for the rest of that attempt only. at: [c, r, w].
+  class GhostFloor extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const [c, r, w = 2] = def.at;
+      this.rect = tileRect([c, r, w, 1]);
+      this.solid = { ...this.rect, active: true, oneWay: !!def.oneWay };
+      stage.world.dynamicSolids.push(this.solid);
+      this.showT = 0;
+    }
+    defaultCondition() { return this.stage.standingOn(this.solid) || this.touching(); }
+    onFire() { this.stage.emit('bonk', center(this.rect)); }
+    tick(dt) { if (this.fired) this.showT = Math.min(1, this.showT + dt * 6); }
+  }
+
+  // An exit that isn't one: it looks exactly like the real door, and stepping into it sends you
+  // somewhere else (back down the hill, into the cellar...). at: [c, r] (bottom tile of the
+  // door), to: [c, r] the tile you land standing above. It's gone for the rest of that attempt.
+  class WarpDoor extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const [c, r] = def.at;
+      this.rect = { x: c * T, y: (r - 1) * T, w: T, h: 2 * T };
+    }
+    defaultCondition() {
+      const r = this.rect;
+      return U.overlap(this.player, { x: r.x + 3, y: r.y + 4, w: r.w - 6, h: r.h - 4 });
+    }
+    onFire() {
+      const p = this.player, [tc, tr] = this.def.to;
+      this.stage.emit('warp', { x: p.centerX, y: p.y + p.h / 2 });
+      p.x = tc * T + T / 2 - p.w / 2; p.y = tr * T - p.h;
+      p.prevX = p.x; p.prevY = p.y; p.vx = 0; p.vy = 0; p.grounded = false; p.jumping = false;
+      this.stage.emit('warp', { x: p.centerX, y: p.y + p.h / 2, arrive: true });
+    }
+  }
+
+  // A coin floating in the way. Most are just coins: you pick them up and they're paid out when you
+  // finish the level. One with `boom` looks exactly the same and goes off when you touch it.
+  // at: [c, r] the tile it floats in.
+  class Coin extends Trap {
+    constructor(def, stage) {
+      super(def, stage);
+      const [c, r] = def.at;
+      this.rect = { x: c * T + 4, y: r * T + 4, w: 8, h: 8 };
+    }
+    defaultCondition() { return U.overlap(this.player, this.rect); }
+    onFire() {
+      if (this.def.boom) this.stage.emit('boom', center(this.rect));
+      else { this.stage.coins = (this.stage.coins || 0) + 1; this.stage.emit('coin', center(this.rect)); }
+    }
+    kills(p) {
+      return !!this.def.boom && this.fired && this.fireT < 0.2 &&
+        U.overlap(p, { x: this.rect.x - 12, y: this.rect.y - 12, w: 32, h: 32 });
+    }
+  }
+
+  for (const C of [Crusher, DoorRun, Slab]) C.prototype.ownDone = true;
+
   KF.Traps = {
     types: {
       collapse: Collapse, spikes: PopSpikes, movingSpikes: MovingSpikes, pulseBeam: PulseBeam,
@@ -840,13 +1010,24 @@
       wind: Wind, blink: Blink, axe: Axe, swingHammer: SwingHammer, lookSaw: LookSaw,
       lunger: Lunger, ambushFlame: AmbushFlame, water: Water,
       platform: Platform, lift: Lift, pipe: Pipe,
+      slab: Slab, ghostFloor: GhostFloor, warpDoor: WarpDoor, coin: Coin,
     },
     matchDeaths,
+    // The attempt variant every retry uses on a level that isn't `changing`: the last one,
+    // which has every trap the level was designed with (deaths 0 .. largest named + 1).
+    lastVariant(def) {
+      let max = -1;
+      for (const t of def.traps || []) {
+        const list = t.deaths === undefined ? [] : Array.isArray(t.deaths) ? t.deaths : [t.deaths];
+        for (const s of list) max = Math.max(max, parseInt(s, 10));
+      }
+      return max + 1;
+    },
     build(stage) {
       const out = [];
       for (const def of stage.def.traps || []) {
         const index = stage.def.traps.indexOf(def);
-        if (!matchDeaths(def.deaths, stage.deaths)) continue;
+        if (!matchDeaths(def.deaths, stage.variant ?? stage.deaths)) continue;
         const C = this.types[def.type];
         if (!C) { console.warn('Unknown trap type:', def.type); continue; }
         const trap = new C(def, stage, index);

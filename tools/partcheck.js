@@ -139,9 +139,10 @@ for (const door of sb.KF.Doors) {
         const outcome = attempt.state === 'dead' ? 'death' : attempt.part > part ? 'passed' : 'blocked';
         assert.equal(outcome, 'death', `${tag} act ${act + 1} straight run should expose the mistake`);
         if (bait.type !== 'crusher') {
+          // Level Devil rule: the retry looks exactly like the first try. Nothing marks the trap.
           const retry = new sb.KF.Stage(def, 1, attempt.memory);
           const remembered = retry.traps.find((t) => t.def.type === bait.type && t.def.at[0] === bait.x);
-          assert(remembered.seen, `${tag} act ${act + 1} bait should be marked on retry`);
+          assert(remembered && !remembered.seen && !remembered.fired, `${tag} act ${act + 1} bait must be hidden again on retry`);
         }
         (naiveOutcomes[bait.type] ||= {})[outcome] =
           ((naiveOutcomes[bait.type] || {})[outcome] || 0) + 1;
@@ -151,7 +152,8 @@ for (const door of sb.KF.Doors) {
     count++;
   });
 }
-const def = sb.KF.Doors[0].stages[0], run = new sb.KF.Stage(def);
+// The door locks, checked without the level's traps (a running exit would dodge the touch).
+const def = Object.assign({}, sb.KF.Doors[0].stages[0], { traps: [] }), run = new sb.KF.Stage(def);
 const input = { left: false, right: false, jumpHeld: false, jumpPressed: false };
 const touch = (d) => { run.player.x = d.x + 2; run.player.y = d.y + 5; run.step(0, input); };
 touch(run.world.door);

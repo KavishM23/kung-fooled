@@ -65,16 +65,22 @@
   // The single Level Devil trick of a district, placed on an apparently safe floor.
   // Floor tricks need a drop under them; the caller leaves one.
   function bait(m, kind, x, floor, traps) {
-    const at = [x, floor, 3, 2];
+    // A floor trick owns its whole column down to the bottom of the map, so the ground under it
+    // looks as solid as everywhere else: no hollow, no shaft, nothing to read in advance.
+    let depth = 0;
+    while (floor + depth < m.length && [0, 1, 2].every((i) => m[floor + depth][x + i] === '#')) depth++;
+    const at = FLOOR_BAITS.includes(kind) ? [x, floor, 3, Math.max(2, depth)] : [x, floor, 3, 2];
     if (kind === 'fakeFloor') traps.push({ type: kind, at, say: 'POOF!' });
     if (kind === 'collapse') traps.push({ type: kind, at, delay: 0.28, say: 'NO FLOOR!' });
     if (kind === 'lureFloor') traps.push({ type: kind, at, delay: 0.48, near: 1.8, reform: 1.8 });
     if (kind === 'spikes') traps.push({ type: kind, at: [x, floor - 1, 2],
       when: { x: x - 2.5 }, delay: 0.18, say: 'SURPRISE!' });
     if (kind === 'crusher') {
-      for (let c = x; c < x + 2; c++) for (let r = floor - 6; r < floor - 4; r++) m[r][c] = '=';
-      traps.push({ type: kind, at: [x, floor - 6, 2, 2],
-        when: { x: x - 2.7 }, delay: 0.2, say: 'LOOK UP!' });
+      // Out of sight above the top of the screen until it drops (see js/families/00-kit.js).
+      const top = Math.max(0, floor - 15);
+      for (let c = x; c < x + 2; c++) for (let r = top; r < top + 2; r++) m[r][c] = '=';
+      traps.push({ type: kind, at: [x, top, 2, 2],
+        when: { x: x - 2.7 }, delay: 0.03, say: 'LOOK UP!' });
     }
     if (kind === 'fakeDoor') traps.push({ type: kind, at: [x, floor - 1], say: 'WRONG DOOR!' });
   }
@@ -136,7 +142,7 @@
     b.open(end - 2, end, f2 - 3, f2);
     b.note('doorway', end - 2, end, f2 - 3, f2);
     const x = stair + 7 + s % 3;
-    if (FLOOR_BAITS.includes(kind)) { b.open(x, x + 3, f2 + 2, H); b.note('shaft', x, x + 3, f2, H); }
+    if (FLOOR_BAITS.includes(kind)) b.note('shaft', x, x + 3, f2, H); // solid until it goes
     bait(m, kind, x0 + x, f2, traps);
     const tower = end + 9;
     b.mass(end, tower, f2, 'yard');
@@ -163,7 +169,7 @@
     b.scaffold(tower, low, top);
     b.mass(tower, PART_W, top, 'roof');
     const x = tower + 5;
-    if (FLOOR_BAITS.includes(kind)) { b.open(x, x + 3, top + 2, H); b.note('shaft', x, x + 3, top, H); }
+    if (FLOOR_BAITS.includes(kind)) b.note('shaft', x, x + 3, top, H); // solid until it goes
     if (kind === 'crusher') b.note('crane', x, x + 2, 0, top - 6);
     bait(m, kind, x0 + x, top, traps);
     const door = chasingDoor ? PART_W - 7 : PART_W - 5;
@@ -223,7 +229,7 @@
     b.open(east - 2, east, up - 3, up);
     b.note('doorway', east - 2, east, up - 3, up);
     const x = west + 10 + s % 3;
-    if (FLOOR_BAITS.includes(kind)) { b.open(x, x + 3, G + 2, H); b.note('shaft', x, x + 3, G, H); }
+    if (FLOOR_BAITS.includes(kind)) b.note('shaft', x, x + 3, G, H); // solid until it goes
     bait(m, kind, x0 + x, G, traps);
     b.mass(east, PART_W, up, 'roof');
     b.put(PART_W - 4, up - 1, 'C');
@@ -244,7 +250,7 @@
     b.note('brokenEdge', edge - 2, edge, top, lower);
     b.mass(edge, PART_W, lower, 'roof');
     const x = wall + 14 + s % 3;
-    if (FLOOR_BAITS.includes(kind)) { b.open(x, x + 3, top + 2, H); b.note('shaft', x, x + 3, top, H); }
+    if (FLOOR_BAITS.includes(kind)) b.note('shaft', x, x + 3, top, H); // solid until it goes
     if (kind === 'crusher') b.note('crane', x, x + 2, 0, top - 6);
     bait(m, kind, x0 + x, top, traps);
     const door = chasingDoor ? PART_W - 7 : PART_W - 5;
@@ -308,7 +314,7 @@
     });
     if (c !== PART_W) throw new Error(`layout ${plan.shape} is ${c} tiles, not ${PART_W}`);
     const { x, floor } = baitAt;
-    if (FLOOR_BAITS.includes(kind) && !baitAt.open) { b.open(x, x + 3, floor + 2, H); b.note('shaft', x, x + 3, floor, H); }
+    if (FLOOR_BAITS.includes(kind) && !baitAt.open) b.note('shaft', x, x + 3, floor, H); // solid until it goes
     if (kind === 'crusher' && !baitAt.covered) b.note('crane', x, x + 2, 0, floor - 6);
     bait(m, kind, x0 + x, floor, traps);
     b.put(start[0], start[1] - 1, marker === 'A' ? 'P' : '.');
@@ -522,7 +528,7 @@
       (Math.floor(seed / 4) % 2 ? finaleHigh : finale)(m, p4X, H, seed, lastBait, traps, chasingDoor),
     ];
     const [one, three, four] = parts;
-    if (chasingDoor) {
+    if (chasingDoor && !traps.some((t) => t.type === 'doorRun')) { // a finale may already run its door
       const to = four.run ? [p4X + four.run[0], four.run[1]] :
         [Math.min(p4X + widths[2] - 3, p4X + four.exit[0] + 4), four.exit[1] - 1];
       traps.push({ type: 'doorRun', path: [{ to, near: 3, say: 'NOT SO FAST!' }] });

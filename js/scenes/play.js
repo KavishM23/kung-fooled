@@ -58,7 +58,7 @@
 
     newAttempt() {
       this.stage = new KF.Stage(this.def, this.deaths, this.memory);
-      this.layer = KF.Render.bakeStage(this.stage.world, this.theme, this.style.smooth ? this.engine.scale : KF.RES, this.def);
+      this.layer = KF.Render.bakeStage(this.stage.world, this.theme, this.style.smooth ? this.engine.scale : KF.RES, this.def, this.stage.traps);
       this.trail = []; this.trailT = 0;
       this.hist = [];
       this.track = new KF.Ghosts.Track(); this.attemptT = 0;
@@ -141,6 +141,12 @@
             break;
           case 'poof': A.sfx('whoosh'); fx.dust(e.x, e.y, 8); break;
           case 'pipe': A.sfx('whoosh', { speed: 0.6 }); fx.dust(e.x, e.y, 6); break;
+          case 'coin': A.sfx('buy'); fx.tick(e.x, e.y); break;
+          case 'boom': A.sfx('slam'); fx.flash = 0.6; fx.shake(6, 0.3); fx.debris(e.x, e.y, 16, ['#ffd040', '#ff7a2a', '#fff4c0']); break;
+          case 'warp':
+            A.sfx(e.arrive ? 'bonk' : 'whoosh'); fx.dust(e.x, e.y + 10, 8);
+            if (e.arrive) { fx.shake(3, 0.2); this.updateCamera(1); this.cam.prevX = this.cam.x; this.cam.prevY = this.cam.y; }
+            break;
           case 'say': A.sfx('say'); fx.say(e.text, e.x, e.y); break;
           case 'win': if (KF.Present.has(this.style.id, 'win')) KF.Present.sfx(this.style.id, 'win', { perfect: this.deaths === 0 }); else A.sfx('win'); fx.confetti(e.x, e.y); this.mood.cheer = 1.6; break;
         }
@@ -289,6 +295,9 @@
       this.trail = [];
       this.track.end = 'won'; this.attempts.push(this.track);
       this.coins = this.mode === 'realm' ? KF.Save.completeNode(this.door.id, KF.Path.nodeOfStage(this.stageIdx), { deaths: this.deaths, time: this.time }) : 0;
+      // Coins picked up on the winning run are paid out now (not as you grab them, so dying and
+      // grabbing them again doesn't farm them).
+      if (this.mode === 'realm' && this.stage.coins) this.coins += KF.Economy.earn(this.stage.coins);
       if (this.mode === 'realm' && this.def.combat && this.stage.combat.cleared) { this.coins += KF.Save.completeNode(this.door.id, KF.Path.boss); KF.Ach.event('bossWin', { roundsLost: 0, realm: this.doorIdx }); }
       // Your best single run on this level becomes its ghost.
       const beatGhost = !!(this.ghost && this.attemptT < this.ghost.time);
@@ -398,9 +407,11 @@
       if (sight) { // the pencil has only drawn the part of the world near you
         w.save(); w.beginPath(); w.arc(pos.x + p.w / 2 - cam.x, pos.y + p.h / 2 - cam.y, sight, 0, Math.PI * 2); w.clip();
       }
+      // A trap that has just been set off leaves the baked picture and is drawn live from now on.
+      for (const tr of st.traps) if (tr.tiles && !tr.unbaked && tr.disturbed) KF.Render.unbake(this.layer, tr);
       KF.blit(w, this.layer, -cam.x, -cam.y);
       KF.Render.traps(w, st, this.theme, cam, t);
-      this.renderGraves(w, cam);
+      // (Where you died is not marked: on a retry the level looks exactly as it did the first time.)
       if (this.phase === 'replay') this.renderReplay(w, cam);
       else if (this.ghost && !this.endless && ['play', 'hitstop', 'ko'].includes(this.phase)) {
         const g = this.ghost.track.at(this.attemptT);
@@ -472,7 +483,16 @@
         }, t);
       }
       if (st.world.partDoors[0] && this.phase === 'play') {
-        const goal = st.world.partDoors[st.part - 1] || st.world.door;
+        // The pointer leads to the nearest door that *looks* like the way out: a fake one in this
+        // part counts until it has been found out, so the HUD can't tell the real door apart.
+        const real = st.world.partDoors[st.part - 1] || st.world.door, zone = st.def.routeZones && st.def.routeZones[st.part - 1];
+        const types = KF.Traps.types, dist = (r) => Math.hypot(r.x - p.x, r.y - p.y);
+        let goal = real;
+        if (zone) for (const tr of st.traps) {
+          if (!(tr instanceof types.warpDoor || tr instanceof types.fakeDoor) || tr.fired) continue;
+          const c = tr.rect.x / KF.TILE;
+          if (c >= zone.from && c < zone.to && tr.rect.x > p.x && dist(tr.rect) < dist(goal)) goal = tr.rect;
+        }
         const sx = goal.x + 8 - cam.x, sy = goal.y + 16 - cam.y;
         if (sx < 18 || sx > VW - 18 || sy < 21 || sy > VH - 18) {
           const arrow = sy < 21 ? '^' : sy > VH - 18 ? 'v' : sx < 18 ? '<' : '>';

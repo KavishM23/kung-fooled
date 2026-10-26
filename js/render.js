@@ -31,7 +31,10 @@
     depthKinds: {},
 
     // Static tiles baked into one canvas per attempt (trap-owned tiles are drawn live instead).
-    bakeStage(world, theme, res = KF.RES, def = null) {
+    // traps: the attempt's traps. Tiles a dormant trap owns are baked with the rest of the level so
+    // they get exactly the same grain, edges and scenery as their neighbours: nothing marks them.
+    // PlayScene cuts them out of this picture (unbake) the moment the trap is set off.
+    bakeStage(world, theme, res = KF.RES, def = null, traps = null) {
       // Long levels at a smooth realm's full scale would pass the canvas size
       // some browsers allow (about 16 million pixels on iOS); bake them a little softer.
       if (res > KF.RES) res = Math.max(KF.RES, Math.min(res, Math.sqrt(16e6 / (world.pixelW * world.pixelH))));
@@ -41,9 +44,28 @@
         const id = world.tiles[r * world.cols + col];
         if (id) drawTile(ctx, world, theme, col, r, id, col * T, r * T);
       }
+      for (const tr of traps || []) if (KF.Render.baked(tr))
+        for (const [c, r, id] of tr.tiles) drawTile(ctx, world, theme, c, r, id, c * T, r * T);
       if (KF.Scenery) KF.Scenery.bake(ctx, world, def);
       if (theme.id !== 'superhot_atrium') KF.Render.detail(c, world);
       return c;
+    },
+
+    // Does this trap's look live in the baked picture right now? (Ordinary-looking tiles, not yet set off.)
+    baked(tr) {
+      const types = KF.Traps.types;
+      if (!tr.tiles || tr.unbaked || tr.disturbed) return false;
+      if (tr instanceof types.collapse) return tr.def.look !== 'glass';
+      return tr instanceof types.crusher || tr instanceof types.mover || tr instanceof types.slab ||
+        tr instanceof types.fakeFloor || tr instanceof types.lureFloor;
+    },
+    // Cut a trap's tiles out of the baked picture (and the grass or kerb drawn on top of them).
+    unbake(layer, tr) {
+      const x = layer.getContext('2d'), res = layer.res || KF.RES;
+      x.save(); x.setTransform(1, 0, 0, 1, 0, 0);
+      for (const [c, r] of tr.tiles) x.clearRect(c * T * res, (r * T - 6) * res, T * res, (T + 6) * res);
+      x.restore();
+      tr.unbaked = true;
     },
 
     // Hi-res detail pass: a fine, deterministic grain over solid tiles (one real pixel at a time),
@@ -195,7 +217,7 @@
             }
             ctx.restore(); continue;
           }
-          for (const [c, r, id] of tr.tiles) drawTile(ctx, world, theme, c, r, id, c * T - cam.x + shake, Math.round(r * T + tr.drop - cam.y));
+          if (tr.unbaked) for (const [c, r, id] of tr.tiles) drawTile(ctx, world, theme, c, r, id, c * T - cam.x + shake, Math.round(r * T + tr.drop - cam.y));
           if (tr.seen && !tr.fired) {
             const x = tr.rect.x - cam.x, y = tr.rect.y - cam.y;
             for (let i = 5; i < tr.rect.w - 4; i += 9) {
@@ -203,7 +225,8 @@
               R(ctx, '#29212b', x + i + 2, y + 2, 1, 3);
             }
           }
-        } else if (tr instanceof types.crusher || tr instanceof types.mover) {
+        } else if (tr instanceof types.crusher || tr instanceof types.mover || tr instanceof types.slab) {
+          if (!tr.unbaked) continue;
           const b = tr instanceof types.crusher ? tr.body : tr.solid;
           const ox = b.x - tr.home.x, oy = b.y - tr.home.y;
           for (const [c, r, id] of tr.tiles) drawTile(ctx, world, theme, c, r, id, Math.round(c * T + ox - cam.x + shake), Math.round(r * T + oy - cam.y));
@@ -291,8 +314,8 @@
           (theme.spring || KF.Art.spring)(ctx, tr.rect.x - 2 - cam.x, tr.rect.y - 9 - cam.y, tr.squash);
         } else if (tr instanceof types.shy) {
           const s = tr.solid, x = Math.round(s.x - cam.x), y = Math.round(s.y - cam.y);
-          for (let i = 0; i < s.w; i += T) theme.tile(ctx, x + i, y, 'oneway', {}, 0.3);
-          R(ctx, '#1a1020', x, y + 4, s.w, 4); R(ctx, '#4a3a30', x + 1, y + 4, s.w - 2, 3);
+          // Drawn like any other plank of the level until it has run.
+          for (let i = 0; i < s.w; i += T) theme.tile(ctx, x + i, y, 'oneway', { t: true }, U.hash2(Math.round(tr.solid.x / T) + i / T, Math.round(tr.solid.y / T)));
           if (tr.fired) { // once it has fled, it gets nervous little eyes
             const px = stage.player.centerX > s.x + s.w / 2 ? 1 : -1;
             const ex = x + s.w / 2 - 4;
@@ -311,7 +334,7 @@
             R(ctx, '#2a2a30', x + 1, y - 13, s.w - 2, 2);
             ctx.restore();
             if (tr.mode === 'starting' || tr.moving) R(ctx, Math.floor(t * 8) % 2 ? '#ffd23c' : '#ff7a3c', x + s.w / 2 - 2, y - 17, 4, 3);
-          } else if (tr.def.track !== false) { // the platform's track: where it is going
+          } else if (tr.def.track !== false && tr.fired) { // the track of a running platform (a dormant one gives nothing away)
             ctx.save(); ctx.globalAlpha = 0.3; ctx.strokeStyle = tr.def.trackColor || '#e8e2d0'; ctx.lineWidth = 0.7;
             ctx.setLineDash([2, 3]); ctx.beginPath();
             const hx = tr.home.x - cam.x + s.w / 2, hy = tr.home.y - cam.y + s.h / 2;
@@ -349,11 +372,11 @@
           }
         } else if (tr instanceof types.fakeDoor) {
           const r = tr.rect;
-          (theme.door || KF.Art.door)(ctx, r.x - cam.x, r.y - cam.y, { lantern: false, open: tr.fired ? 1 : 0, t });
-          if (tr.seen && !tr.fired) KF.Font.draw(ctx, '?', r.x - cam.x + 8, r.y - cam.y - 7, '#ff9d9d', 1, 'center');
+          (theme.door || KF.Art.door)(ctx, r.x - cam.x, r.y - cam.y, { lantern: true, open: tr.fired ? 1 : 0, t });
           if (tr.fired) KF.Art.glove(ctx, r.x - cam.x + (tr.dirX > 0 ? 12 : 4), r.y - cam.y + 16, tr.dirX, Math.min(1, tr.fireT * 12));
         } else if (tr instanceof types.lureFloor) {
           const r = tr.rect, x = r.x - cam.x, y = r.y - cam.y;
+          if (!tr.unbaked) continue;
           if (tr.mode !== 'gone') {
             const shakeX = tr.mode === 'warning' && Math.floor(t * 18) % 2 ? 0.5 : 0;
             for (const [c, row, id] of tr.tiles) drawTile(ctx, world, theme, c, row, id, c * T - cam.x + shakeX, row * T - cam.y);
@@ -374,7 +397,8 @@
             ctx.restore();
           }
         } else if (tr instanceof types.fakeFloor) {
-          // Drawn exactly like real floor until you've found it; then a ghost outline.
+          // Baked with the real floor until it gives; then a ghost outline for the rest of the try.
+          if (!tr.unbaked) continue;
           if (tr.seen) ctx.globalAlpha = 0.3;
           for (const [c, r, id] of tr.tiles) drawTile(ctx, world, theme, c, r, id, c * T - cam.x, r * T - cam.y);
           ctx.globalAlpha = 1;
@@ -432,6 +456,29 @@
           ctx.fillStyle = '#d8e0ec'; ctx.beginPath(); ctx.arc(bx + 7, by + 6, 7, 0, 7); ctx.fill();
           ctx.fillStyle = '#8a94a8'; ctx.beginPath(); ctx.arc(bx + 7, by + 6, 4, 0, 7); ctx.fill();
           R(ctx, '#ff4a3a', bx + 6, by + 5, 3, 3);
+        } else if (tr instanceof types.coin) {
+          const x = Math.round(tr.rect.x - cam.x), y = Math.round(tr.rect.y - cam.y);
+          if (!tr.fired) KF.HUD.coin(ctx, x, y, t + tr.rect.x * 0.01);
+          else if (tr.def.boom && tr.fireT < 0.35) { // it was a bomb
+            const k = tr.fireT / 0.35;
+            ctx.save(); ctx.globalAlpha = 1 - k;
+            ctx.fillStyle = '#fff4c0'; ctx.beginPath(); ctx.arc(x + 4, y + 4, 6 + 18 * k, 0, 7); ctx.fill();
+            ctx.fillStyle = '#ff7a2a'; ctx.beginPath(); ctx.arc(x + 4, y + 4, 4 + 12 * k, 0, 7); ctx.fill();
+            ctx.restore();
+          } else if (!tr.def.boom && tr.fireT < 0.4) { // picked up: it hops and fades
+            ctx.globalAlpha = 1 - tr.fireT / 0.4; KF.HUD.coin(ctx, x, y - tr.fireT * 40, t * 3); ctx.globalAlpha = 1;
+          }
+        } else if (tr instanceof types.ghostFloor) {
+          if (!tr.fired) continue;
+          ctx.globalAlpha = tr.showT;
+          for (let i = 0; i < tr.rect.w; i += T) theme.tile(ctx, tr.rect.x + i - cam.x, tr.rect.y - cam.y, tr.def.oneWay ? 'oneway' : 'alt', { t: true, b: true, l: i === 0, r: i + T >= tr.rect.w }, 0.5);
+          ctx.globalAlpha = 1;
+        } else if (tr instanceof types.warpDoor) {
+          if (tr.fired && tr.fireT > 0.5) continue;
+          const r = tr.rect;
+          ctx.globalAlpha = tr.fired ? 1 - tr.fireT * 2 : 1;
+          (theme.door || KF.Art.door)(ctx, r.x - cam.x, r.y - cam.y, { lantern: true, open: tr.fired ? 1 : 0, t });
+          ctx.globalAlpha = 1;
         } else if (tr instanceof types.hidden) {
           if (!tr.fired) { if (stage.rule && stage.rule.reveal) dashed(ctx, tr.rect.x - cam.x, tr.rect.y - cam.y, tr.rect.w, tr.rect.h, '#ffffff', t); continue; }
           for (let i = 0; i < tr.rect.w; i += T) theme.tile(ctx, tr.rect.x + i - cam.x, tr.rect.y - cam.y - Math.round(tr.popT * 4), 'alt', { t: true, b: true, l: i === 0, r: i + T >= tr.rect.w }, 0.5);
@@ -657,6 +704,22 @@
         if (tr.cells && tr.raise > 0.5) for (const [c, r] of tr.cells) box(KF.spikeRect(tr.dir, c * T, r * T), 'rgba(255,0,255,0.95)');
         if (tr.rect && (tr instanceof KF.Traps.types.gravity || tr instanceof KF.Traps.types.reverse)) box(tr.rect, 'rgba(160,120,255,0.9)');
         if (tr instanceof KF.Traps.types.spring || tr instanceof KF.Traps.types.fakeDoor) box(tr.rect, 'rgba(0,200,255,0.9)');
+        // Developer view only (F1): every trap's body, trigger and state.
+        const w = tr.def.when, col = tr.fired ? 'rgba(120,255,120,0.8)' : tr.pending >= 0 ? 'rgba(255,255,0,0.9)' : 'rgba(255,90,200,0.85)';
+        const body = tr.bounds && tr.bounds();
+        if (body) { box(body, col); KF.Font.draw(ctx, `${tr.def.type}${tr.id ? ':' + tr.id : ''}`, Math.round(body.x - cam.x), Math.round(body.y - cam.y) - 8, '#ffb0ff'); }
+        if (w) {
+          ctx.strokeStyle = col; ctx.setLineDash([3, 2]);
+          for (const z of [w.zone, w.leave].filter(Boolean)) ctx.strokeRect(z[0] * T - cam.x + 0.5, z[1] * T - cam.y + 0.5, z[2] * T - 1, z[3] * T - 1);
+          for (const c of [w.x, w.xl, w.back && w.back[0], w.back && w.back[1]].filter((v) => v !== undefined && v !== false)) {
+            ctx.beginPath(); ctx.moveTo(c * T - cam.x + 0.5, 0); ctx.lineTo(c * T - cam.x + 0.5, KF.VIEW_H); ctx.stroke();
+          }
+          for (const r of [w.above, w.below].filter((v) => v !== undefined)) {
+            ctx.beginPath(); ctx.moveTo(0, r * T - cam.y + 0.5); ctx.lineTo(KF.VIEW_W, r * T - cam.y + 0.5); ctx.stroke();
+          }
+          if (w.near !== undefined && body) { ctx.beginPath(); ctx.arc(body.x + body.w / 2 - cam.x, body.y + body.h / 2 - cam.y, w.near * T, 0, 7); ctx.stroke(); }
+          ctx.setLineDash([]);
+        }
       }
       if (world.door) box(world.door, 'rgba(0,255,255,0.9)');
       box(p, '#00ff66');
@@ -664,7 +727,7 @@
         `VX ${p.vx.toFixed(0)} VY ${p.vy.toFixed(0)} G ${p.gravDir}`,
         `${p.state} ${p.grounded ? 'GROUND' : 'AIR'}${p.reversed ? ' REV' : ''}`,
         `COYOTE ${Math.max(0, p.coyoteT * 1000).toFixed(0)}MS BUF ${Math.max(0, p.bufferT * 1000).toFixed(0)}MS`,
-        `ATTEMPT ${stage.deaths + 1}  FPS ${scene.engine.fps.toFixed(0)}`,
+        `ATTEMPT ${stage.deaths + 1}  VARIANT ${stage.variant}  FPS ${scene.engine.fps.toFixed(0)}`,
       ];
       const by = KF.VIEW_H - 12 - lines.length * 9;
       ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(2, by - 3, 150, lines.length * 9 + 4);

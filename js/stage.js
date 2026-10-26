@@ -5,11 +5,19 @@
   const U = KF.util;
 
   class Stage {
-    // memory: survives between attempts of one visit (e.g. hidden zones you've already found).
+    // memory: survives between attempts of one visit: only the checkpoint you've reached. What
+    // the traps showed you is wiped every attempt (memory.seen starts empty), so a retry looks
+    // exactly like the first try and the only record of a trap is the player's own memory.
     constructor(def, deaths = 0, memory = { seen: {} }) {
       this.def = def;
-      this.deaths = deaths; // deaths so far on this stage: selects trap variants
+      this.deaths = deaths; // deaths so far on this stage
+      // Which trap variant this attempt uses. Ordinary levels are the same on every retry; a level
+      // marked `changing` deliberately rearranges itself after each death (js/traps.js).
+      this.variant = def.changing ? deaths : KF.Traps.lastVariant(def);
+      memory.seen = {};
       this.memory = memory;
+      this.doneIds = {};
+      this.dt = 0;
       this.events = [];
       this.world = new KF.World(def);
       const sp = this.world.spawn;
@@ -42,6 +50,9 @@
     emit(type, data) { this.events.push(Object.assign({ type }, data)); }
     hasFired(id) { return !!this.firedIds[id]; }
     markFired(id) { if (id) this.firedIds[id] = true; }
+    // A moving trap has finished its motion (chains: when: { done: 'id' }).
+    markDone(id) { if (id) this.doneIds[id] = true; }
+    isDone(id) { return !!this.doneIds[id]; }
 
     // Remove tiles from the grid for a trap, remembering how they looked.
     claimTiles(at) {
@@ -89,7 +100,7 @@
         dt *= this.timeK;
       }
       if (this.state !== 'play') { p.prevX = p.x; p.prevY = p.y; return; }
-      this.t += dt;
+      this.t += dt; this.dt = dt;
 
       // Moving solids: remember what the player rides, move everything, then carry / push.
       const riding = w.dynamicSolids.filter((s) => this.standingOn(s));

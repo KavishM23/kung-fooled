@@ -119,6 +119,7 @@
   KF.Solver = {
     // The attempt variants a stage has: deaths 0 .. (largest number named in any trap's `deaths`) + 1.
     variants(def) {
+      if (!def.changing) return [KF.Traps.lastVariant(def)]; // every retry is the same level
       let max = 0;
       for (const t of def.traps || []) {
         const list = t.deaths === undefined ? [] : Array.isArray(t.deaths) ? t.deaths : [t.deaths];

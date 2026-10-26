@@ -154,13 +154,12 @@
           '###################################...###########...#########...........############',
         ],
         traps: [
-          // The block bridge between the first two mesas isn't there on the first go.
-          { type: 'fakeFloor', at: [35, 20, 3, 1], deaths: [0], say: 'POOF!' },
-          // Once you know the gap, a hidden block waits in the jump over the next one.
-          { type: 'hidden', at: [49, 17, 1], deaths: ['1+'] },
-          { type: 'platform', at: [62, 20, 3], path: [6, 0], period: 4, deaths: [0, 1] },
-          // Later, the stone over the canyon turns back when you leap for it.
-          { type: 'platform', at: [62, 20, 3], path: [6, 0], period: 4, deaths: ['2+'], reverseWhen: { x: 60.6, airborne: true }, say: 'NOPE' },
+          // The block bridge between the first two mesas isn't there.
+          { type: 'fakeFloor', at: [35, 20, 3, 1], say: 'POOF!' },
+          // A hidden block waits in the jump over the next gap.
+          { type: 'hidden', at: [49, 17, 1] },
+          // The stone over the canyon turns back when you leap for it.
+          { type: 'platform', at: [62, 20, 3], path: [6, 0], period: 4, reverseWhen: { x: 60.6, airborne: true }, say: 'NOPE' },
         ],
         trick: 0, trickFrom: [31, 20],
         props: [
@@ -205,7 +204,7 @@
           // Halfway down the tunnel the boards are rotten.
           { type: 'collapse', at: [40, 23, 3, 2], delay: 0.12, say: 'ROTTEN!' },
           { type: 'pipe', at: [22, 10], dir: 'up', to: [28, 23], len: 2 },
-          { type: 'crusher', at: [50, 18, 2, 2], when: { x: 48.6 }, delay: 0.15, deaths: ['1+'], say: 'LOOK UP!' },
+          { type: 'crusher', at: [50, 18, 2, 2], when: { x: 48.6 }, delay: 0.15, say: 'LOOK UP!' },
         ],
         trick: 0, trickFrom: [30, 23],
         depths: [{ kind: 'nes_mine', c0: 24, c1: 66, r0: 13, r1: 30 }],
@@ -264,7 +263,7 @@
           { type: 'pipe', at: [68, 27], dir: 'up', to: [70, 13], len: 2 },
           // Up in the fort, the hanging stones drop as you pass under them.
           { type: 'crusher', at: [52, 6, 2, 2], when: { xl: 54.5, zone: [40, 8, 30, 5] }, delay: 0.1 },
-          { type: 'crusher', at: [36, 6, 2, 2], when: { xl: 39, zone: [30, 8, 20, 5] }, delay: 0.2, deaths: ['1+'] },
+          { type: 'crusher', at: [36, 6, 2, 2], when: { xl: 39, zone: [30, 8, 20, 5] }, delay: 0.2 },
         ],
         trick: 0, trickFrom: [42, 32],
         depths: [
@@ -328,9 +327,8 @@
         traps: [
           { type: 'spring', at: [8, 41], power: 560 },
           // The lift doesn't stop at the top floor the first time.
-          { type: 'lift', at: [40, 23, 3], legs: [[0, -12], [0, -4]], speed: 70, deaths: [0], say: 'GOING UP!' },
-          { type: 'lift', at: [40, 23, 3], legs: [[0, -12]], speed: 70, deaths: ['1+'] },
-          { type: 'fakeFloor', at: [12, 35, 3, 1], deaths: ['1+'] },
+          { type: 'lift', at: [40, 23, 3], legs: [[0, -12], [0, -4]], speed: 70, say: 'GOING UP!' },
+                    { type: 'fakeFloor', at: [12, 35, 3, 1] },
         ],
         trick: 1, trickFrom: [36, 23],
         depths: [{ kind: 'nes_tower', c0: 1, c1: 47, r0: 0, r1: 42 }],
@@ -379,10 +377,10 @@
         ],
         traps: [
           // The last stretch of floor before the door is a bridge, and it goes.
-          { type: 'collapse', at: [79, 12, 3, 1], delay: 0.06, deaths: [0], say: 'BYE!' },
+          { type: 'collapse', at: [79, 12, 3, 1], delay: 0.06, say: 'BYE!' },
           { type: 'platform', at: [36, 22, 3], path: [8, 0], period: 4.4 },
           // Once you know the bridge, it holds, and the stone above it comes down instead.
-          { type: 'crusher', at: [80, 6, 2, 2], when: { x: 78.2, zone: [74, 6, 12, 7] }, delay: 0.12, deaths: ['1+'], say: 'HEADS UP' },
+          { type: 'crusher', at: [80, 6, 2, 2], when: { x: 78.2, zone: [74, 6, 12, 7] }, delay: 0.12, say: 'HEADS UP' },
           { type: 'platform', at: [48, 22, 3], path: [8, -6], period: 4.4, offset: 2.2 },
         ],
         trick: 0, trickFrom: [76, 12], run: [89, 11],
@@ -433,12 +431,10 @@
         ],
         traps: [
           // The big pipe at the end of the room drops you down a shaft the first time...
-          { type: 'pipe', at: [40, 26], dir: 'left', to: [67, 11], deaths: [0], len: 20, say: 'WRONG PIPE' },
-          { type: 'pipe', at: [40, 26], dir: 'left', to: [50, 10], deaths: ['1+'], len: 20 },
-          // ...while the little one is honest, until you trust it.
-          { type: 'pipe', at: [20, 26], dir: 'up', to: [46, 10], deaths: [0], len: 2 },
-          { type: 'pipe', at: [20, 26], dir: 'up', to: [3, 28], deaths: ['1+'], len: 2, say: 'BACK YOU GO' },
-          { type: 'hidden', at: [57, 7, 1], deaths: ['2+'] },
+          { type: 'pipe', at: [40, 26], dir: 'left', to: [67, 11], len: 20, say: 'WRONG PIPE' },
+                    // ...while the little one is honest, until you trust it.
+          { type: 'pipe', at: [20, 26], dir: 'up', to: [46, 10], len: 2 },
+                    { type: 'hidden', at: [57, 7, 1] },
         ],
         trick: 0, trickFrom: [30, 28],
         depths: [{ kind: 'nes_under', c0: 0, c1: 60, r0: 14, r1: 28 }],

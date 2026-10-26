@@ -207,7 +207,10 @@ function solve(def, deaths, budget = Number(process.env.BUDGET || 250000), part 
   return { ok: false, expanded };
 }
 
+// A level is the same on every retry unless it is marked `changing` (see js/traps.js), so there
+// is one variant to prove: the one the game always builds.
 function variants(def) {
+  if (!def.changing) return [KF.Traps.lastVariant(def)];
   let max = 0;
   for (const t of def.traps || []) {
     const list = t.deaths === undefined ? [] : Array.isArray(t.deaths) ? t.deaths : [t.deaths];
@@ -231,7 +234,7 @@ function describe(seq) {
 
 const [onlyDoor, onlyStage] = process.argv.slice(2);
 let failures = 0;
-const dump = {}; // DUMP=file.json writes every solution as [dir, jump] per decision, for replays
+const dump = {}; // DUMP=file.json writes every solution as [dir, jump] per decision (per part on long levels), for replays
 for (const door of KF.Doors) {
   if (onlyDoor && door.id !== onlyDoor) continue;
   door.stages.forEach((def, i) => {
@@ -240,19 +243,23 @@ for (const door of KF.Doors) {
       if (process.env.DEATHS !== undefined && d !== Number(process.env.DEATHS)) continue;
       const t0 = Date.now();
       // A death restarts at the latest door, so each part is searched from its
-      // own checkpoint; DUMP=1 or WHOLE=1 searches the whole level in one go.
+      // own checkpoint; WHOLE=1 searches the whole level in one go.
       let r;
-      if (def.doorLinks && !process.env.WHOLE && !process.env.DUMP) {
+      if (def.doorLinks && !process.env.WHOLE) {
         r = { ok: true, time: 0, expanded: 0 };
         const only = process.env.PARTS ? process.env.PARTS.split(',').map(Number) : null; // PARTS=1,3 checks just those
         for (let part = 1; part <= def.doorLinks.length + 1 && r.ok; part++) {
           if (only && !only.includes(part)) continue;
           const one = solve(def, d, undefined, part);
           r = { ok: one.ok, time: r.time + (one.time || 0), expanded: r.expanded + one.expanded, seq: one.seq, part };
+          if (one.ok && process.env.DUMP) { // each part's inputs, from its own checkpoint
+            const steps = []; for (let n = one.seq; n; n = n.prev) steps.push([n.a.dir, n.a.jump]);
+            dump[`${door.id}-${i + 1}-p${part}`] = { decide: def.noGates && !MARGIN ? 12 : DECIDE, steps: steps.reverse() };
+          }
         }
       } else r = solve(def, d);
       const label = `${door.id} ${i + 1} "${def.name}" deaths=${d}${MARGIN ? ' [margin]' : ''}`;
-      if (r.ok && process.env.DUMP) {
+      if (r.ok && process.env.DUMP && !def.doorLinks) {
         const steps = []; for (let n = r.seq; n; n = n.prev) steps.push([n.a.dir, n.a.jump]);
         dump[`${door.id}-${i + 1}-${d}`] = steps.reverse();
       }
