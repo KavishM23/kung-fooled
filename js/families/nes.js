@@ -330,7 +330,7 @@
           // The lift doesn't stop at the top floor the first time.
           { type: 'lift', at: [40, 23, 3], legs: [[0, -12], [0, -4]], speed: 70, deaths: [0], say: 'GOING UP!' },
           { type: 'lift', at: [40, 23, 3], legs: [[0, -12]], speed: 70, deaths: ['1+'] },
-          { type: 'fakeFloor', at: [19, 35, 4, 1], deaths: ['1+'] },
+          { type: 'fakeFloor', at: [12, 35, 3, 1], deaths: ['1+'] },
         ],
         trick: 1, trickFrom: [36, 23],
         depths: [{ kind: 'nes_tower', c0: 1, c1: 47, r0: 0, r1: 42 }],
