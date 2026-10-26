@@ -52,6 +52,10 @@
       { type: 'spikes', at: [13, 19, 2], when: { xl: 16, grounded: true }, deaths: ['1+'], delay: 0.15 },
       { type: 'water', at: [13, 23, 17, 5] },
       { type: 'lunger', at: [24, 27, 1, 1], when: { near: 2 }, speed: 60, hop: 140, deaths: ['1+'], say: 'EEL' },
+      // Layered: Coins in the flooded gallery; one is a bomb.
+      { type: 'coin', at: [16, 24] },
+      { type: 'coin', at: [19, 24] },
+      { type: 'coin', at: [27, 25], boom: true },
     ],
   });
 })(window.KF);

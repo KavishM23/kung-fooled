@@ -57,6 +57,8 @@
       // Hidden from attempt 2, just past the ceiling gap: a long hop dips into it and drops you into
       // the spikes. Once found it stays visible; a short hop over the gap clears it.
       { type: 'gravity', zone: [21, 4, 2, 4], g: 1, hidden: true, deaths: ['1+'] },
+      // Layered: Walking on the ceiling, the ceiling bites back.
+      { type: 'spikes', at: [14, 3, 1], dir: 'down', when: { x: 12.5 }, say: 'UP YOURS' },
     ],
   });
 
@@ -83,6 +85,8 @@
       { type: 'reverse', zone: [13, 2, 10, 9] },
       { type: 'reverse', zone: [27, 2, 5, 9], hidden: true, deaths: ['1+'] },
       { type: 'spikes', at: [30, 10, 2], when: { x: 28 }, deaths: ['1+'] },
+      // Layered: One more right before the door.
+      { type: 'spikes', at: [34, 10, 1], when: { x: 32.5, grounded: true } },
     ],
   });
 
@@ -111,6 +115,8 @@
       { type: 'gravity', zone: [14, 3, 2, 8], g: -1 },
       { type: 'reverse', zone: [23, 3, 6, 3] },
       { type: 'doorRun', deaths: ['1+'], path: [{ to: [40, 3], near: 1.5, say: 'HEH' }] },
+      // Layered: Upside down along the ceiling, a spike drops out of it.
+      { type: 'spikes', at: [33, 3, 1], dir: 'down', when: { x: 31.5 } },
     ],
   });
 

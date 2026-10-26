@@ -109,6 +109,9 @@ Press Q on the realm map (or click MODES) for everything beyond the realms.
 - **Level editor:** paint tiles and drop traps with the mouse, TEST to play it, CHECK to run the
   level checker in your browser (a level that passes is stamped PROVEN BEATABLE), and SHARE to get
   a code. Anyone can paste the code into PLAY A LEVEL CODE. Editing a level drops its stamp.
+  Besides tiles and the classic traps, the toolbar has the deception traps: DL (a ledge that drops
+  when you jump near it, then comes back), GF (an invisible floor: put it in a pit), WD (a fake
+  exit that sends you back to the spawn), CN (a coin) and CB (a coin bomb that looks like one).
 - **Speedrun:** press R on a realm screen to run the whole realm (4 levels, street fight and boss)
   on one clock. The result screen shows splits against your best run, and a run with no deaths
   earns the realm's DEATHLESS badge.
@@ -184,6 +187,7 @@ js/rules.js      world names + rules       js/present.js  per-world cards and so
 js/modes.js      endless + daily stages    js/levels/chunks.js  stage pieces for them
 js/solver.js     level checker (browser)   js/levelcode.js  editor share codes
 js/ghosts.js     best-run ghosts, replays  js/achievements.js  trophies + trap cards
+js/props.js      what falling blocks are   js/families/01-devil.js  layered trap sequences
 js/scenes/modes.js  modes menu, versus, speedrun results   js/scenes/editor.js  level editor
 ```
 
@@ -302,6 +306,20 @@ just ahead of a runner and behind a retreat, a far ledge that drops while you're
 floor that falls in behind you, a fake exit, a pit with an invisible floor before a false one,
 controls that swap before a jump, and on most finales an exit that runs off over a floor that
 gives way). Each realm leans on different beats and taunts.
+
+The hand-built places get more too. `KF.Devil.layerRegion` reads a hand-drawn map (the middle room
+of every level, and the 8-BIT realm's parts) for flat stretches clear of its own traps and adds
+beats there: a follow-up ambush where you land after clearing one of the room's floor traps, a
+decoy of the room's exit door, a piece of ceiling that drops, falling blocks, coins and bombs.
+Rooms too full for that got hand-placed additions in their level files (marked `// Layered:`):
+a spike after the one you just learned, a fake door that sends you back to the start of the room,
+ceiling spikes for whoever jumps too high, a coin row where one coin is a bomb.
+
+A block that falls out of the sky is something from its realm when it lands (`js/props.js`): an
+air-conditioning unit on the rooftops, a studio light in Retro, an anvil in Comic, a fridge in VHS,
+a cargo crate at the docks, a stone statue at the temple, a bronze bell in Woodblock, a boulder in
+Pocket, a glitching cube in AR GO, a marble bust in Vaporwave, a server rack in Cyber, a white cube
+in SUPERHOT and a heavy ? block in 8-BIT.
 
 ## Checking a level is fair
 

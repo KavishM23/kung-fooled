@@ -18,15 +18,23 @@
     { id: 'hidden', label: 'HB', name: 'HIDDEN BLOCK', trap: true }, { id: 'spikes', label: 'PS', name: 'POP-UP SPIKES', trap: true },
     { id: 'spring', label: 'SP', name: 'SPRING', trap: true }, { id: 'crusher', label: 'CR', name: 'CRUSHER (IN A CEILING)', trap: true },
     { id: 'blink', label: 'BL', name: 'BLINKING PLATFORM', trap: true }, { id: 'axe', label: 'AX', name: 'SWINGING AXE', trap: true },
+    { id: 'slab', label: 'DL', name: 'DROPPING LEDGE (WHEN YOU JUMP NEAR IT)', trap: true },
+    { id: 'ghostFloor', label: 'GF', name: 'INVISIBLE FLOOR (PUT IT IN A PIT)', trap: true },
+    { id: 'warpDoor', label: 'WD', name: 'FAKE EXIT (BACK TO THE SPAWN)', trap: true },
+    { id: 'coin', label: 'CN', name: 'COIN', trap: true }, { id: 'coinBomb', label: 'CB', name: 'COIN BOMB (LOOKS LIKE A COIN)', trap: true },
   ];
-  const TRAP_COL = { collapse: '#ffb040', fakeFloor: '#ff60c0', hidden: '#9ad8ff', spikes: '#ff5050', spring: '#7cff6a', crusher: '#ff8060', blink: '#c0a0ff', axe: '#ffd040' };
+  const TRAP_COL = { collapse: '#ffb040', fakeFloor: '#ff60c0', hidden: '#9ad8ff', spikes: '#ff5050', spring: '#7cff6a', crusher: '#ff8060', blink: '#c0a0ff', axe: '#ffd040',
+    slab: '#40e0d0', ghostFloor: '#e0e0ff', warpDoor: '#ff9a40', coin: '#ffe060' };
+  const toolOf = (t) => TOOLS.find((k) => k.id === (t.type === 'coin' && t.boom ? 'coinBomb' : t.type));
   const solidCh = (ch) => ch === '#' || ch === '=' || ch === '~';
 
   // The cells a trap covers, for drawing and erasing.
   function trapRect(t) {
     const [c, r, w = 1, h = 1] = t.at;
     if (t.type === 'spikes' || t.type === 'blink' || t.type === 'hidden') return { c, r, w, h: 1 };
-    if (t.type === 'axe') return { c, r, w: 1, h: 1 };
+    if (t.type === 'axe' || t.type === 'coin') return { c, r, w: 1, h: 1 };
+    if (t.type === 'warpDoor') return { c, r: r - 1, w: 1, h: 2 };
+    if (t.type === 'ghostFloor') return { c, r, w, h: 1 };
     return { c, r, w, h };
   }
 
@@ -47,7 +55,10 @@
     get w() { return this.map[0].length; }
     def() {
       const L = this.looks[this.look % this.looks.length];
-      return { name: this.name, map: this.map.map((r) => r.join('')), traps: this.traps.map((t) => JSON.parse(JSON.stringify(t))), labels: [], style: L.style, env: L.env, theme: L.env, music: L.music };
+      // A fake exit sends you back to wherever the spawn is now.
+      const spawn = this.map.reduce((at, row, r) => (at || (row.includes('P') ? [row.indexOf('P'), r + 1] : null)), null) || [2, 11];
+      const traps = this.traps.map((t) => Object.assign(JSON.parse(JSON.stringify(t)), t.type === 'warpDoor' ? { to: spawn } : {}));
+      return { name: this.name, map: this.map.map((r) => r.join('')), traps, labels: [], style: L.style, env: L.env, theme: L.env, music: L.music };
     }
     // After any edit: redraw the baked world, drop the checker stamp, save the draft.
     rebuild() {
@@ -101,6 +112,16 @@
       else if (type === 'blink') t = { type, at: [c, r, Math.min(2, w - c)], on: 1.4, off: 1 };
       else if (type === 'axe') t = { type, at: [c, r], len: 4, speed: 2.2 };
       else if (type === 'hidden') { m[r][c] = '.'; t = { type, at: [c, r], say: 'BONK' }; }
+      else if (type === 'slab') { // a ledge that drops while you jump at it, then comes back
+        const tw = Math.min(2, w - c);
+        let h = 0; while (r + h < ROWS && (solidCh(m[r + h][c]) || h === 0)) h++;
+        fill(c, r, tw, h);
+        t = { type, at: [c, r, tw, h], legs: [[0, 4, 380]], home: true, hold: 0.9, returnSpeed: 180, ease: 0,
+          when: { airborne: true, near: 3 }, say: 'WHOOPS' };
+      } else if (type === 'ghostFloor') { for (let i = 0; i < 2 && c + i < w; i++) m[r][c + i] = '.'; t = { type, at: [c, r, Math.min(2, w - c)] }; }
+      else if (type === 'warpDoor') t = { type, at: [c, r], say: 'NOPE' };
+      else if (type === 'coin') t = { type, at: [c, r] };
+      else if (type === 'coinBomb') t = { type: 'coin', at: [c, r], boom: true };
       else t = { type, at: [c, r] };
       this.traps.push(t);
     }
@@ -217,7 +238,7 @@
         ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
         ctx.strokeRect(Math.round(x) + 0.5, Math.round(y) + 0.5, q.w * TS - 1, q.h * TS - 1); ctx.setLineDash([]);
         if (tr.type === 'axe') { ctx.beginPath(); ctx.moveTo(x + 6, y + 6); ctx.lineTo(x + 6 + Math.sin(t * 2.2) * tr.len * TS, y + 6 + Math.cos(t * 2.2) * tr.len * TS * 0.9); ctx.stroke(); }
-        F.draw(ctx, TOOLS.find((k) => k.id === tr.type).label, Math.round(x) + 2, Math.round(y) + 2, col, 1, 'left', '#000');
+        F.draw(ctx, toolOf(tr).label, Math.round(x) + 2, Math.round(y) + 2, col, 1, 'left', '#000');
       }
       if (this.hover) { const h = this.hover; ctx.strokeStyle = '#ffffff'; ctx.strokeRect(Math.round(X(h.c)) + 0.5, Math.round(Y(h.r)) + 0.5, TS - 1, TS - 1); }
       // Top bar.
@@ -231,12 +252,16 @@
       else if (this.t < 6) F.draw(ctx, 'CLICK TO PAINT  RIGHT CLICK ERASES  A/D SCROLLS  ENTER TESTS', VW / 2, VIEW_Y + 4, '#ffd8a0', 1, 'center', '#000');
       // Toolbars.
       R(ctx, 'rgba(8,4,16,0.9)', 0, VIEW_Y + VIEW_H, VW, KF.VIEW_H - VIEW_Y - VIEW_H);
-      TOOLS.forEach((tl, i) => KF.UI.button(ctx, this, 'tool' + i, 3 + i * 20, VIEW_Y + VIEW_H + 2, 18, 12, tl.label, i === this.tool));
+      TOOLS.forEach((tl, i) => KF.UI.button(ctx, this, 'tool' + i, 1 + i * 16, VIEW_Y + VIEW_H + 2, 14, 12, tl.label, i === this.tool));
       const acts = [['test', 'TEST'], ['check', 'CHECK'], ['share', 'SHARE'], ['load', 'LOAD'], ['look', 'LOOK'], ['wider', '+W'], ['narrow', '-W'], ['clear', 'CLEAR'], ['exit', 'EXIT']];
       let x = 3;
       acts.forEach(([id, label]) => { const w = F.measure(label) + 10; KF.UI.button(ctx, this, id, x, VIEW_Y + VIEW_H + 17, w, 12, label); x += w + 4; });
       const over = KF.UI.under(this);
-      if (over && over.startsWith('tool')) F.draw(ctx, TOOLS[+over.slice(4)].name, VW - 4, VIEW_Y + VIEW_H + 19, '#ffd040', 1, 'right', '#000');
+      if (over && over.startsWith('tool')) { // the hovered tool's name, just above the toolbar
+        const name = TOOLS[+over.slice(4)].name, w = F.measure(name) + 8;
+        R(ctx, 'rgba(8,4,16,0.9)', VW - w - 2, VIEW_Y + VIEW_H - 11, w, 10);
+        F.draw(ctx, name, VW - 6, VIEW_Y + VIEW_H - 9, '#ffd040', 1, 'right', '#000');
+      }
     }
   }
   KF.EditorScene = EditorScene;

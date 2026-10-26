@@ -575,6 +575,22 @@
       middleStart = { x: (approachX + 1.5) * T, y: floor * T };
     }
     traps.push(...originalTraps.filter((t) => t.type !== 'doorRun').map((t) => shift(t, coreX, coreY)));
+    // More surprises in the hand-built places: the middle room, and family parts drawn by hand
+    // (the kit's parts already have theirs). See js/families/01-devil.js.
+    if (KF.Devil) {
+      const art = authored ? authored.name : family ? familyOf(env) : 'city';
+      KF.Devil.layerRegion({ m, H, traps, art, name: def.name, count: tall ? 1 : 2,
+        from: tall ? coreX : approachX, to: coreX + srcW,
+        keep: [[approachX - 2, sp[0] + 5], [oldDoor[0] - 5, oldDoor[0] + 5]],
+        // An ordinary room door can have a decoy (an upside-down one hangs from a ceiling: no twin).
+        door: oldDoor[2] === 'D' && !tall ? [oldDoor[0], oldDoor[1]] : null,
+        back: tall ? null : [approachX + 1, sp[1] + 1] });
+      if (authored) parts.forEach((p, i) => {
+        if (specs[i].layered) return;
+        KF.Devil.layerRegion({ m, H, traps, art, name: specs[i].name, count: 2, from: p.x0, to: p.x0 + p.w,
+          keep: [[p.x0, p.x0 + p.start[0] + 5], [p.x0 + p.exit[0] - 6, p.x0 + p.w]] });
+      });
+    }
     const bY = (oldDoor[2] === 'U' ? oldDoor[1] : oldDoor[1] - 1) * T;
     const doorAt = (part) => [(part.x0 + part.exit[0]) * T, (part.exit[1] - 2) * T];
     const startAt = (part) => ({ x: (part.x0 + part.start[0] + 0.5) * T, y: part.start[1] * T });

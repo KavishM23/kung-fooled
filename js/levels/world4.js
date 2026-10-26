@@ -84,6 +84,8 @@
       { type: 'mover', at: [13, 6, 8, 2], path: [[0, 2]], speed: 18, when: { x: 12.5 }, say: 'CLOSING' },
       { type: 'spikes', at: [26, 10, 1], when: { x: 24.5 }, deaths: ['1+'] },
       { type: 'mover', at: [32, 11, 1, 3], path: [[0, -2]], speed: 160, when: { x: 29.5 }, deaths: ['2+'] },
+      // Layered: Spikes on the run-up, so rushing for the closing gap costs a jump.
+      { type: 'spikes', at: [8, 10, 2], when: { x: 6.4, xl: 7.4, grounded: true } },
     ],
   });
 
@@ -142,6 +144,8 @@
       // Launches you up to the high ledge. Too hard: hold back or you sail into the pit.
       { type: 'spring', at: [26, 10], power: 600, vx: 190 },
       { type: 'fakeFloor', at: [43, 11, 1, 3], deaths: ['1+'] },
+      // Layered: Past the false floor, the first door is a decoy that sends you back to the start.
+      { type: 'warpDoor', at: [45, 10], to: [3, 11], say: 'GOOD GAME' },
     ],
   });
 })(window.KF);

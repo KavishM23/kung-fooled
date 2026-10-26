@@ -47,5 +47,9 @@
       { type: 'lunger', at: [32, 26, 1, 1], when: { near: 2 }, speed: 70, hop: 150, deaths: ['1+'], say: 'NOT A STONE' },
       { type: 'spikes', at: [41, 11, 2], when: { zone: [41, 9, 2, 3] }, delay: 0.3, deaths: ['2+'], say: 'DON\'T LINGER' },
       { type: 'ambushFlame', at: [46, 9, 8], when: { x: 44.5, airborne: true }, warn: 0.42, burn: 0.8, say: 'LANTERN FIRE' },
+      // Layered: coins along the bottom of the pool, and one higher up that is a bomb.
+      { type: 'coin', at: [20, 24] },
+      { type: 'coin', at: [24, 19], boom: true },
+      { type: 'coin', at: [28, 24] },
     ],
   });})(window.KF);

@@ -5,7 +5,7 @@
 // code by hand drops the stamp.
 (function (KF) {
   const ROWS = 14, TILES = '.#=-~^v<>PD';
-  const TRAPS = ['collapse', 'fakeFloor', 'hidden', 'spikes', 'spring', 'crusher', 'blink', 'axe'];
+  const TRAPS = ['collapse', 'fakeFloor', 'hidden', 'spikes', 'spring', 'crusher', 'blink', 'axe', 'slab', 'ghostFloor', 'warpDoor', 'coin'];
   const rle = (row) => row.replace(/(.)\1*/g, (run, ch) => (run.length > 1 ? run.length : '') + ch);
   const unrle = (s) => s.replace(/(\d+)(\D)/g, (_, n, ch) => ch.repeat(+n));
   const b64 = (s) => btoa(unescape(encodeURIComponent(s))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');

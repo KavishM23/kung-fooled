@@ -229,8 +229,10 @@
           if (!tr.unbaked) continue;
           const b = tr instanceof types.crusher ? tr.body : tr.solid;
           const ox = b.x - tr.home.x, oy = b.y - tr.home.y;
-          for (const [c, r, id] of tr.tiles) drawTile(ctx, world, theme, c, r, id, Math.round(c * T + ox - cam.x + shake), Math.round(r * T + oy - cam.y));
-          if (tr instanceof types.crusher && (tr.falling || tr.landed)) { // angry eyebrows on the block
+          // A block from the sky turns out to be something from its realm (js/props.js).
+          if (tr.def.look && KF.Props) KF.Props.draw(ctx, tr.def.look, Math.round(b.x - cam.x), Math.round(b.y - cam.y), b.w, b.h, t);
+          else for (const [c, r, id] of tr.tiles) drawTile(ctx, world, theme, c, r, id, Math.round(c * T + ox - cam.x + shake), Math.round(r * T + oy - cam.y));
+          if (tr instanceof types.crusher && !tr.def.look && (tr.falling || tr.landed)) { // angry eyebrows on the block
             const ex = Math.round(b.x - cam.x + b.w / 2), ey = Math.round(b.y - cam.y + b.h - 10);
             R(ctx, '#1a1020', ex - 7, ey, 4, 3); R(ctx, '#1a1020', ex + 3, ey, 4, 3);
             R(ctx, '#ffffff', ex - 6, ey + 1, 2, 1); R(ctx, '#ffffff', ex + 4, ey + 1, 2, 1);

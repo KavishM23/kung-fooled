@@ -48,6 +48,10 @@
       { id: 'lift', type: 'mover', at: [47, 27, 3, 1], path: [[0, -21]], speed: 110, when: { zone: [47, 24, 3, 3] }, say: 'GOING UP' },
       { type: 'spikes', at: [47, 14, 2], dir: 'right', when: { after: 'lift', zone: [46, 15, 5, 3] }, deaths: [0, '2+'] },
       { type: 'spikes', at: [49, 10, 2], dir: 'left', when: { after: 'lift', zone: [46, 11, 5, 3] }, deaths: ['1+'] },
+      // Layered: Gold in the flooded mine; one is a bomb.
+      { type: 'coin', at: [24, 25] },
+      { type: 'coin', at: [30, 25], boom: true },
+      { type: 'coin', at: [36, 25] },
     ],
   });
 })(window.KF);

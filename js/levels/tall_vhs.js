@@ -49,5 +49,9 @@
       { type: 'lunger', at: [34, 25, 1, 1], when: { near: 2 }, speed: 60, hop: 120, say: 'CLEANUP ON AISLE 9' },
       { type: 'mover', at: [43, 25, 2, 1], path: [[0, -19]], speed: 70, when: { zone: [43, 21, 2, 4] }, deaths: [0] },
       { type: 'mover', at: [43, 25, 2, 1], path: [[0, -17]], speed: 70, when: { zone: [43, 21, 2, 4] }, deaths: ['1+'], say: 'OUT OF ORDER' },
+      // Layered: Coins along the top shelf; the second is a bomb.
+      { type: 'coin', at: [8, 5] },
+      { type: 'coin', at: [11, 5], boom: true },
+      { type: 'coin', at: [24, 5] },
     ],
   });})(window.KF);

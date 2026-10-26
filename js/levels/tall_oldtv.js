@@ -50,6 +50,10 @@
       { type: 'crusher', at: [37, 2, 2, 1], when: { zone: [35, 3, 2, 2] }, deaths: ['1+'] },
       { type: 'fakeFloor', at: [40, 5, 2, 1], deaths: [0, '2+'], say: 'MIND THE GAP' },
       { type: 'spikes', at: [43, 4, 2], when: { zone: [41, 3, 2, 2], grounded: true }, delay: 0.12, deaths: ['1+'], say: 'CUT!' },
+      // Layered: A tempting row of coins off the route; one is a bomb.
+      { type: 'coin', at: [25, 24] },
+      { type: 'coin', at: [27, 24], boom: true },
+      { type: 'coin', at: [29, 24] },
     ],
   });
 })(window.KF);

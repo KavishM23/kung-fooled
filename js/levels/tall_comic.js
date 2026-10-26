@@ -47,6 +47,10 @@
       { type: 'lunger', at: [30, 25, 1, 1], when: { near: 2.2 }, speed: 110, hop: 150, deaths: ['1+'], say: 'TRASH TALK' },
       { type: 'spikes', at: [12, 25, 2], when: { xl: 15.5 }, deaths: ['1+'] },
       { type: 'doorRun', path: [{ to: [8, 25], near: 2.5, say: 'MIND THE GAP' }], deaths: ['2+'] },
+      // Layered: Coins along the last corridor; the middle one is a bomb.
+      { type: 'coin', at: [27, 24] },
+      { type: 'coin', at: [25, 24], boom: true },
+      { type: 'coin', at: [23, 24] },
     ],
   });
 })(window.KF);

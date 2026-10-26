@@ -30,6 +30,9 @@
       // Harder: once you know the wind, the far lip of the first gap gives way and the prop block bites.
       { type: 'fakeFloor', at: [12, 9, 1, 5], say: 'POOF', deaths: ['1+'] },
       { type: 'spikes', at: [17, 8, 2], when: { x: 15 }, say: 'OUCH', deaths: ['2+'] },
+      // Layered: Over the last gap: a coin, then a bomb.
+      { type: 'coin', at: [25, 8] },
+      { type: 'coin', at: [27, 8], boom: true },
     ],
   });
 
@@ -60,6 +63,11 @@
       { type: 'blink', at: [19, 9, 2], on: 1.8, off: 0.8, offset: 1.4 },
       { type: 'blink', at: [23, 9, 2], on: 1.8, off: 0.8, offset: 0.8 },
       { type: 'wind', zone: [9, 0, 18, 14], force: -40, gust: [0.8, 1.6], deaths: ['1+'] },
+      // Layered: Coins over the blinking platforms; one is a bomb.
+      { type: 'coin', at: [12, 7] },
+      { type: 'coin', at: [16, 7] },
+      { type: 'coin', at: [20, 7], boom: true },
+      { type: 'coin', at: [24, 7] },
     ],
   });
 
@@ -116,6 +124,9 @@
       { type: 'wind', zone: [18, 0, 14, 9], force: -70, gust: [1.0, 1.0], deaths: ['1+'] },
       // Harder: the landing car isn't safe to stop on either.
       { type: 'spikes', at: [33, 8, 2], when: { x: 30 }, say: 'MIND THE STEP', deaths: ['2+'] },
+      // Layered: Coins on the spring's flight; one is a bomb.
+      { type: 'coin', at: [22, 4] },
+      { type: 'coin', at: [26, 4], boom: true },
     ],
   });
 

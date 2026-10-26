@@ -264,6 +264,10 @@
           // Up in the fort, the hanging stones drop as you pass under them.
           { type: 'crusher', at: [52, 6, 2, 2], when: { xl: 54.5, zone: [40, 8, 30, 5] }, delay: 0.1 },
           { type: 'crusher', at: [36, 6, 2, 2], when: { xl: 39, zone: [30, 8, 20, 5] }, delay: 0.2 },
+          // Layered: coins on the cellar run-up (the last one is a bomb), and once you're past the
+          // stones, spikes come up just ahead on the walk back to the stairs.
+          { type: 'coin', at: [8, 31] }, { type: 'coin', at: [11, 31] }, { type: 'coin', at: [14, 31], boom: true },
+          { type: 'spikes', at: [24, 6, 2], when: { xl: 27.6, x: 26.6, grounded: true }, say: 'POW!' },
         ],
         trick: 0, trickFrom: [42, 32],
         depths: [

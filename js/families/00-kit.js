@@ -84,7 +84,7 @@
       const top = Math.max(0, fy - 15);
       fill(bx, bx + 2, top, top + 2, '=');
       traps.push({ type: kind, at: [bx, top, 2, 2], when: { x: bx - 2.7 },
-        delay: .03, say: 'LOOK UP!' });
+        delay: .03, say: 'LOOK UP!', look: (KF.Devil && KF.Devil.LOOK[cfg.art]) || 'crate' });
     }
     if (kind === 'fakeDoor') traps.push({ type: kind, at: [bx, fy - 1], say: 'WRONG WAY!' });
     if (!traps.some((t) => t.type === kind)) throw new Error(`${cfg.name}: unknown trick ${kind}`);
@@ -96,7 +96,7 @@
     // Leave room for a running exit to flee without leaving the map.
     m[cfg.floors.at(-1) - 1][W - (role === 'finale' ? 7 : 4)] = 'E';
     return {
-      name: cfg.name, entrance: cfg.entrance, shape: `${cfg.shape}-${role}-${variant}`,
+      name: cfg.name, entrance: cfg.entrance, shape: `${cfg.shape}-${role}-${variant}`, layered: true,
       map: m.map((row) => row.join('')), traps, trick,
       trickFrom: [bx - 2, fy], props, depths,
     };

@@ -29,6 +29,9 @@
       { type: 'collapse', at: [12, 10, 4, 1], when: { x: 12.6 }, delay: 0.18, say: 'CRACK' },
       { type: 'wind', zone: [16, 0, 10, 14], force: -50, gust: [1.0, 1.2], deaths: ['1+'] },
       { type: 'spikes', at: [27, 10, 1], when: { x: 25.5 }, deaths: ['2+'] },
+      // Layered: After the wind, a coin; then a bomb.
+      { type: 'coin', at: [20, 9] },
+      { type: 'coin', at: [22, 9], boom: true },
     ],
   });
 
@@ -85,6 +88,10 @@
       { type: 'spring', at: [11, 10], power: 620, vx: 200 },
       { type: 'wind', zone: [12, 0, 16, 11], force: 60, gust: [1.0, 1.0], say: 'BREEZY' },
       { type: 'fakeFloor', at: [20, 5, 1, 1], deaths: ['1+'] },
+      // Layered: Coins in the air and one on the landing that isn't a coin.
+      { type: 'coin', at: [15, 2] },
+      { type: 'coin', at: [17, 2] },
+      { type: 'coin', at: [19, 4], boom: true },
     ],
   });
 
@@ -112,6 +119,8 @@
       { type: 'fakeFloor', at: [19, 11, 3, 3], deaths: [0, '2+'] },
       { type: 'hidden', at: [23, 8], deaths: ['1+'] },
       { type: 'doorRun', path: [{ to: [38, 10], near: 2.5, say: 'OVER HERE' }] },
+      // Layered: spikes rise where you land from the pit jump, unless you jump long.
+      { type: 'spikes', at: [29, 10, 1], when: { x: 27.6, xl: 28.6, grounded: true }, say: 'TORII TEETH' },
     ],
   });
 
@@ -142,6 +151,9 @@
       { type: 'blink', at: [31, 10, 2], on: 1.8, off: 0.8, offset: 2.0 },
       { type: 'wind', zone: [35, 0, 17, 14], force: -55, gust: [1.0, 1.2] },
       { type: 'fakeDoor', at: [44, 10] },
+      // Layered: Between the fake door and the real one: a coin, and a bomb.
+      { type: 'coin', at: [40, 10] },
+      { type: 'coin', at: [47, 10], boom: true },
     ],
   });
 })(window.KF);

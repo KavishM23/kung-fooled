@@ -29,6 +29,10 @@
       // Attempt 3+: both. Each gap is 3 tiles: an easy jump once you know.
       { type: 'collapse', at: [13, 11, 3, 3], deaths: [0, '2+'], say: 'OOPS' },
       { type: 'collapse', at: [19, 11, 3, 3], deaths: ['1+'], say: 'GOTCHA' },
+      // Layered: Coins pay out. The one by the door doesn't.
+      { type: 'coin', at: [5, 10] },
+      { type: 'coin', at: [6, 10] },
+      { type: 'coin', at: [24, 10], boom: true },
     ],
   });
 
@@ -58,6 +62,8 @@
       // Pops up where you'd land after hopping the first set.
       { type: 'spikes', at: [12, 10, 2], when: { x: 10, airborne: true }, deaths: ['1+'] },
       { type: 'spikes', at: [21, 10, 2], when: { x: 19.5 } },
+      // Layered: One more, just when the door is in sight.
+      { type: 'spikes', at: [25, 10, 2], when: { x: 23.5, grounded: true }, say: 'AND ANOTHER' },
     ],
   });
 
@@ -145,6 +151,8 @@
       { type: 'crusher', at: [22, 5, 2, 2], when: { x: 20.8 }, deaths: ['1+'] },
       { type: 'collapse', at: [31, 9, 2, 2], delay: 0.15, deaths: [0, '2+'] },
       { type: 'spikes', at: [41, 7, 1], when: { x: 39 }, say: 'ALMOST' },
+      // Layered: The first door on the roof is a set: it drops you back at the start.
+      { type: 'warpDoor', at: [37, 7], to: [3, 11], say: 'FROM THE TOP' },
     ],
   });
 })(window.KF);

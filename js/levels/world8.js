@@ -50,6 +50,9 @@
       { type: 'crusher', at: [3, 3, 7, 2], when: { after: 'lunge' }, delay: 1.1, deaths: ['1+'], say: 'CLOSING TIME' },
       { type: 'water', at: [20, 20, 22, 6] },
       { type: 'ambushFlame', at: [51, 5, 5], when: { x: 49.5, airborne: true }, warn: 0.4, burn: 0.8, say: 'SAW THAT COMING' },
+      // Layered: Coins in the flooded basement; one is a bomb.
+      { type: 'coin', at: [26, 23] },
+      { type: 'coin', at: [30, 23], boom: true },
     ],
   });
 
@@ -98,6 +101,10 @@
       { type: 'collapse', at: [21, 19, 2, 1], delay: 0.22, say: 'WEIGHT LIMIT' },
       { type: 'ambushFlame', at: [4, 19, 10], when: { xl: 14.5, airborne: true }, deaths: ['1+'], warn: 0.4, burn: 0.8 },
       { type: 'ambushFlame', at: [34, 26, 11], when: { x: 30, airborne: true }, warn: 0.42, burn: 0.8, say: 'PREDICTABLE' },
+      // Layered: Coins along the top floor; the middle one is a bomb.
+      { type: 'coin', at: [10, 11] },
+      { type: 'coin', at: [14, 11], boom: true },
+      { type: 'coin', at: [18, 11] },
     ],
   });
 
@@ -129,6 +136,9 @@
       { type: 'mover', at: [32, 5, 8, 2], path: [[0, 3]], speed: 30, when: { x: 30.5 }, say: 'LOW CEILING' },
       { type: 'fakeFloor', at: [40, 11, 3, 2], deaths: ['1+'] },
       { type: 'spikes', at: [46, 10, 1], when: { x: 44.5 }, deaths: ['2+'] },
+      // Layered: Coins at the start; the second is a bomb.
+      { type: 'coin', at: [6, 10] },
+      { type: 'coin', at: [8, 10], boom: true },
     ],
   });
 
@@ -177,6 +187,9 @@
       { type: 'lunger', at: [31, 26, 1, 1], when: { near: 2 }, speed: 70, hop: 160, say: 'NOT A ROCK' },
       { type: 'spring', at: [44, 9], power: 600, vx: 90 },
       { type: 'ambushFlame', at: [46, 3, 6], when: { x: 45.2, airborne: true }, warn: 0.42, burn: 0.8, say: 'STEAMED' },
+      // Layered: Coins on the way down; one is a bomb.
+      { type: 'coin', at: [16, 15] },
+      { type: 'coin', at: [22, 18], boom: true },
     ],
   });
 

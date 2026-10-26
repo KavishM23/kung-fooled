@@ -53,5 +53,9 @@
       { type: 'spring', at: [41, 30], power: 720, vx: 40 },
       { type: 'spring', at: [43, 18], power: 720, vx: 80 },
       { type: 'ambushFlame', at: [44, 8, 6], when: { x: 43.2, airborne: true }, warn: 0.45, burn: 0.8, say: 'A E S T H E T I C' },
+      // Layered: Coins in the grotto; one is a bomb.
+      { type: 'coin', at: [8, 13] },
+      { type: 'coin', at: [14, 15], boom: true },
+      { type: 'coin', at: [20, 13] },
     ],
   });})(window.KF);

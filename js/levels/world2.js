@@ -28,6 +28,10 @@
       // Launches way too far: you sail over the door into the sea unless you steer back (hold left).
       { type: 'spring', at: [13, 10], power: 600, vx: 250, say: 'WHEEE' },
       { type: 'spring', at: [21, 10], power: 520, vx: -250, deaths: ['2+'] },
+      // Layered: Coins on the run-up; the middle one is a bomb.
+      { type: 'coin', at: [5, 10] },
+      { type: 'coin', at: [7, 10], boom: true },
+      { type: 'coin', at: [9, 10] },
     ],
   });
 
@@ -147,6 +151,8 @@
       { type: 'shy', at: [30, 8, 2], path: [[3, 0]], near: 2, deaths: ['1+'] },
       { id: 'dr', type: 'doorRun', path: [{ to: [50, 10], near: 3, say: 'MISS ME?' }] },
       { type: 'collapse', at: [47, 11, 2, 3], when: { after: 'dr' }, deaths: ['2+'] },
+      // Layered: Spikes where you land off the platform, right before the crate.
+      { type: 'spikes', at: [40, 10, 1], when: { x: 38.5, xl: 39.5, grounded: true }, say: 'BARNACLES' },
     ],
   });
 })(window.KF);

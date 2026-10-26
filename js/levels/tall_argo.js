@@ -49,6 +49,9 @@
       { type: 'crusher', at: [18, 4, 2, 1], when: { xl: 20.5 }, deaths: [0, 1] },
       { type: 'spikes', at: [24, 10, 2], when: { xl: 27.5 }, deaths: ['1+'], say: 'NEW SPAWN' },
       { type: 'ambushFlame', at: [1, 7, 9], when: { xl: 12, airborne: true }, warn: 0.45, burn: 0.7, say: 'TOO HOT' },
+      // Layered: Coins at the start; the second one is a bomb.
+      { type: 'coin', at: [4, 28] },
+      { type: 'coin', at: [6, 28], boom: true },
     ],
   });
 })(window.KF);

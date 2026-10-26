@@ -58,6 +58,9 @@
       { type: 'axe', at: [18, 4], len: 5.4, amp: 1.0, speed: 2.4, offset: 1.3 },
       { type: 'axe', at: [25, 4], len: 5.4, amp: 1.0, speed: 2.4, offset: 0.6 },
       { type: 'spikes', at: [29, 10, 1], when: { x: 27.5 }, deaths: ['1+'] },
+      // Layered: Coins between the axes; the second is a bomb.
+      { type: 'coin', at: [14, 10] },
+      { type: 'coin', at: [22, 10], boom: true },
     ],
   });
 
@@ -87,6 +90,8 @@
       // Harder: the far shore swings an axe, then grows teeth.
       { type: 'axe', at: [34, 4], len: 5.4, amp: 0.9, speed: 2.4, offset: 0.8, deaths: ['1+'] },
       { type: 'spikes', at: [32, 10, 1], when: { x: 30 }, say: 'NOPE', deaths: ['2+'] },
+      // Layered: A bomb by the door, for anyone who thinks the axe was the last trick.
+      { type: 'coin', at: [36, 10], boom: true },
     ],
   });
 
@@ -116,6 +121,8 @@
       { type: 'crusher', at: [26, 3, 2, 2], when: { x: 24.6 }, deaths: ['1+'] },
       { type: 'axe', at: [31, 3], len: 5.6, amp: 0.9, speed: 2.6 },
       { type: 'fakeDoor', at: [35, 10] },
+      // Layered: Jump too high between the falling stones and the ceiling grows teeth.
+      { type: 'spikes', at: [21, 3, 2], dir: 'down', when: { x: 19.5, airborne: true }, say: 'MIND YOUR HEAD' },
     ],
   });
 
