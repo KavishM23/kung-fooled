@@ -22,7 +22,7 @@
         transitions: ['stairs', 'escalator', 'ladder'], trick: 'crusher', baitArea: 1, baitOffset: 9 },
       { name: 'APARTMENT BLOCK', entrance: 'FIRE ESCAPE', shape: 'roof-room-train',
         widths: [18, 17, 19, 18], floors: [26, 19, 25, 18],
-        places: ['apartment roof', 'upper office', 'lower street', 'train platform'],
+        places: ['apartment roof', 'apartment bedroom', 'lower street', 'train platform'],
         transitions: ['fire escape', 'stairs', 'ladder'], trick: 'collapse', baitArea: 2, baitOffset: 10 },
     ],
     finale: [

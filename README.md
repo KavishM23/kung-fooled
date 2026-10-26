@@ -32,6 +32,10 @@ named districts, transition props, colors and surface detail. Floors stay visibl
 and traps reveal a clear cause after the surprise. `tools/partcheck.js` checks all 40 four-part
 layouts, checkpoint order, grounded terrain and straight-run trap outcomes.
 
+Indoor city and suburban stretches show furnished offices, workshops, shops, train cars or a
+bedroom behind the playable route. Exterior climb supports follow the actual landings. Distant
+background details keep fixed world positions as the camera moves.
+
 **Cyber and SUPERHOT.** The last realm's places are a neon megacity, a hologram district and
 chrome Y2K. Its finale is a continuous side-on SUPERHOT tribute: move through the level,
 aim and shoot red crystal sentinels, dodge or block their bullets, and defeat THE SYSTEM

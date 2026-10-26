@@ -172,8 +172,8 @@
       if (art === 'silent') { box(dark, 28, -102, 3, 20); line(dark, 29, -101, -9, -90, 2); }
     } else if (/shore|wave|fjord|river|bridge|harbour|beach/.test(kind)) {
       for (let i = 0; i < 6; i++) {
-        const yy = -7 - i * 6, sway = Math.sin(t * 2 + i) * 2;
-        box(mid, -44 + sway, yy, 85, 2); box(light, -25 + i % 2 * 17, yy - 2, 27, 1);
+        const yy = -7 - i * 6;
+        box(mid, -44 + i % 2 * 2, yy, 85, 2); box(light, -25 + i % 2 * 17, yy - 2, 27, 1);
       }
       for (const xx of [-32, 30]) { box(dark, xx, -49, 4, 48); box(accent, xx - 3, -50, 10, 4); }
       line(dark, -29, -45, 32, -45, 2);
@@ -217,7 +217,7 @@
       }
     } else if (art === 'suburb') {
       // Tape tracking catches the bright edges, behind collision art.
-      const scan = Math.round((t * 17) % 43);
+      const scan = Math.round(20 + Math.sin(t * .8) * 8);
       box(light, -42, -58 + scan, 84, 1);
       box(accent, -33, -56 + scan, 17, 1);
     } else if (art === 'dream') {
@@ -247,7 +247,7 @@
       for (let i = 0; i < 3; i++) {
         const xx = x + 7 + i * 16;
         for (let yy = y + top; yy < y + top + height; yy += 5) {
-          R(ctx, leaf, xx + Math.round(Math.sin(yy * .15 + i + t) * 2), yy, 2, 5);
+          R(ctx, leaf, xx + Math.round(Math.sin(yy * .15 + i) * 2), yy, 2, 5);
           if ((yy / 5 + i) % 3 < 1) R(ctx, light, xx + 2, yy + 1, 4, 2);
         }
       }
@@ -264,12 +264,170 @@
         const last = pr.direction === 'up' ? y : y + n * T;
         L(ctx, light, x, first - 12, x + n * T, last - 12, 2);
       }
-    } else {
-      for (const xx of [x + 4, x + 38]) R(ctx, dark, xx, y + top, 3, height);
-      for (let yy = y + top + 3; yy < y + top + height; yy += 8) R(ctx, light, x + 4, yy, 37, 2);
-      if (pr.mode === 'lift') { R(ctx, mid, x + 5, y + top + height - 9, 36, 7); R(ctx, glow, x + 19, y + top + height - 7, 6, 2); }
+    } else if (pr.mode === 'ladder') {
+      // The route is a series of jumpable landings. Show the supporting wall
+      // and those landings rather than rungs that imply a climb control.
+      for (const xx of [x + 5, x + 51]) {
+        R(ctx, dark, xx, y + top, 4, height);
+        R(ctx, mid, xx + 1, y + top + 3, 1, height - 6);
+      }
+      for (let yy = y + top + 4; yy < y + top + height; yy += 2 * T) {
+        R(ctx, dark, x, yy, 57, 6);
+        R(ctx, accent, x + 1, yy, 55, 3);
+        R(ctx, light, x + 3, yy, 49, 1);
+        L(ctx, mid, x + 8, yy + 6, x + 49, Math.min(yy + 30, y + top + height), 2);
+        L(ctx, mid, x + 49, yy + 6, x + 8, Math.min(yy + 30, y + top + height), 2);
+      }
+    } else if (pr.mode === 'fire escape') {
+      // Steel landings and a diagonal stair make the exterior route legible.
+      for (const xx of [x + 2, x + 47]) R(ctx, dark, xx, y + top, 3, height);
+      for (let yy = y + top + 4; yy < y + top + height; yy += 27) {
+        R(ctx, mid, x - 1, yy, 55, 4); R(ctx, light, x - 1, yy, 55, 1);
+        L(ctx, accent, x + 5, yy + 4, x + 46, Math.min(yy + 25, y + top + height), 2);
+        for (let k = 0; k < 4; k++) R(ctx, light, x + 7 + k * 11, yy + 5 + k * 5, 7, 1);
+      }
+    } else if (pr.mode === 'shaft' || pr.mode === 'lift') {
+      R(ctx, dark, x + 2, y + top, 48, height);
+      R(ctx, mid, x + 5, y + top, 42, height);
+      for (const xx of [x + 5, x + 45]) R(ctx, dark, xx, y + top, 3, height);
+      L(ctx, light, x + 26, y + top, x + 26, y + top + height, 1);
+      for (let yy = y + top + 10; yy < y + top + height; yy += 24) R(ctx, accent, x + 42, yy, 3, 4);
+      if (pr.mode === 'lift') {
+        R(ctx, dark, x + 4, y + top + height - 9, 46, 6);
+        R(ctx, light, x + 7, y + top + height - 9, 40, 2);
+      }
+    } else if (pr.mode === 'ledge') {
+      // Inset footholds suggest a descent without promising a climbable ladder.
+      for (let i = 0; i < Math.floor(height / 20); i++) {
+        const yy = y + top + 13 + i * 20;
+        R(ctx, mid, x + (i % 2 ? 19 : 5), yy, 22, 5);
+        R(ctx, light, x + (i % 2 ? 19 : 5), yy, 22, 1);
+      }
     }
-    void art;
+    void art; void t;
+  }
+
+  function indoorPlace(art, mode) {
+    return /^(city|silent|comic|suburb|works|cyber)$/.test(art) &&
+      /office|hall|lab|studio|backstage|garage|apartment|bedroom|mall|storage|control|warehouse|server|carriage/.test(mode);
+  }
+
+  // Rooms are built around the actual floor of a named indoor place. Furniture
+  // is kept behind the player and collision tiles, with fixed world positions
+  // so scrolling never rearranges a desk, window or plant.
+  function interior(ctx, x, y, w, h, p, art, mode) {
+    const [dark, mid, light, accent, leaf, glow] = p;
+    const bottom = y + h, ceiling = Math.max(y + 4, bottom - 126);
+    const home = art === 'suburb' && /bedroom|apartment|garage/.test(mode);
+    const work = /machine|control|server|storage|warehouse|lab/.test(mode);
+    const shop = /mall/.test(mode);
+    const carriage = /carriage/.test(mode);
+    const theatre = art === 'silent' && /studio|backstage/.test(mode);
+    ctx.globalAlpha = .95;
+    R(ctx, home ? '#c79383' : work ? dark : mid, x, ceiling, w, bottom - ceiling);
+    ctx.globalAlpha = .58;
+    R(ctx, home ? '#ebc5aa' : light, x, ceiling + 3, w, 3);
+    R(ctx, dark, x, bottom - 23, w, 23);
+    R(ctx, accent, x, bottom - 24, w, 2);
+    for (let xx = x + 20; xx < x + w; xx += 54) {
+      ctx.globalAlpha = .18;
+      R(ctx, light, xx, ceiling + 8, 1, bottom - ceiling - 34);
+    }
+    if (home) {
+      // A warm lived-in room: window, framed art, bed, desk and houseplant.
+      const wx = x + w - 89, wy = ceiling + 18;
+      ctx.globalAlpha = 1;
+      R(ctx, dark, wx - 3, wy - 3, 61, 48); R(ctx, '#54738c', wx, wy, 55, 42);
+      R(ctx, glow, wx + 4, wy + 5, 30, 10);
+      R(ctx, light, wx + 26, wy, 3, 42); R(ctx, light, wx, wy + 21, 55, 2);
+      R(ctx, accent, wx - 7, wy - 3, 8, 47); R(ctx, accent, wx + 54, wy - 3, 8, 47);
+      R(ctx, dark, x + 24, ceiling + 24, 36, 30); R(ctx, '#dfc47a', x + 27, ceiling + 27, 30, 24);
+      R(ctx, light, x + 32, ceiling + 34, 19, 3);
+      R(ctx, dark, x + 18, bottom - 39, 8, 38);
+      R(ctx, dark, x + 20, bottom - 26, 86, 25);
+      R(ctx, accent, x + 24, bottom - 23, 79, 18);
+      R(ctx, '#efd6b3', x + 27, bottom - 22, 25, 7);
+      R(ctx, '#537f82', x + 55, bottom - 22, 44, 15);
+      for (let i = 0; i < 4; i++) R(ctx, light, x + 58 + i * 10, bottom - 12, 4, 2);
+      R(ctx, dark, x + 22, bottom - 7, 82, 5);
+      R(ctx, dark, x + 123, bottom - 38, 64, 5); R(ctx, light, x + 126, bottom - 36, 58, 3);
+      R(ctx, dark, x + 129, bottom - 33, 3, 33); R(ctx, dark, x + 177, bottom - 33, 3, 33);
+      R(ctx, mid, x + 143, bottom - 55, 26, 17); R(ctx, dark, x + 146, bottom - 52, 20, 11);
+      R(ctx, glow, x + 149, bottom - 49, 13, 5); R(ctx, dark, x + 154, bottom - 38, 5, 3);
+    } else if (carriage) {
+      ctx.globalAlpha = .94;
+      for (let xx = x + 20; xx < x + w - 34; xx += 75) {
+        R(ctx, dark, xx, ceiling + 16, 56, 52);
+        R(ctx, '#839bad', xx + 4, ceiling + 20, 48, 44);
+        R(ctx, light, xx + 28, ceiling + 20, 2, 44);
+        R(ctx, dark, xx - 2, bottom - 56, 55, 39);
+        R(ctx, accent, xx + 2, bottom - 52, 48, 29);
+        R(ctx, light, xx + 4, bottom - 51, 44, 3);
+        R(ctx, dark, xx + 3, bottom - 18, 4, 18);
+        R(ctx, dark, xx + 46, bottom - 18, 4, 18);
+      }
+    } else if (shop) {
+      ctx.globalAlpha = .9;
+      for (let xx = x + 18; xx < x + w - 28; xx += 77) {
+        R(ctx, dark, xx, ceiling + 17, 58, 73);
+        R(ctx, light, xx + 3, ceiling + 20, 52, 67);
+        for (let row = 0; row < 3; row++) {
+          const yy = ceiling + 30 + row * 18;
+          R(ctx, dark, xx + 4, yy + 11, 50, 3);
+          for (let k = 0; k < 4; k++) R(ctx, k % 2 ? accent : leaf, xx + 8 + k * 11, yy, 7, 10);
+        }
+        R(ctx, dark, xx - 3, bottom - 31, 65, 7);
+        R(ctx, accent, xx, bottom - 29, 59, 3);
+      }
+    } else if (work) {
+      // Machinery is arranged as a room, with a control bench and lit screens.
+      ctx.globalAlpha = .88;
+      R(ctx, light, x + 19, ceiling + 18, Math.max(40, w - 38), 4);
+      for (let xx = x + 32; xx < x + w - 25; xx += 69) {
+        R(ctx, dark, xx, bottom - 76, 52, 30);
+        R(ctx, mid, xx + 3, bottom - 73, 46, 23);
+        R(ctx, glow, xx + 8, bottom - 69, 25, 8);
+        R(ctx, accent, xx + 36, bottom - 68, 5, 5);
+        R(ctx, dark, xx - 5, bottom - 45, 62, 6);
+        R(ctx, light, xx + 4, bottom - 42, 2, 18);
+        R(ctx, light, xx + 45, bottom - 42, 2, 18);
+        for (let i = 0; i < 3; i++) R(ctx, glow, xx + 11 + i * 10, bottom - 40, 4, 2);
+      }
+    } else {
+      // Office and studio interiors have windows, desks, computers and plants.
+      ctx.globalAlpha = .9;
+      for (let xx = x + 17; xx < x + w - 32; xx += 86) {
+        R(ctx, dark, xx, ceiling + 15, 58, 53);
+        R(ctx, '#526b80', xx + 4, ceiling + 19, 50, 45);
+        R(ctx, light, xx + 27, ceiling + 19, 2, 45);
+        R(ctx, light, xx + 4, ceiling + 42, 50, 2);
+        R(ctx, glow, xx + 35, ceiling + 24, 10, 7);
+        R(ctx, dark, xx + 4, bottom - 48, 68, 6);
+        R(ctx, accent, xx + 6, bottom - 47, 64, 2);
+        for (const leg of [xx + 9, xx + 63]) R(ctx, dark, leg, bottom - 42, 3, 18);
+        R(ctx, dark, xx + 17, bottom - 68, 29, 19);
+        R(ctx, theatre ? light : '#7dafaa', xx + 20, bottom - 65, 23, 13);
+        R(ctx, glow, xx + 22, bottom - 63, 12, 2);
+        R(ctx, dark, xx + 30, bottom - 49, 4, 4);
+        R(ctx, dark, xx + 51, bottom - 64, 7, 16);
+        R(ctx, light, xx + 53, bottom - 62, 3, 3);
+        R(ctx, dark, xx + 39, bottom - 35, 17, 11);
+        R(ctx, mid, xx + 42, bottom - 43, 11, 18);
+        R(ctx, dark, xx + 42, bottom - 24, 2, 14);
+        R(ctx, dark, xx + 51, bottom - 24, 2, 14);
+      }
+    }
+    // Plants occupy the edge of a room instead of the player's walking line.
+    const px = x + w - 22;
+    ctx.globalAlpha = .9;
+    R(ctx, dark, px - 7, bottom - 41, 15, 17);
+    R(ctx, accent, px - 5, bottom - 39, 11, 11);
+    for (let i = 0; i < 5; i++) {
+      const tip = px - 15 + i * 7;
+      L(ctx, leaf, px, bottom - 42, tip, bottom - 65 - i % 2 * 8, 2);
+      R(ctx, leaf, tip - 3, bottom - 68 - i % 2 * 8, 8, 4);
+    }
+    ctx.globalAlpha = 1;
   }
 
   function register(config) {
@@ -285,12 +443,20 @@
         [depthName](ctx, x, y, w, h, cam, t, d) {
           const [dark, mid, light, accent, leaf, glow] = palette;
           const closed = /cave|mine|tunnel|hall|lab|office|interior|cellar|crypt|tower/.test(d.mode);
+          const builtRoom = indoorPlace(config.art, d.mode);
+          if (builtRoom) {
+            interior(ctx, x, y, w, h, palette, config.art, d.mode);
+            return;
+          }
           ctx.globalAlpha = closed ? .83 : .42;
           R(ctx, closed ? dark : mid, x, y, w, h);
           ctx.globalAlpha = closed ? .36 : .25;
           const stride = config.art === 'handheld' ? 24 : 36;
-          for (let xx = x + 5 - ((cam.x * .35) % stride); xx < x + w; xx += stride) {
-            const hh = 16 + ((Math.floor(xx + cam.x) * 7) % 3) * 8;
+          const origin = d.c0 * T - cam.x * .35;
+          const first = Math.floor((x - origin) / stride) - 1;
+          for (let k = first; origin + k * stride < x + w; k++) {
+            const xx = origin + k * stride + 5;
+            const hh = 16 + (((k * 7 + d.c0 * 3) % 3 + 3) % 3) * 8;
             R(ctx, closed ? light : dark, xx, y + h - hh, stride - 8, hh);
             R(ctx, glow, xx + 5, y + h - hh + 6, 3, 3);
           }
@@ -302,6 +468,7 @@
       },
       draw(ctx, area, cam, t) {
         for (const pr of area.props) {
+          if (pr.k !== 'transition' && indoorPlace(config.art, pr.k)) continue;
           const x = pr.c * T - cam.x, y = pr.r * T - cam.y;
           if (x < -130 || x > KF.VIEW_W + 130 || y < -120 || y > KF.VIEW_H + 160) continue;
           ctx.globalAlpha = pr.detail ? .48 : .88;
