@@ -36,6 +36,12 @@ Indoor city and suburban stretches show furnished offices, workshops, shops, tra
 bedroom behind the playable route. Exterior climb supports follow the actual landings. Distant
 background details keep fixed world positions as the camera moves.
 
+The background has four spatial steps: each realm's existing atmosphere and far theme art,
+location-aware distant and neighbouring scenery (`KF.Scenery.parallax`), world-aligned rooms and
+walls (`KF.Render.depths`), then the collision tiles, traps and player. Horizontal and vertical
+parallax rates differ by depth. Adjacent named places blend as the player crosses them, while
+windows keep their frames fixed and scroll the view outside more slowly.
+
 **Cyber and SUPERHOT.** The last realm's places are a neon megacity, a hologram district and
 chrome Y2K. Its finale is a continuous side-on SUPERHOT tribute: move through the level,
 aim and shoot red crystal sentinels, dodge or block their bullets, and defeat THE SYSTEM
