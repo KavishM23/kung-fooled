@@ -18,6 +18,8 @@
       this.memory = memory;
       this.doneIds = {};
       this.dt = 0;
+      // Loitering (see loiter() below): how long the player has stood on one spot.
+      this.loiterT = 0; this.loiterX = null; this.moved = false; this.loiterFired = 0;
       this.events = [];
       this.world = new KF.World(def);
       const sp = this.world.spawn;
@@ -124,6 +126,7 @@
       for (const tr of this.traps) tr.prePlayer(p);
       p.update(dt, input, w);
       for (const tr of this.traps) tr.afterPlayer(p);
+      this.loiter(dt, input);
       for (const e of p.events) this.emit(e.type, { ...e, x: p.centerX, y: p.gravDir > 0 ? p.y + p.h : p.y, g: p.gravDir });
       p.events.length = 0;
       if (this.checkKills()) return;
@@ -164,6 +167,46 @@
       if ((this.part > w.partDoors.length || !w.partDoors[0]) && d && !d.moving && (!this.combat || this.combat.cleared) && U.overlap(p, { x: d.x + 3, y: d.y + (d.flipped ? 0 : 4), w: d.w - 6, h: d.h - 4 })) this.win();
     }
 
+    // Don't stand still. Once you've started moving, staying on one spot (within a few pixels) for
+    // LOITER.wait seconds sets the floor under your feet going: it shakes, then drops away down to
+    // the bottom of the map (you fall to whatever is below, or out of the level) and comes back a
+    // moment later once you've gone. Riding a platform or lift doesn't count, and nor does time
+    // that isn't passing (SUPERHOT). A level can switch it off with `noLoiter: true`.
+    loiter(dt, input) {
+      const p = this.player, w = this.world, L = Stage.LOITER;
+      if (this.def.noLoiter) return;
+      if (!this.moved) { if (input.left || input.right || input.jumpPressed) this.moved = true; else return; }
+      const T = KF.TILE, feet = p.gravDir > 0 ? p.y + p.h + 1 : p.y - 1, r = Math.floor(feet / T);
+      const cols = [Math.floor((p.x + 1) / T), Math.floor((p.x + p.w - 1) / T)];
+      // Standing on ordinary ground: a solid tile of the map (not a trap's, not a moving solid).
+      const onGround = p.grounded && p.gravDir > 0 && cols.some((c) => { const td = w.tileDef(c, r); return td && td.solid && !td.spike; }) &&
+        !w.dynamicSolids.some((d) => this.standingOn(d));
+      if (!onGround || this.loiterX === null || Math.abs(p.x - this.loiterX) > L.reach) {
+        this.loiterX = p.x; this.loiterT = 0; return;
+      }
+      this.loiterT += dt;
+      if (this.loiterT < L.wait - L.warn) return;
+      // Time's up: the floor under you gives way (a lure floor with no lure: it shakes for
+      // L.warn seconds, drops, and reforms once you're clear of it).
+      const take = [...new Set(cols)].filter((c) => { const td = w.tileDef(c, r); return td && td.solid && !td.spike; });
+      if (!take.length) return;
+      const c0 = Math.min(...take), c1 = Math.max(...take);
+      let depth = 0;
+      while (r + depth < w.rows && take.every((c) => { const td = w.tileDef(c, r + depth); return td && td.solid; })) depth++;
+      // The same spot again: set its old floor going rather than making a second one.
+      const again = this.traps.find((t) => t.def.loiter && t.mode === 'ready' && t.def.at[1] === r && t.def.at[0] <= c0 && t.def.at[0] + t.def.at[2] > c1);
+      if (again) again.rearm(L.warn);
+      else {
+        const def = { type: 'lureFloor', at: [c0, r, c1 - c0 + 1, depth], near: 0, delay: L.warn, reform: 1.6, loiter: true };
+        const tr = new KF.Traps.types.lureFloor(def, this, -1);
+        tr.mode = 'warning'; tr.timer = L.warn;
+        this.traps.push(tr);
+      }
+      this.loiterFired++; this.loiterT = 0; this.loiterX = null;
+      this.emit('rumble', { x: (c0 + (c1 - c0 + 1) / 2) * T, y: r * T });
+      this.emit('say', { text: L.say[(this.loiterFired - 1) % L.say.length], x: p.centerX, y: p.y - 18 });
+    }
+
     // 1 = the full distance from spawn to the door remains, 0 = at the door. The HUD's "enemy" bar.
     get remaining() {
       const d = this.world.partDoors[this.part - 1] || this.world.door;
@@ -175,5 +218,8 @@
       return U.clamp(Math.hypot(d.x + 8 - this.player.centerX, d.y + 16 - (this.player.y + this.player.h / 2)) / total, 0, 1);
     }
   }
+  // wait: seconds on one spot before the floor goes (the last `warn` of them it shakes);
+  // reach: px you can shuffle about and still count as standing on the same spot.
+  Stage.LOITER = { wait: 3.5, warn: 0.9, reach: 6, say: ['TOO SLOW!', 'NO LOITERING', 'KEEP MOVING', 'WAKE UP!'] };
   KF.Stage = Stage;
 })(window.KF);

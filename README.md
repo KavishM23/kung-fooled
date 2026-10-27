@@ -10,6 +10,12 @@ looks exactly like the first try, with no death markers and no revealed traps, a
 the same level, so what you learned by dying stays true. Each part of a level strings several
 surprises together, so getting past one usually shows you the next.
 
+**Don't stand still.** Once you've started moving, standing on one spot for 3.5 seconds sets the
+floor under your feet going: it shakes ("TOO SLOW!"), then drops away to the bottom of the map, so
+you fall to whatever is below or out of the level. It comes back as ordinary ground a moment later.
+Riding a platform or lift doesn't count, and a level can switch it off with `noLoiter: true`. The
+timings live in `KF.Stage.LOITER` (js/stage.js), and the level checker plays with it on.
+
 **Ten style realms, each with four levels.** Each realm shows different places in its medium.
 The realms are ARCADE (full colour), RETRO (cinematic black and white),
 POCKET (four Game Boy greens), COMIC, AR GO (the world through your phone), 8-BIT, WOODBLOCK

@@ -566,7 +566,7 @@
       this.timer = 0;
     }
     update(dt) {
-      if (this.mode === 'ready' && this.distanceTo(this.player) < (this.def.near || 2.8) * T) {
+      if (this.mode === 'ready' && this.distanceTo(this.player) < (this.def.near ?? 2.8) * T) {
         this.mode = 'warning'; this.timer = this.def.delay ?? 0.55;
         this.seen = true; this.stage.memory.seen[this.key] = true;
         this.stage.emit('rumble', center(this.rect));
@@ -579,11 +579,25 @@
       } else if (this.mode === 'gone') {
         this.timer -= dt;
         if (this.timer <= 0 && !U.overlap(this.player, this.rect)) {
-          this.mode = 'ready'; this.solid.active = true; this.wobbled = true;
+          this.mode = 'ready'; this.wobbled = true;
+          // A floor that went because you stood still goes back to being ordinary ground, so
+          // standing still on it again sets it going again (js/stage.js loiter).
+          if (this.def.loiter) this.restore(); else this.solid.active = true;
         }
       }
     }
   }
+
+  LureFloor.prototype.restore = function () {
+    const w = this.stage.world;
+    for (const [c, r, id] of this.tiles) w.tiles[r * w.cols + c] = id;
+    this.solid.active = false;
+  };
+  // Set a restored loiter floor going again.
+  LureFloor.prototype.rearm = function (warn) {
+    this.stage.world.claim(this.def.at);
+    this.solid.active = true; this.mode = 'warning'; this.timer = warn;
+  };
 
   // Wind that pushes you sideways while you're inside. zone, force (px/s, + = right),
   // gust: [onSeconds, offSeconds] to blow in bursts (streaks show when it's blowing).

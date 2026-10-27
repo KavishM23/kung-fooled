@@ -125,6 +125,7 @@
     mover: ['MOVING WALL', 'THE LEVEL REARRANGED ITSELF. ON YOU.'],
     doorRun: ['RUNAWAY DOOR', 'THE EXIT HAS LEGS.'],
     slab: ['MOVING LEDGE', 'THE GROUND LEFT. YOU DID NOT.'],
+    loiter: ['NO LOITERING', 'STAND STILL TOO LONG AND THE FLOOR GETS IDEAS.'],
     coin: ['COIN BOMB', 'NOT ALL THAT GLITTERS IS GOLD. SOME OF IT IS TNT.'],
   };
   KF.TrapCards = {
@@ -133,6 +134,7 @@
     blame(stage) {
       const cause = stage.cause, fired = (type) => stage.traps.some((t) => t.def.type === type && t.fired);
       if (cause === 'pit') {
+        if (stage.traps.some((t) => t.def.loiter && t.mode === 'gone')) return 'loiter';
         for (const type of ['fakeFloor', 'collapse', 'slab', 'shy', 'blink', 'spring', 'wind', 'reverse', 'gravity']) {
           // Zones you can't see only get the blame once they've shown themselves this attempt.
           const zone = type === 'reverse' || type === 'gravity';

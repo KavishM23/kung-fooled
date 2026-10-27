@@ -67,6 +67,7 @@ function key(st, held) {
   k += `|${st.part}|${st.guide}|${d ? Math.round(d.x / 4) + ',' + Math.round(d.y / 4) : ''}`;
   if (st.part <= st.world.partDoors.length && st.world.door) k += `|${Math.round(st.world.door.x / 4)},${Math.round(st.world.door.y / 4)}`;
   for (const tr of st.traps) k += tr.fired ? '1' : tr.pending >= 0 ? 'p' : '0';
+  k += `|L${st.moved ? 1 : 0}${Math.min(16, Math.floor(st.loiterT * 4))},${Math.round((p.x - (st.loiterX ?? p.x)) / 2)}`; // standing still (js/stage.js loiter)
   for (const tr of st.traps) if (tr.stateKey && (!tr.solid || Math.abs(tr.solid.x - p.centerX) < 220)) k += tr.stateKey(); // lifts, pipes, platforms, belts
   for (const tr of st.traps) {
     if (tr.def.type === 'lookSaw') k += `s${Math.round(tr.x / 4)}`;
